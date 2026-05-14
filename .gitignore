@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+exports/*.mid
+test_bang.mid
+bang_polyrythm.mid
+bang_corrupted.mid
