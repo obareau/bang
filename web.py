@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 from pathlib import Path
@@ -28,9 +29,58 @@ from cli import _markov_from_gravity
 # Config
 # ---------------------------------------------------------------------------
 
-BASE_DIR   = Path(__file__).parent
-EXPORT_DIR = BASE_DIR / "exports"
+BASE_DIR      = Path(__file__).parent
+EXPORT_DIR    = BASE_DIR / "exports"
+PRESETS_FILE  = BASE_DIR / "bang_presets.json"
 EXPORT_DIR.mkdir(exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Drum machine presets  (voice_name -> MIDI note)
+# ---------------------------------------------------------------------------
+
+DRUM_PRESETS: dict[str, dict[str, int]] = {
+    "GM": {
+        "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
+        "Bass": 24, "A1": 33, "E1": 40, "G1": 43,
+    },
+    "TR-808": {
+        # Roland TR-8 / AudioRealism RD-808
+        "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 43,
+        "Bass": 36, "A1": 46, "E1": 39, "G1": 45,
+    },
+    "TR-909": {
+        # Roland TR-8 mode 909
+        "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 50,
+        "Bass": 36, "A1": 49, "E1": 40, "G1": 47,
+    },
+    "MPC60": {
+        # Akai MPC60 / MPC3000
+        "Kick": 35, "Snare": 40, "HiHat": 42, "Tom": 47,
+        "Bass": 36, "A1": 38, "E1": 39, "G1": 43,
+    },
+    "Battery 4": {
+        # NI Battery 4 kit par défaut
+        "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
+        "Bass": 24, "A1": 33, "E1": 40, "G1": 43,
+    },
+    "LinnDrum": {
+        "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
+        "Bass": 43, "A1": 46, "E1": 37, "G1": 41,
+    },
+}
+
+
+def _load_custom_presets() -> dict:
+    if PRESETS_FILE.exists():
+        try:
+            return json.loads(PRESETS_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_custom_presets(custom: dict) -> None:
+    PRESETS_FILE.write_text(json.dumps(custom, indent=2, ensure_ascii=False))
 
 app      = App = FastAPI(title="BANG — Dark Umbrae")
 jinja    = Environment(
@@ -51,8 +101,9 @@ _state: dict = {
     "last_file":  None,
     "last_seed":  None,
     "last_p":     None,
-    "note_remap": {},   # voice_name -> midi_note (ex: {"Kick": 35, "Snare": 40})
-    "recent_dirs": [],  # derniers dossiers utilisés (max 5)
+    "note_remap":      {},  # voice_name -> midi_note
+    "recent_dirs":     [],  # derniers dossiers utilisés (max 5)
+    "current_preset":  "",  # nom du preset actif
 }
 
 # ---------------------------------------------------------------------------
@@ -404,6 +455,65 @@ async def download(filename: str):
     if not path.exists():
         return HTMLResponse("<p>Fichier introuvable</p>", status_code=404)
     return FileResponse(str(path), filename=filename, media_type="audio/midi")
+
+
+@app.get("/presets")
+async def list_presets():
+    custom = _load_custom_presets()
+    return {
+        "builtin": list(DRUM_PRESETS.keys()),
+        "custom":  list(custom.keys()),
+        "current": _state["current_preset"],
+    }
+
+
+def _rebuild_after_remap() -> str:
+    """Rebuilds voices + returns voices_html + OOB pianoroll HTML."""
+    if not _state["last_p"]:
+        return ""
+    voices = _apply_note_remap(_build_voices(_state["last_p"]))
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    voices_html = jinja.get_template("_voices.html").render(
+        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+    )
+    pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
+    pr_html  = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
+    return voices_html + f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+
+
+@app.post("/preset/apply", response_class=HTMLResponse)
+async def apply_preset(request: Request, name: Annotated[str, Form()]):
+    all_presets = {**DRUM_PRESETS, **_load_custom_presets()}
+    if name not in all_presets:
+        return HTMLResponse("")
+    _state["note_remap"]     = dict(all_presets[name])
+    _state["current_preset"] = name
+    return HTMLResponse(_rebuild_after_remap())
+
+
+@app.post("/preset/save")
+async def save_preset(name: Annotated[str, Form()]):
+    name = name.strip()
+    if not name:
+        return {"ok": False, "error": "Nom vide"}
+    if name in DRUM_PRESETS:
+        return {"ok": False, "error": "Nom réservé (preset built-in)"}
+    custom = _load_custom_presets()
+    custom[name] = dict(_state["note_remap"]) if _state["note_remap"] else {}
+    _save_custom_presets(custom)
+    _state["current_preset"] = name
+    return {"ok": True, "name": name}
+
+
+@app.delete("/preset/{name}")
+async def delete_preset(name: str):
+    custom = _load_custom_presets()
+    custom.pop(name, None)
+    _save_custom_presets(custom)
+    if _state["current_preset"] == name:
+        _state["current_preset"] = ""
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

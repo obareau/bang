@@ -69,12 +69,43 @@
       overflow-y: auto;
       padding: 1rem 1.5rem;
     }
+    .voices-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: .75rem;
+      gap: .5rem;
+    }
     #voices-panel h2 {
       font-size: 11px;
       color: var(--muted);
       letter-spacing: .15em;
-      margin-bottom: .75rem;
+      margin: 0;
+      flex-shrink: 0;
     }
+    .preset-bar {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+    .preset-bar select {
+      width: auto;
+      font-size: 11px;
+      padding: 2px 6px;
+      height: 24px;
+    }
+    .btn-preset-save, .btn-preset-del {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 3px;
+      font-size: 12px;
+      padding: 2px 6px;
+      cursor: pointer;
+      height: 24px;
+    }
+    .btn-preset-save:hover { color: var(--success); border-color: var(--success); }
+    .btn-preset-del:hover  { color: #f87171;         border-color: #f87171; }
 
     /* Voice rows */
     .voice-row {
@@ -324,7 +355,18 @@
 
   <!-- Voices -->
   <div id="voices-panel">
-    <h2>VOIX</h2>
+    <div class="voices-header">
+      <h2>VOIX</h2>
+      <div class="preset-bar">
+        <select id="preset-select" onchange="applyPreset(this.value)" title="Drum machine preset">
+          <option value="">— Preset —</option>
+          <optgroup id="preset-builtin" label="Built-in"></optgroup>
+          <optgroup id="preset-custom"  label="Custom"></optgroup>
+        </select>
+        <button class="btn-preset-save" onclick="savePreset()" title="Sauver le mapping actuel">💾</button>
+        <button class="btn-preset-del"  onclick="deletePreset()" title="Supprimer le preset custom sélectionné">✕</button>
+      </div>
+    </div>
     <div id="voices">
       {% include "_voices.html" %}
     </div>
@@ -468,6 +510,81 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeExportModal();
 });
 
+// ---------------------------------------------------------------------------
+// Presets drum machine
+// ---------------------------------------------------------------------------
+async function loadPresets() {
+  const r = await fetch('/presets');
+  const d = await r.json();
+
+  const bi = document.getElementById('preset-builtin');
+  const cu = document.getElementById('preset-custom');
+  bi.innerHTML = '';
+  cu.innerHTML = '';
+
+  d.builtin.forEach(name => {
+    const o = document.createElement('option');
+    o.value = o.textContent = name;
+    bi.appendChild(o);
+  });
+  d.custom.forEach(name => {
+    const o = document.createElement('option');
+    o.value = o.textContent = name;
+    cu.appendChild(o);
+  });
+
+  if (d.current) document.getElementById('preset-select').value = d.current;
+}
+
+async function applyPreset(name) {
+  if (!name) return;
+  const fd = new FormData();
+  fd.append('name', name);
+  const r = await fetch('/preset/apply', {method: 'POST', body: fd});
+  const html = await r.text();
+  if (!html) return;
+  // Extraire la partie voices (avant le div OOB) et la partie OOB
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const oob = tmp.querySelector('[hx-swap-oob]');
+  if (oob) {
+    document.getElementById('pianoroll').innerHTML = oob.innerHTML;
+    oob.remove();
+  }
+  document.getElementById('voices').innerHTML = tmp.innerHTML;
+}
+
+async function savePreset() {
+  const name = prompt('Nom du preset :', 'MonKit');
+  if (!name || !name.trim()) return;
+  const fd = new FormData();
+  fd.append('name', name.trim());
+  const r  = await fetch('/preset/save', {method: 'POST', body: fd});
+  const d  = await r.json();
+  if (d.ok) {
+    await loadPresets();
+    document.getElementById('preset-select').value = d.name;
+  } else {
+    alert('Erreur : ' + d.error);
+  }
+}
+
+async function deletePreset() {
+  const sel = document.getElementById('preset-select');
+  const name = sel.value;
+  // Bloquer la suppression des presets built-in
+  const bi = document.getElementById('preset-builtin');
+  const isBuiltin = Array.from(bi.options).some(o => o.value === name);
+  if (!name || isBuiltin) { alert('Sélectionnez un preset custom à supprimer.'); return; }
+  if (!confirm(`Supprimer le preset "${name}" ?`)) return;
+  await fetch('/preset/' + encodeURIComponent(name), {method: 'DELETE'});
+  await loadPresets();
+}
+
+// Chargement initial
+loadPresets();
+
+// ---------------------------------------------------------------------------
 // Mise à jour live du nom de note MIDI (convention Roland/GM : C-2=0)
 const _CHROM = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function midiNoteName(n) { return _CHROM[n % 12] + (Math.floor(n / 12) - 2); }
