@@ -322,6 +322,24 @@ async def weather_route(request: Request):
     return render("_weather.html", weather=w)
 
 
+@app.get("/browse")
+async def browse(path: str = ""):
+    target = Path(path).expanduser().resolve() if path else Path.home()
+    try:
+        dirs = sorted(
+            [d for d in target.iterdir() if d.is_dir() and not d.name.startswith(".")],
+            key=lambda d: d.name.lower(),
+        )
+    except (PermissionError, FileNotFoundError):
+        dirs = []
+    parent = str(target.parent) if target != target.parent else None
+    return {
+        "path":   str(target),
+        "parent": parent,
+        "dirs":   [{"name": d.name, "path": str(d)} for d in dirs],
+    }
+
+
 @app.get("/next-filename")
 async def next_filename(mode: str = "morph", dest_dir: str = ""):
     import re

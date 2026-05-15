@@ -242,7 +242,7 @@
     #export-modal {
       display: none;
       position: fixed; inset: 0;
-      background: rgba(0,0,0,.6);
+      background: rgba(0,0,0,.65);
       z-index: 100;
       align-items: center;
       justify-content: center;
@@ -252,19 +252,46 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1.5rem;
-      width: 320px;
+      padding: 1.25rem 1.5rem;
+      width: 400px;
       display: flex;
       flex-direction: column;
-      gap: .75rem;
+      gap: .65rem;
     }
     .modal-box h3 { font-size: 13px; color: var(--primary); letter-spacing: .1em; }
     .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .25rem; }
-    .btn-cancel { background: var(--surface); color: var(--muted); border: 1px solid var(--border);
-                  padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .btn-cancel  { background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+                   padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; }
     .btn-confirm { background: var(--success); color: #0f172a; border: none;
                    padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 13px;
                    font-weight: bold; cursor: pointer; }
+
+    /* File browser */
+    .browser-quick { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .browser-quick button {
+      font-size: 11px; padding: 2px 8px;
+      background: var(--border); color: var(--text);
+      border: none; border-radius: 3px; cursor: pointer;
+    }
+    .browser-quick button:hover { background: var(--primary); color: #0f172a; }
+    .browser-current {
+      font-size: 11px; color: var(--primary);
+      background: var(--bg); padding: 4px 8px;
+      border-radius: 3px; word-break: break-all;
+      border: 1px solid var(--border);
+    }
+    .browser-list {
+      height: 170px; overflow-y: auto;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .browser-item {
+      font-size: 12px; padding: 5px 10px; cursor: pointer;
+      border-bottom: 1px solid #1e293b; display: flex; align-items: center; gap: .4rem;
+    }
+    .browser-item:hover { background: #1e293b; color: var(--primary); }
+    .browser-item.up    { color: var(--muted); }
+    .browser-empty      { font-size: 11px; color: var(--muted); padding: 8px 10px; }
 
     kbd {
       font-family: inherit;
@@ -407,19 +434,22 @@
 <div id="export-modal">
   <div class="modal-box">
     <h3>EXPORTER MIDI</h3>
+
     <div>
-      <label>Dossier de destination</label>
-      <input type="text" id="export-dir" placeholder="défaut : exports/" autocomplete="off"
-             list="dir-suggestions" oninput="refreshFilename()">
-      <datalist id="dir-suggestions"></datalist>
-      <div id="export-dir-preview" style="font-size:10px;color:var(--muted);margin-top:2px"></div>
+      <label style="margin-bottom:.3rem">DOSSIER DE DESTINATION</label>
+      <div class="browser-quick" id="browser-quick"></div>
     </div>
+
+    <div class="browser-current" id="browser-current">…</div>
+    <div class="browser-list"   id="browser-list"></div>
+
     <div>
-      <label>Nom du fichier</label>
+      <label>NOM DU FICHIER</label>
       <input type="text" id="export-filename" value="bang_out.mid">
     </div>
+
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeExportModal()">Annuler</button>
+      <button class="btn-cancel"  onclick="closeExportModal()">Annuler</button>
       <button class="btn-confirm" onclick="confirmExport()">Exporter</button>
     </div>
   </div>
@@ -437,37 +467,71 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeExportModal();
 });
 
-function _fetchNextFilename(dir) {
+let _exportDir = '';
+
+async function browseDir(path) {
+  const r = await fetch('/browse?path=' + encodeURIComponent(path));
+  const d = await r.json();
+  _exportDir = d.path;
+
+  document.getElementById('browser-current').textContent = d.path;
+
+  const list = document.getElementById('browser-list');
+  list.innerHTML = '';
+
+  if (d.parent) {
+    const up = document.createElement('div');
+    up.className = 'browser-item up';
+    up.textContent = '↑  ..';
+    up.addEventListener('click', () => browseDir(d.parent));
+    list.appendChild(up);
+  }
+
+  if (d.dirs.length === 0 && !d.parent) {
+    list.innerHTML = '<div class="browser-empty">Dossier vide</div>';
+  }
+
+  d.dirs.forEach(dir => {
+    const item = document.createElement('div');
+    item.className = 'browser-item';
+    item.textContent = '📁  ' + dir.name;
+    item.addEventListener('click', () => browseDir(dir.path));
+    list.appendChild(item);
+  });
+
+  // Recalculer le prochain nom dans ce dossier
   const mode = document.querySelector('select[name=mode]').value;
-  const params = new URLSearchParams({mode});
-  if (dir) params.set('dest_dir', dir);
-  return fetch('/next-filename?' + params).then(r => r.json());
+  const nf = await fetch('/next-filename?mode=' + mode + '&dest_dir=' + encodeURIComponent(d.path));
+  const nd = await nf.json();
+  document.getElementById('export-filename').value = nd.filename;
 }
 
-function openExportModal() {
-  _fetchNextFilename('').then(d => {
-    document.getElementById('export-dir').value = '';
-    document.getElementById('export-dir-preview').textContent = d.current_dir;
-    document.getElementById('export-filename').value = d.filename;
-    // Peupler le datalist des dossiers récents
-    const dl = document.getElementById('dir-suggestions');
-    dl.innerHTML = '';
-    (d.recent_dirs || []).forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      dl.appendChild(opt);
-    });
-    document.getElementById('export-modal').classList.add('open');
-    document.getElementById('export-dir').focus();
-  });
-}
+async function openExportModal() {
+  // Charger les dossiers récents + dossier par défaut
+  const mode = document.querySelector('select[name=mode]').value;
+  const r  = await fetch('/next-filename?mode=' + mode);
+  const d  = await r.json();
 
-function refreshFilename() {
-  const dir = document.getElementById('export-dir').value.trim();
-  _fetchNextFilename(dir).then(d => {
-    document.getElementById('export-dir-preview').textContent = d.current_dir;
-    document.getElementById('export-filename').value = d.filename;
+  // Boutons accès rapide
+  const quick = document.getElementById('browser-quick');
+  quick.innerHTML = '';
+  const shortcuts = [
+    ['⌂ Home',  '~'],
+    ['♪ Music', '~/Music'],
+    ['📄 Docs',  '~/Documents'],
+  ];
+  (d.recent_dirs || []).slice(0, 3).forEach(p => {
+    shortcuts.push(['★ ' + p.split('/').pop(), p]);
   });
+  shortcuts.forEach(([label, path]) => {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.addEventListener('click', () => browseDir(path));
+    quick.appendChild(btn);
+  });
+
+  await browseDir(d.default_dir);
+  document.getElementById('export-modal').classList.add('open');
 }
 
 function closeExportModal() {
@@ -476,11 +540,10 @@ function closeExportModal() {
 
 function confirmExport() {
   const filename = document.getElementById('export-filename').value.trim() || 'bang_out.mid';
-  const dir      = document.getElementById('export-dir').value.trim();
   document.querySelector('input[name=out]').value = filename;
   closeExportModal();
   const vals = Object.fromEntries(new FormData(document.getElementById('params')));
-  vals.dest_dir = dir;
+  vals.dest_dir = _exportDir;
   htmx.ajax('POST', '/export', {target: '#log-entries', swap: 'afterbegin', values: vals});
 }
 
