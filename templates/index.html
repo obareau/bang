@@ -154,6 +154,10 @@
     }
     .btn-remap:hover { color: var(--text); }
 
+    /* MIDI Player */
+    .btn-play { background: var(--primary); color: #0f172a; min-width: 110px; }
+    .btn-play.playing { background: #f87171; color: #fff; }
+
     /* Piano-roll panel */
     #pianoroll-panel {
       border-top: 1px solid var(--border);
@@ -449,6 +453,20 @@
       <span class="htmx-indicator">…</span>
     </div>
 
+    <hr style="border:none;border-top:1px solid var(--border);margin:.4rem 0">
+
+    <!-- MIDI Player -->
+    <div id="midi-player">
+      <label>SORTIE MIDI</label>
+      <select id="midi-out" onchange="selectMidiOut()" style="margin-bottom:.4rem">
+        <option value="">— Web MIDI non initialisé —</option>
+      </select>
+      <div class="btn-row" style="margin-top:0">
+        <button id="play-btn" class="btn-play" onclick="togglePlay()">▶ Play <kbd>Space</kbd></button>
+        <span id="play-status" style="font-size:11px;color:var(--muted);align-self:center">—</span>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -507,7 +525,156 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'g' || e.key === 'G') document.querySelector('.btn-gen').click();
   if (e.key === 'e' || e.key === 'E') openExportModal();
   if (e.key === 'w' || e.key === 'W') document.querySelector('.btn-met').click();
-  if (e.key === 'Escape') closeExportModal();
+  if (e.key === 'Escape')             closeExportModal();
+});
+
+// ---------------------------------------------------------------------------
+// Web MIDI Player — AudioContext lookahead scheduler
+// ---------------------------------------------------------------------------
+const LOOKAHEAD_S  = 0.1;    // fenêtre de scheduling (secondes)
+const SCHEDULE_MS  = 25;     // intervalle du scheduler (ms)
+const PR_LEFT_MARGIN = 48;   // doit correspondre à lm dans _pianoroll.html
+const PR_CELL_W      = 8;    // doit correspondre à cw dans _pianoroll.html
+
+let _midi = null, _midiOut = null;
+let _playing = false, _audioCtx = null;
+let _pattern = null, _startTime = 0;
+let _schedHandle = null;
+
+// Init Web MIDI au chargement
+(async () => {
+  if (!navigator.requestMIDIAccess) return;
+  try {
+    _midi = await navigator.requestMIDIAccess();
+    _refreshMidiOuts();
+    _midi.onstatechange = _refreshMidiOuts;
+  } catch(e) {
+    document.getElementById('midi-out').options[0].text = 'Web MIDI refusé';
+  }
+})();
+
+function _refreshMidiOuts() {
+  const sel = document.getElementById('midi-out');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Sélectionner sortie MIDI —</option>';
+  for (const [id, out] of _midi.outputs) {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = out.name;
+    if (id === cur) o.selected = true;
+    sel.appendChild(o);
+  }
+  // Auto-select si une seule sortie
+  if (_midi.outputs.size === 1) sel.selectedIndex = 1;
+  selectMidiOut();
+}
+
+function selectMidiOut() {
+  const id = document.getElementById('midi-out').value;
+  _midiOut = id ? _midi.outputs.get(id) : null;
+}
+
+async function togglePlay() {
+  _playing ? _stop() : await _start();
+}
+
+async function _start() {
+  if (!_midiOut) { alert('Sélectionnez une sortie MIDI.'); return; }
+  const r = await fetch('/pattern');
+  _pattern = await r.json();
+  if (!_pattern.ok) { alert('Générez un pattern d\'abord (G).'); return; }
+
+  _audioCtx = _audioCtx || new AudioContext();
+  if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+
+  _startTime = _audioCtx.currentTime + 0.05;
+  _playing   = true;
+
+  document.getElementById('play-btn').textContent = '■ Stop  ';
+  document.getElementById('play-btn').classList.add('playing');
+  document.getElementById('play-status').textContent = `${_pattern.bpm} BPM · ${_pattern.steps} steps`;
+
+  _schedule();
+  requestAnimationFrame(_drawPlayhead);
+}
+
+function _stop() {
+  _playing = false;
+  clearTimeout(_schedHandle);
+  if (_midiOut) _midiOut.send([0xB0 | 9, 123, 0]); // All Notes Off ch10
+  document.getElementById('play-btn').textContent = '▶ Play ';
+  document.getElementById('play-btn').classList.remove('playing');
+  document.getElementById('play-status').textContent = '—';
+  const ph = document.getElementById('playhead');
+  if (ph) { ph.setAttribute('x1', -1); ph.setAttribute('x2', -1); }
+}
+
+function _schedule() {
+  if (!_playing) return;
+  const stepS  = _pattern.step_ms / 1000;
+  const nowS   = _audioCtx.currentTime;
+  const cutoff = nowS + LOOKAHEAD_S;
+  // Calculer quels steps tombent dans la fenêtre
+  const totalS = _pattern.steps * stepS;
+  // On programme en absolu depuis _startTime
+  let t = _startTime + Math.floor((nowS - _startTime) / stepS) * stepS;
+  while (t < cutoff) {
+    if (t >= nowS) {
+      const step = Math.round((t - _startTime) / stepS) % _pattern.steps;
+      _scheduleStep(step, t);
+    }
+    t += stepS;
+  }
+  _schedHandle = setTimeout(_schedule, SCHEDULE_MS);
+}
+
+// Éviter de programmer deux fois le même step
+const _scheduledSteps = new Set();
+function _scheduleStep(step, timeS) {
+  const key = `${step}_${Math.round(timeS * 10)}`;
+  if (_scheduledSteps.has(key)) return;
+  _scheduledSteps.add(key);
+  // Nettoyage du Set pour éviter une fuite mémoire
+  if (_scheduledSteps.size > _pattern.steps * 4) _scheduledSteps.clear();
+
+  const noteOnMs  = timeS * 1000;
+  const stepDurMs = _pattern.step_ms;
+
+  for (const v of _pattern.voices) {
+    for (const e of v.events) {
+      if (e.step !== step) continue;
+      if (Math.random() > e.prob) continue;
+
+      const vel = e.velocity;
+      if (e.ratchet > 1) {
+        const rd = stepDurMs / e.ratchet;
+        for (let r = 0; r < e.ratchet; r++) {
+          const t0 = noteOnMs + r * rd;
+          _midiOut.send([0x90 | v.channel, v.note, vel], t0);
+          _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
+        }
+      } else {
+        _midiOut.send([0x90 | v.channel, v.note, vel], noteOnMs);
+        _midiOut.send([0x80 | v.channel, v.note, 0],   noteOnMs + stepDurMs * 0.8);
+      }
+    }
+  }
+}
+
+function _drawPlayhead() {
+  if (!_playing) return;
+  const elapsed = Math.max(0, _audioCtx.currentTime - _startTime);
+  const step    = (elapsed / (_pattern.step_ms / 1000)) % _pattern.steps;
+  const x       = PR_LEFT_MARGIN + step * PR_CELL_W;
+  const ph = document.getElementById('playhead');
+  if (ph) { ph.setAttribute('x1', x); ph.setAttribute('x2', x); }
+  requestAnimationFrame(_drawPlayhead);
+}
+
+// Space = play/stop (hors inputs)
+document.addEventListener('keydown', e => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); togglePlay(); }
 });
 
 // ---------------------------------------------------------------------------

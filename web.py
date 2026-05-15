@@ -457,6 +457,49 @@ async def download(filename: str):
     return FileResponse(str(path), filename=filename, media_type="audio/midi")
 
 
+@app.get("/pattern")
+async def get_pattern():
+    if not _state["voices"] or not _state["last_p"]:
+        return {"ok": False, "error": "Aucun pattern généré"}
+    p     = _state["last_p"]
+    steps = p["steps"]
+    bpm   = p["bpm"]
+    step_ms = round(60_000 / (bpm * 4), 3)   # durée d'une double-croche en ms
+
+    voices_data = []
+    for note, dna, vtype in _state["voices"]:
+        if vtype == "cc" or note == 0:
+            continue
+        compiled = compile_dna(dna)
+        dna_len  = len(compiled)
+        events   = []
+        for i in range(steps):
+            row = compiled[i % dna_len]
+            if row[0] <= 0:
+                continue
+            events.append({
+                "step":     i,
+                "velocity": int(row[1]),
+                "prob":     round(float(row[2]), 2),
+                "ratchet":  int(row[3]),
+            })
+        voices_data.append({
+            "note":    note,
+            "name":    _NOTE_NAMES.get(note, f"n{note}"),
+            "channel": 9,      # MIDI ch10 — drums convention
+            "type":    vtype,
+            "events":  events,
+        })
+
+    return {
+        "ok":      True,
+        "bpm":     bpm,
+        "steps":   steps,
+        "step_ms": step_ms,
+        "voices":  voices_data,
+    }
+
+
 @app.get("/presets")
 async def list_presets():
     custom = _load_custom_presets()
