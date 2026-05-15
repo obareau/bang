@@ -52,6 +52,7 @@ _state: dict = {
     "last_seed":  None,
     "last_p":     None,
     "note_remap": {},   # voice_name -> midi_note (ex: {"Kick": 35, "Snare": 40})
+    "recent_dirs": [],  # derniers dossiers utilisés (max 5)
 }
 
 # ---------------------------------------------------------------------------
@@ -265,15 +266,21 @@ async def export(
     cc_depth: Annotated[float, Form()] = 0.50,
     out:      Annotated[str,   Form()] = "bang_out.mid",
     temporal: Annotated[str,   Form()] = "",
+    dest_dir: Annotated[str,   Form()] = "",
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
 
     if _state["engine"] is None:
-        voices = _build_voices(p)
+        voices = _apply_note_remap(_build_voices(p))
         _state["voices"] = voices
         _state["engine"] = _assemble_engine(p, voices)
 
-    export_path = str(EXPORT_DIR / p["out"])
+    target_dir = Path(dest_dir).expanduser() if dest_dir.strip() else EXPORT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if dest_dir.strip() and str(target_dir) not in _state["recent_dirs"]:
+        _state["recent_dirs"] = ([str(target_dir)] + _state["recent_dirs"])[:5]
+
+    export_path = str(target_dir / p["out"])
     try:
         _state["engine"].export_midi(
             num_steps=p["steps"],
@@ -316,15 +323,24 @@ async def weather_route(request: Request):
 
 
 @app.get("/next-filename")
-async def next_filename(mode: str = "morph"):
+async def next_filename(mode: str = "morph", dest_dir: str = ""):
     import re
-    existing = sorted(EXPORT_DIR.glob(f"gen-{mode}-*.mid"))
+    target_dir = Path(dest_dir).expanduser() if dest_dir else EXPORT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted(target_dir.glob(f"gen-{mode}-*.mid"))
     if not existing:
-        return {"filename": f"gen-{mode}-001.mid"}
-    last = existing[-1].stem  # e.g. "gen-morph-007"
-    m = re.search(r"-(\d+)$", last)
-    n = int(m.group(1)) + 1 if m else 1
-    return {"filename": f"gen-{mode}-{n:03d}.mid"}
+        next_name = f"gen-{mode}-001.mid"
+    else:
+        last = existing[-1].stem
+        m = re.search(r"-(\d+)$", last)
+        n = int(m.group(1)) + 1 if m else 1
+        next_name = f"gen-{mode}-{n:03d}.mid"
+    return {
+        "filename":    next_name,
+        "current_dir": str(target_dir),
+        "recent_dirs": _state["recent_dirs"],
+        "default_dir": str(EXPORT_DIR),
+    }
 
 
 @app.post("/notes", response_class=HTMLResponse)

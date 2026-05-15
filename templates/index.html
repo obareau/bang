@@ -101,7 +101,7 @@
 
     /* Editable MIDI note */
     .note-input {
-      width: 2.8rem;
+      width: 3.6rem !important;
       background: transparent;
       border: 1px solid transparent;
       color: var(--success);
@@ -408,6 +408,13 @@
   <div class="modal-box">
     <h3>EXPORTER MIDI</h3>
     <div>
+      <label>Dossier de destination</label>
+      <input type="text" id="export-dir" placeholder="défaut : exports/" autocomplete="off"
+             list="dir-suggestions" oninput="refreshFilename()">
+      <datalist id="dir-suggestions"></datalist>
+      <div id="export-dir-preview" style="font-size:10px;color:var(--muted);margin-top:2px"></div>
+    </div>
+    <div>
       <label>Nom du fichier</label>
       <input type="text" id="export-filename" value="bang_out.mid">
     </div>
@@ -420,22 +427,47 @@
 
 <script>
 document.addEventListener('keydown', function(e) {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const tag  = e.target.tagName;
+  const type = e.target.type || '';
+  // Bloquer seulement dans les champs texte libres (on peut taper w/g/e dedans)
+  if (tag === 'SELECT' || (tag === 'INPUT' && type === 'text')) return;
   if (e.key === 'g' || e.key === 'G') document.querySelector('.btn-gen').click();
   if (e.key === 'e' || e.key === 'E') openExportModal();
   if (e.key === 'w' || e.key === 'W') document.querySelector('.btn-met').click();
   if (e.key === 'Escape') closeExportModal();
 });
 
-function openExportModal() {
+function _fetchNextFilename(dir) {
   const mode = document.querySelector('select[name=mode]').value;
-  fetch('/next-filename?mode=' + mode)
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById('export-filename').value = d.filename;
-      document.getElementById('export-modal').classList.add('open');
-      document.getElementById('export-filename').select();
+  const params = new URLSearchParams({mode});
+  if (dir) params.set('dest_dir', dir);
+  return fetch('/next-filename?' + params).then(r => r.json());
+}
+
+function openExportModal() {
+  _fetchNextFilename('').then(d => {
+    document.getElementById('export-dir').value = '';
+    document.getElementById('export-dir-preview').textContent = d.current_dir;
+    document.getElementById('export-filename').value = d.filename;
+    // Peupler le datalist des dossiers récents
+    const dl = document.getElementById('dir-suggestions');
+    dl.innerHTML = '';
+    (d.recent_dirs || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      dl.appendChild(opt);
     });
+    document.getElementById('export-modal').classList.add('open');
+    document.getElementById('export-dir').focus();
+  });
+}
+
+function refreshFilename() {
+  const dir = document.getElementById('export-dir').value.trim();
+  _fetchNextFilename(dir).then(d => {
+    document.getElementById('export-dir-preview').textContent = d.current_dir;
+    document.getElementById('export-filename').value = d.filename;
+  });
 }
 
 function closeExportModal() {
@@ -444,13 +476,12 @@ function closeExportModal() {
 
 function confirmExport() {
   const filename = document.getElementById('export-filename').value.trim() || 'bang_out.mid';
+  const dir      = document.getElementById('export-dir').value.trim();
   document.querySelector('input[name=out]').value = filename;
   closeExportModal();
-  htmx.ajax('POST', '/export', {
-    target: '#log-entries',
-    swap: 'afterbegin',
-    values: Object.fromEntries(new FormData(document.getElementById('params')))
-  });
+  const vals = Object.fromEntries(new FormData(document.getElementById('params')));
+  vals.dest_dir = dir;
+  htmx.ajax('POST', '/export', {target: '#log-entries', swap: 'afterbegin', values: vals});
 }
 
 document.getElementById('export-modal').addEventListener('click', function(e) {
