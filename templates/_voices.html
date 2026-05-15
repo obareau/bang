@@ -2,7 +2,9 @@
 <form id="voice-notes">
   {% for note, dna, vtype, name in voices %}
   <div class="voice-row">
-    {% if vtype != "cc" and note %}
+    {% if vtype.startswith('vd') %}
+      <span class="note vd-ch" title="Canal MIDI {{ vtype[2:]|int + 1 }}">ch{{ vtype[2:]|int + 1 }}</span>
+    {% elif vtype != "cc" and note %}
       <input class="note-input" type="number" name="remap_{{ name }}"
              value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
       <span class="note-name">{{ midi_note_name(note) }}</span>

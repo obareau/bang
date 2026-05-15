@@ -145,6 +145,7 @@
     .note-input:hover { border-color: var(--border); }
     .note-input:focus { border-color: var(--primary); background: var(--surface); outline: none; }
     .note-name { font-size: 11px; color: var(--muted); min-width: 2.2rem; }
+    .vd-ch { color: var(--warn); font-size: 11px; font-weight: bold; width: 3.6rem; }
 
     .remap-row { padding: 4px 0 2px; }
     .btn-remap {
@@ -388,6 +389,7 @@
           <option value="weather">Weather</option>
           <option value="markov">Markov</option>
           <option value="phase2">Phase 2</option>
+          <option value="volca_drum">Volca Drum ★</option>
         </select>
       </div>
 
@@ -752,6 +754,17 @@ async function deletePreset() {
 loadPresets();
 
 // ---------------------------------------------------------------------------
+// Volca Drum : forcer steps=16 à la sélection du mode
+document.querySelector('select[name=mode]').addEventListener('change', function() {
+  const stepsInput = document.querySelector('input[name=steps]');
+  if (this.value === 'volca_drum') {
+    stepsInput.value = 16;
+    stepsInput.max   = 16;
+  } else {
+    stepsInput.max = 256;
+  }
+});
+
 // Mise à jour live du nom de note MIDI (convention Roland/GM : C-2=0)
 const _CHROM = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function midiNoteName(n) { return _CHROM[n % 12] + (Math.floor(n / 12) - 2); }

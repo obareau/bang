@@ -154,11 +154,16 @@ def _build_pianoroll_rows(voices: list, steps: int) -> list:
                 "ratchet": ratchet,
             })
         boundaries = [j * dna_len for j in range(1, steps // dna_len + 1) if j * dna_len < steps]
+        if vtype.startswith("vd"):
+            idx   = int(vtype[2:])
+            color = _VD_PART_COLORS[idx]
+            name  = _VD_PART_NAMES[idx]
+        else:
+            color = _NOTE_COLOR.get(note, "#94a3b8")
+            name  = _NOTE_NAMES.get(note, f"n{note}")
         rows.append({
-            "name":       _NOTE_NAMES.get(note, f"n{note}"),
-            "cells":      cells,
-            "dna_len":    dna_len,
-            "color":      _NOTE_COLOR.get(note, "#94a3b8"),
+            "name": name, "cells": cells,
+            "dna_len": dna_len, "color": color,
             "boundaries": boundaries,
         })
     return rows
@@ -213,7 +218,36 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
                 voices.append((0, "CC91 réverb (météo)", "cc"))
         return voices
 
+    if mode == "volca_drum":
+        # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
+        # Note indifférente (on envoie 60/C3) — seul le canal compte
+        # DNA limité à 16 steps (séquenceur interne du Volca Drum)
+        _VD_BASES = [
+            ("x---x---x---x---", "x---?---x---?---"),  # P1 Punch — kick-ish
+            ("----x-------x---", "---?x-------x?--"),  # P2 Snap  — snare-ish
+            ("x-x-x-x-x-x-x-x", "x-x?x-x-x-x?x-x"),  # P3 HH    — closed hi-hat
+            ("?---?---?---?---", "?--░?---?---░?--"),  # P4 OH    — open / cymbal
+            ("x-?-░-?-x-?-░-?", "?-░-x-░-?-x-░-?"),  # P5 Perc  — synth perc
+            ("---x---?---x---?", "x--?---x---?--x-"),  # P6 Acc   — layer/accent
+        ]
+        voices = []
+        for i, (base_a, base_b) in enumerate(_VD_BASES):
+            dna = morph_dna(base_a, base_b, mutation_rate=chaos * 0.4)
+            dna = mutate_dna(dna, intensity=chaos * 0.3)
+            voices.append((60, dna, f"vd{i}"))
+        return voices
+
     return []
+
+
+_VD_PART_NAMES  = ["Punch", "Snap", "HH", "OH", "Perc", "Acc"]
+_VD_PART_COLORS = ["#38bdf8", "#4ade80", "#fb923c", "#facc15", "#c084fc", "#67e8f9"]
+
+
+def _voice_label(note: int, vtype: str) -> str:
+    if vtype.startswith("vd"):
+        return _VD_PART_NAMES[int(vtype[2:])]
+    return _NOTE_NAMES.get(note, f"n{note}")
 
 
 def _apply_note_remap(voices: list) -> list:
@@ -221,7 +255,7 @@ def _apply_note_remap(voices: list) -> list:
     if not remap:
         return voices
     return [
-        (remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
+        (n if vtype.startswith("vd") else remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
         for n, dna, vtype in voices
     ]
 
@@ -236,6 +270,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
+        elif vtype.startswith("vd"):
+            engine.add_voice(note, dna, channel=int(vtype[2:]))
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna)
         elif p["mode"] == "phase2" and note == 36 and not kick_done:
@@ -263,11 +299,14 @@ def _read_form(
     out:       str   = "bang_out.mid",
     temporal:  str   = "",
 ) -> dict:
+    _steps = max(1, int(steps))
+    if mode == "volca_drum":
+        _steps = min(_steps, 16)
     return {
         "mode":     mode,
         "chaos":    max(0.0, min(1.0, float(chaos))),
         "bpm":      max(1, int(bpm)),
-        "steps":    max(1, int(steps)),
+        "steps":    _steps,
         "gravity":  max(0.0, min(1.0, float(gravity))),
         "cc_depth": max(0.0, min(1.0, float(cc_depth))),
         "out":      out or "bang_out.mid",
@@ -483,10 +522,16 @@ async def get_pattern():
                 "prob":     round(float(row[2]), 2),
                 "ratchet":  int(row[3]),
             })
+        if vtype.startswith("vd"):
+            channel = int(vtype[2:])   # ch 1→6 (0-indexed 0→5)
+            name    = _VD_PART_NAMES[channel]
+        else:
+            channel = 9
+            name    = _NOTE_NAMES.get(note, f"n{note}")
         voices_data.append({
             "note":    note,
-            "name":    _NOTE_NAMES.get(note, f"n{note}"),
-            "channel": 9,      # MIDI ch10 — drums convention
+            "name":    name,
+            "channel": channel,
             "type":    vtype,
             "events":  events,
         })
