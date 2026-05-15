@@ -4,90 +4,129 @@ from mido import Message, MidiFile, MidiTrack
 import random
 import os
 
+# BANG DNA syntax: each character encodes [trigger, velocity, prob, ratchet, jitter]
+DNA_SYMBOLS = ['x', '-', '?', '↺', '░']
+
+_CHAR_MAP = {
+    'x': [1, 105, 1.0, 1,  0],   # hit fort, certain
+    '-': [0,   0, 0.0, 1,  0],   # silence
+    '?': [1,  90, 0.5, 1,  0],   # hit probabiliste (50%)
+    '↺': [1, 110, 1.0, 3,  0],   # ratchet x3
+    '░': [1,  85, 1.0, 1, 25],   # hit avec jitter ±25 ticks
+}
+
+
+def compile_dna(dna: str) -> np.ndarray:
+    return np.array([_CHAR_MAP.get(c, _CHAR_MAP['-']) for c in dna], dtype=float)
+
+
+def random_dna(length: int = 16) -> str:
+    return ''.join(random.choices(DNA_SYMBOLS, k=length))
+
+
+def morph_dna(p1: str, p2: str, mutation_rate: float = 0.2) -> str:
+    """Croisement + mutation entre deux patterns DNA."""
+    length = min(len(p1), len(p2))
+    mid = length // 2
+    child = list(p1[:mid] + p2[mid:length])
+    for i in range(len(child)):
+        if random.random() < mutation_rate:
+            child[i] = random.choice(DNA_SYMBOLS)
+    return ''.join(child)
+
+
+def mutate_dna(dna: str, intensity: float = 0.2) -> str:
+    """Corruption progressive : glisse chaque caractère vers un symbole adjacent."""
+    result = []
+    for c in dna:
+        if random.random() < intensity:
+            idx = DNA_SYMBOLS.index(c) if c in DNA_SYMBOLS else 0
+            shift = random.choice([-1, 1])
+            result.append(DNA_SYMBOLS[max(0, min(len(DNA_SYMBOLS) - 1, idx + shift))])
+        else:
+            result.append(c)
+    return ''.join(result)
+
+
 class BangEngine:
-    def __init__(self, bpm=124, steps=16):
+    """
+    Séquenceur MIDI multi-voix basé sur la syntaxe DNA BANG.
+
+    Chaque voix a sa propre longueur de pattern → polyrhythmie naturelle.
+    Ex: kick 8 pas + bass 5 pas = décalage cyclique toutes les 40 steps.
+    """
+
+    def __init__(self, bpm: int = 124, ticks_per_step: int = 120):
         self.bpm = bpm
-        self.steps = steps
-        self.matrix = np.zeros((steps, 5))
-        self.dna_pool = ["x---x---x---x---", "x-x-x-x-x-x-x-x-", "x---?---x↺--░---"]
+        # 120 ticks/step = 16th note à 480 ticks/beat (standard MIDI)
+        self.ticks_per_step = ticks_per_step
+        self.voices: list[dict] = []
 
-    # --- NOUVEAU : GESTION DE LA MATRICE ---
-    def save_matrix(self, filename="last_session.npy"):
-        np.save(filename, self.matrix)
-        print(f"Matrice sauvegardée : {filename}")
+    def add_voice(self, note: int, dna: str) -> "BangEngine":
+        self.voices.append({"note": note, "matrix": compile_dna(dna)})
+        return self  # chaînable
 
-    def load_matrix(self, filename="last_session.npy"):
-        if os.path.exists(filename):
-            self.matrix = np.load(filename)
-            print(f"Matrice chargée : {filename}")
-            return True
-        return False
+    def export_midi(self, num_steps: int = 64, filename: str = "output.mid") -> str:
+        # Collecte tous les events en ticks absolus pour éviter les bugs de delta
+        events: list[tuple] = []  # (abs_tick, priority, msg_type, note, velocity)
 
-    def display_matrix(self):
-        print("\n--- ÉTAT ACTUEL DE LA MATRICE BANG ---")
-        print(self.matrix)
+        for voice in self.voices:
+            note = voice["note"]
+            matrix = voice["matrix"]
+            pattern_len = len(matrix)
 
-    # --- NOUVEAU : GÉNÉRATION ALÉATOIRE PURE ---
-    def generate_random_dna(self):
-        symbols = ['x', '-', '?', '↺', '░']
-        return ''.join(random.choices(symbols, k=self.steps))
+            for i in range(num_steps):
+                trig, vel, prob, ratch, jit = matrix[i % pattern_len]
+                if trig != 1 or random.random() >= prob:
+                    continue
 
-    # --- CORE LOGIC (V1.3 Optimisée) ---
-    def _compile_char(self, char):
-        logic = {'x': [1, 105, 1.0, 1, 0], '-': [0, 0, 0.0, 1, 0],
-                 '?': [1, 90, 0.5, 1, 0], '↺': [1, 110, 1.0, 3, 0],
-                 '░': [1, 85, 1.0, 1, 25]}
-        return logic.get(char, [0, 0, 0.0, 1, 0])
-
-    def load_syntax(self, syntax_string):
-        """Remplit la matrice et retourne le statut (Suggestion Lica)"""
-        try:
-            data = [self._compile_char(c) for c in syntax_string[:self.steps]]
-            self.matrix = np.array(data)
-            return True
-        except Exception as e:
-            print(f"Erreur : {e}")
-            self.matrix = np.zeros((self.steps, 5))
-            return False
-
-    def export_midi(self, filename="output.mid", note=36):
-        mid = MidiFile(); track = MidiTrack(); mid.tracks.append(track)
-        tpb = 480; tps = tpb // 4; current_abs_tick = 0
-        
-        for i in range(self.steps):
-            ideal_start = i * tps
-            trig, vel, prob, ratch, jit = self.matrix[i]
-            if trig == 1 and random.random() < prob:
-                actual_start = max(0, ideal_start + int(random.uniform(-jit, jit)))
+                abs_start = i * self.ticks_per_step
+                actual_start = max(0, abs_start + int(random.uniform(-jit, jit)))
                 r_div = int(max(1, ratch))
-                r_duration = tps // r_div
+                r_dur = self.ticks_per_step // r_div
+
                 for r in range(r_div):
-                    note_on_tick = actual_start + (r * r_duration)
-                    track.append(Message('note_on', note=note, velocity=int(vel), time=max(0, note_on_tick - current_abs_tick)))
-                    track.append(Message('note_off', note=note, velocity=0, time=r_duration))
-                    current_abs_tick = note_on_tick + r_duration
+                    t_on = actual_start + r * r_dur
+                    # priority 1 = note_on après note_off si même tick
+                    events.append((t_on,          1, 'note_on',  note, int(vel)))
+                    events.append((t_on + r_dur,  0, 'note_off', note, 0))
+
+        events.sort(key=lambda e: (e[0], e[1]))
+
+        mid = MidiFile(ticks_per_beat=480)
+        track = MidiTrack()
+        mid.tracks.append(track)
+
+        current_tick = 0
+        for abs_tick, _, msg_type, note, vel in events:
+            delta = abs_tick - current_tick
+            track.append(Message(msg_type, note=note, velocity=vel, time=delta))
+            current_tick = abs_tick
+
         mid.save(filename)
+        print(f"Exported: {os.path.abspath(filename)}")
         return filename
 
-    # --- NOUVEAU : WRAPPERS DE GÉNÉRATION ---
-    def quick_generate(self, mode="morph", filename="quick_out.mid"):
-        """Génère et exporte en une seule commande"""
-        dna = self.generate_random_dna() if mode == "random" else self.dna_morph()
-        if self.load_syntax(dna):
-            return self.export_midi(filename)
-        return None
+    def save_session(self, filename: str = "session.npy") -> None:
+        data = [{"note": v["note"], "matrix": v["matrix"]} for v in self.voices]
+        np.save(filename, data, allow_pickle=True)
+        print(f"Session sauvegardée : {filename}")
 
-    def dna_morph(self, mutation_rate=0.2):
-        p1, p2 = random.sample(self.dna_pool, 2)
-        child = list(p1[:self.steps//2] + p2[self.steps//2:])
-        symbols = ['x', '-', '?', '↺', '░']
-        for i in range(len(child)):
-            if random.random() < mutation_rate: child[i] = random.choice(symbols)
-        return "".join(child)
+    def load_session(self, filename: str = "session.npy") -> bool:
+        if not os.path.exists(filename):
+            return False
+        data = np.load(filename, allow_pickle=True)
+        self.voices = [{"note": int(d["note"]), "matrix": d["matrix"]} for d in data]
+        print(f"Session chargée : {filename}")
+        return True
+
 
 if __name__ == "__main__":
-    engine = BangEngine()
-    # Test du livrable V1.4
-    engine.quick_generate(mode="morph", filename="morph_test.mid")
-    engine.save_matrix("dna_precieux.npy")
-    engine.display_matrix()
+    engine = BangEngine(bpm=110)
+    kick = morph_dna("x---x---x---x---", "x---?---x↺--░---")
+    engine.add_voice(36, kick)
+    engine.add_voice(38, "----x-------x---")
+    engine.add_voice(42, "x-x-x-x-x-x-x-x")
+    engine.add_voice(24, "x-?-░")  # 5 pas → polyrhythmie
+    engine.export_midi(num_steps=64, filename="morph_test.mid")
+    engine.save_session("dna_precieux.npy")
