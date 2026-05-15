@@ -10,9 +10,9 @@ L'objectif est de remplacer le hasard pur par des données systémiques ou envir
 - [x] **Lien Local :** Injecter les données météo de Scaër (température, vent) pour moduler la densité des séquences.
 
 ## 🎛️ Phase 2 : Moteurs de Génération
-- [ ] **Implémentation Markovienne avancée :** Créer des tableaux de probabilités de transition entre les notes (ex: si Do est joué, 70% de chance d'aller vers Ré#).
-- [ ] **Mode Drone :** Génération de messages MIDI CC (Control Change) pour piloter des filtres de synthés en continu.
-- [ ] **Polyrythmie Dynamique :** Permettre au script de changer la longueur des boucles (ex: passer de 5 à 7 pas) de manière organique.
+- [x] **Implémentation Markovienne avancée :** Créer des tableaux de probabilités de transition entre les notes (ex: si Do est joué, 70% de chance d'aller vers Ré#).
+- [x] **Mode Drone :** Génération de messages MIDI CC (Control Change) pour piloter des filtres de synthés en continu.
+- [x] **Polyrythmie Dynamique :** Permettre au script de changer la longueur des boucles (ex: passer de 5 à 7 pas) de manière organique.
 
 ## 💻 Phase 3 : Interface & Workflow
 - [ ] **CLI Interactive :** Pouvoir choisir le "degré de chaos" (0.1 à 1.0) via une commande au lancement.
