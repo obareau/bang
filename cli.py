@@ -41,6 +41,105 @@ def list_midi_ports() -> list[str]:
     return ports
 
 
+def learn_mode(port_hint: str, duration: float = 10.0) -> None:
+    """
+    Écoute tous les messages MIDI entrants et affiche un résumé des CC détectés.
+    Génère la commande --cc-map prête à copier-coller.
+    """
+    rt = _rtmidi()
+    if not rt:
+        print("python-rtmidi non disponible.", file=sys.stderr)
+        return
+
+    m = rt.MidiIn()
+    ports = m.get_ports()
+    if not ports:
+        print("Aucun port MIDI détecté.", file=sys.stderr)
+        return
+
+    idx = next((i for i, p in enumerate(ports) if port_hint.lower() in p.lower()), None)
+    if idx is None:
+        print(f"Port '{port_hint}' introuvable.\nPorts : {ports}", file=sys.stderr)
+        return
+
+    m.open_port(idx)
+    print(f"LEARN — {ports[idx]}  ({duration:.0f}s)")
+    print("Bougez vos contrôles…\n")
+
+    # cc_num → {min, max, last}
+    seen_cc: dict[int, dict] = {}
+    seen_notes: list[int] = []
+
+    def _cb(message, _):
+        msg, _ = message
+        status = msg[0] & 0xF0
+        if status == 0xB0:                      # Control Change
+            cc, val = msg[1], msg[2]
+            if cc not in seen_cc:
+                seen_cc[cc] = {"min": val, "max": val, "last": val}
+            else:
+                seen_cc[cc]["min"]  = min(seen_cc[cc]["min"],  val)
+                seen_cc[cc]["max"]  = max(seen_cc[cc]["max"],  val)
+                seen_cc[cc]["last"] = val
+            bar = "█" * (val * 20 // 127) + "░" * (20 - val * 20 // 127)
+            print(f"\r  CC {cc:3d}  [{bar}] {val:3d}   ", end="", flush=True)
+        elif status == 0x90 and msg[2] > 0:     # Note On
+            note = msg[1]
+            if note not in seen_notes:
+                seen_notes.append(note)
+            print(f"\r  Note {note:3d}  vel={msg[2]:3d}          ", end="", flush=True)
+
+    m.set_callback(_cb)
+    time.sleep(duration)
+    m.cancel_callback()
+    m.close_port()
+
+    print(f"\n\n{'─' * 54}")
+
+    if not seen_cc:
+        print("Aucun CC reçu.")
+        if seen_notes:
+            print(f"Notes reçues : {sorted(seen_notes)}")
+        return
+
+    _PARAMS = ["chaos", "bpm", "gravity", "cc_depth"]
+    print(f"{'CC':>4}  {'plage':>9}  {'barre':<22}  suggestion")
+    print(f"{'─'*4}  {'─'*9}  {'─'*22}  {'─'*10}")
+
+    mapping_parts: list[str] = []
+    for i, (cc, info) in enumerate(sorted(seen_cc.items())):
+        lo, hi   = info["min"], info["max"]
+        bar_len  = hi * 20 // 127
+        bar      = "█" * bar_len + "░" * (20 - bar_len)
+        param    = _PARAMS[i] if i < len(_PARAMS) else f"param{i}"
+        print(f"  {cc:3d}  {lo:3d}–{hi:3d}    [{bar}]  → {param}")
+        mapping_parts.append(f"{cc}:{param}")
+
+    if seen_notes:
+        print(f"\nNotes reçues : {sorted(seen_notes)}")
+
+    cc_map = ",".join(mapping_parts)
+    ctrl   = port_hint
+    print(f"\n{'─' * 54}")
+    print("Commande prête :")
+    print(f"\n  python cli.py --controller \"{ctrl}\" --cc-map \"{cc_map}\" --mode phase2\n")
+
+
+def _parse_cc_map(cc_map_str: str) -> dict[int, str]:
+    """Parse '80:chaos,81:bpm,1:gravity' → {80: 'chaos', 81: 'bpm', 1: 'gravity'}"""
+    result: dict[int, str] = {}
+    for pair in cc_map_str.split(","):
+        pair = pair.strip()
+        if ":" not in pair:
+            continue
+        cc_str, param = pair.split(":", 1)
+        try:
+            result[int(cc_str.strip())] = param.strip()
+        except ValueError:
+            pass
+    return result
+
+
 class MidiController:
     """
     Écoute un port MIDI et capture les CC pour paramétrer la génération.
@@ -51,13 +150,13 @@ class MidiController:
       CC 11 → gravity  (gravité Markov, 0.0–1.0)
       CC 74 → cc_depth (amplitude automation filtre, 0.0–1.0)
 
-    Sur le Zoom R8, les touches transport envoient des CC configurables.
-    Utilisez --list-ports pour trouver le nom exact du port.
+    Utilisez --learn pour découvrir les CC de votre contrôleur,
+    puis --cc-map pour définir votre propre mapping.
     """
 
-    CC_MAP = {1: "chaos", 7: "bpm", 11: "gravity", 74: "cc_depth"}
+    _DEFAULT_CC_MAP = {1: "chaos", 7: "bpm", 11: "gravity", 74: "cc_depth"}
 
-    def __init__(self, port_hint: str = "Zoom"):
+    def __init__(self, port_hint: str = "Zoom", cc_map: str | None = None):
         rt = _rtmidi()
         if not rt:
             raise RuntimeError(
@@ -74,7 +173,9 @@ class MidiController:
                 "Utilisez --list-ports pour voir les options."
             )
         self._midi.open_port(idx)
+        self._cc_map = _parse_cc_map(cc_map) if cc_map else dict(self._DEFAULT_CC_MAP)
         print(f"Contrôleur connecté : {ports[idx]}")
+        print(f"Mapping CC : { {k: v for k, v in sorted(self._cc_map.items())} }")
 
     def capture(self, duration: float = 5.0) -> dict:
         """
@@ -87,7 +188,7 @@ class MidiController:
         def _cb(message, _):
             msg, _ = message
             if (msg[0] & 0xF0) == 0xB0:  # CC message
-                param = self.CC_MAP.get(msg[1])
+                param = self._cc_map.get(msg[1])
                 if param:
                     captured[param] = msg[2] / 127.0
 
@@ -268,7 +369,15 @@ exemples :
     )
     parser.add_argument(
         "--controller", type=str, default=None, metavar="NOM",
-        help="Nom (partiel) du port MIDI contrôleur à écouter (ex : Zoom, MPK)",
+        help="Nom (partiel) du port MIDI contrôleur (ex : Launchpad, KeyLab, Zoom)",
+    )
+    parser.add_argument(
+        "--learn", action="store_true",
+        help="Mode MIDI learn : affiche les CC reçus et génère la commande --cc-map",
+    )
+    parser.add_argument(
+        "--cc-map", type=str, default=None, metavar="CC:PARAM,...",
+        help="Mapping CC→param personnalisé (ex : '80:chaos,81:bpm,1:gravity,74:cc_depth')",
     )
     parser.add_argument(
         "--capture", type=float, default=5.0,
@@ -279,6 +388,19 @@ exemples :
     args.chaos    = max(0.0, min(1.0, args.chaos))
     args.gravity  = max(0.0, min(1.0, args.gravity))
     args.cc_depth = max(0.0, min(1.0, args.cc_depth))
+
+    # --- --learn ---
+    if args.learn:
+        if not args.controller:
+            print("--learn nécessite --controller NOM", file=sys.stderr)
+            ports = list_midi_ports()
+            if ports:
+                print("Ports disponibles :")
+                for i, p in enumerate(ports):
+                    print(f"  [{i}] {p}")
+            sys.exit(1)
+        learn_mode(port_hint=args.controller, duration=args.capture)
+        sys.exit(0)
 
     # --- --list-ports ---
     if args.list_ports:
@@ -295,7 +417,7 @@ exemples :
     ctrl_params: dict = {}
     if args.controller:
         try:
-            ctrl = MidiController(port_hint=args.controller)
+            ctrl = MidiController(port_hint=args.controller, cc_map=args.cc_map)
             ctrl_params = ctrl.capture(duration=args.capture)
             ctrl.close()
         except RuntimeError as e:
