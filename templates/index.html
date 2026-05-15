@@ -155,6 +155,25 @@
     }
     .btn-remap:hover { color: var(--text); }
 
+    /* Per-voice thinning buttons */
+    .thin-btns {
+      display: flex;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .btn-thin {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-thin:hover  { color: var(--text); border-color: var(--muted); }
+    .btn-thin.active { color: var(--warn); border-color: var(--warn); background: #1a1012; }
+
     /* D.I.M legend */
     #dim-legend {
       display: flex;
@@ -443,6 +462,17 @@
       </div>
 
       <div>
+        <label>MAX POLY &nbsp;<span style="color:var(--text)">0=libre</span></label>
+        <input type="number" name="max_poly" id="max-poly-input"
+               value="{{ max_poly|default(0) }}" min="0" max="8"
+               title="0 = illimité — nombre max de voix simultanées par step"
+               hx-post="/poly"
+               hx-target="#pianoroll"
+               hx-swap="innerHTML"
+               hx-trigger="change">
+      </div>
+
+      <div>
         <label>FICHIER DE SORTIE</label>
         <input type="text" name="out" value="bang_out.mid">
       </div>
@@ -676,6 +706,14 @@ function _scheduleStep(step, timeS) {
   const stepDurMs = _pattern.step_ms;
 
   for (const v of _pattern.voices) {
+    // P-locks : envoyer les CC avant la note
+    for (const pl of (v.plocks || [])) {
+      const val = pl.values[step];
+      if (val !== null && val !== undefined) {
+        _midiOut.send([0xB0 | v.channel, pl.cc, val], noteOnMs - 2);
+      }
+    }
+
     for (const e of v.events) {
       if (e.step !== step) continue;
       if (Math.random() > e.prob) continue;

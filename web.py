@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import random
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -70,6 +72,128 @@ DRUM_PRESETS: dict[str, dict[str, int]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Korg Volca Drum — implémentation MIDI complète (Split Channel mode)
+# ---------------------------------------------------------------------------
+
+# CC par part (envoyés sur le canal de la part, ch1→6)
+VOLCA_DRUM_CC: dict[int, str] = {
+    7:   "Level",
+    14:  "Select Lyr1",    # sélection couche sonore 1
+    15:  "Select Lyr2",    # sélection couche sonore 2
+    16:  "Select 1+2",
+    17:  "Attack Lyr1",
+    18:  "Attack Lyr2",
+    19:  "Attack 1+2",
+    20:  "Release Lyr1",
+    21:  "Release Lyr2",
+    22:  "Release 1+2",
+    23:  "Pitch Lyr1",
+    24:  "Pitch Lyr2",
+    25:  "Pitch 1+2",
+    26:  "Mod Amt Lyr1",
+    27:  "Mod Amt Lyr2",
+    28:  "Mod Amt 1+2",
+    29:  "Mod Rate Lyr1",
+    30:  "Mod Rate Lyr2",
+    31:  "Mod Rate 1+2",
+    49:  "Bit Crush",       # caché, firmware ≥1.11
+    50:  "Fold",            # wave folding, firmware ≥1.11
+    51:  "Drive",           # overdrive, firmware ≥1.11
+    52:  "Dry Gain",        # firmware ≥1.11
+    103: "Send",            # send effet global
+    # CC globaux (envoyés sur ch1, affectent tout le Waveguide)
+    116: "WG Model",        # modèle de résonance
+    117: "WG Decay",        # déclin du waveguide
+    118: "WG Body",         # body tuning
+    119: "WG Tone",         # tone/filtrage sortie
+}
+
+# Profil de p-locks par part : (cc, nom_court, style)
+# style: "sweep" = sinus lent, "texture" = variation rythmique, "spike" = impulsions rares
+_VD_PLOCK_PROFILE: list[list[tuple]] = [
+    # Part 0 — Punch (kick)
+    [(20, "Rel",     "sweep"),
+     (23, "Pitch",   "sweep"),
+     (49, "BitCrsh", "spike")],
+    # Part 1 — Snap (snare)
+    [(21, "Rel",     "sweep"),
+     (26, "ModAmt",  "texture"),
+     (51, "Drive",   "spike")],
+    # Part 2 — HH (closed hi-hat)
+    [(29, "ModRate", "texture"),
+     (23, "Pitch",   "texture"),
+     (50, "Fold",    "spike")],
+    # Part 3 — OH (open hi-hat / cymbal)
+    [(21, "Rel",     "sweep"),
+     (117,"WGDecay", "sweep"),
+     (118,"WGBody",  "texture")],
+    # Part 4 — Perc (percussion synthétique)
+    [(24, "Pitch",   "sweep"),
+     (27, "ModAmt",  "texture"),
+     (30, "ModRate", "texture")],
+    # Part 5 — Acc (accent / layer)
+    [(49, "BitCrsh", "spike"),
+     (50, "Fold",    "spike"),
+     (51, "Drive",   "texture")],
+]
+
+
+def _generate_plocks(voices: list, p: dict) -> list:
+    """Génère des p-locks (valeurs CC par step) pour les parts Volca Drum."""
+    import math
+    steps = min(p["steps"], 16)
+    chaos = p["chaos"]
+
+    result = []
+    for note, dna, vtype in voices:
+        if not vtype.startswith("vd"):
+            result.append([])
+            continue
+
+        idx     = int(vtype[2:])
+        profile = _VD_PLOCK_PROFILE[idx % len(_VD_PLOCK_PROFILE)]
+        plocks  = []
+
+        for cc_num, cc_short, style in profile:
+            values: list[int | None] = []
+            for step in range(steps):
+                t = step / steps
+
+                if style == "sweep":
+                    base    = int(55 + 50 * math.sin(2 * math.pi * t + idx * 1.4))
+                    jitter  = int(chaos * 28 * (random.random() * 2 - 1))
+                    val     = max(0, min(127, base + jitter))
+                    density = 0.45 + chaos * 0.3
+
+                elif style == "texture":
+                    base    = int(38 + 52 * abs(math.sin(4 * math.pi * t + idx)))
+                    jitter  = int(chaos * 44 * (random.random() * 2 - 1))
+                    val     = max(0, min(127, base + jitter))
+                    density = 0.4 + chaos * 0.35
+
+                else:  # spike
+                    # Impulsions rares mais dramatiques
+                    if random.random() < chaos * 0.55:
+                        val = random.randint(60, 127)
+                    else:
+                        val = random.randint(0, 35)
+                    density = 0.18 + chaos * 0.42
+
+                values.append(val if random.random() < density else None)
+
+            plocks.append({
+                "cc":     cc_num,
+                "name":   cc_short,
+                "style":  style,
+                "values": values,
+            })
+
+        result.append(plocks)
+
+    return result
+
+
 def _load_custom_presets() -> dict:
     if PRESETS_FILE.exists():
         try:
@@ -104,6 +228,9 @@ _state: dict = {
     "note_remap":      {},  # voice_name -> midi_note
     "recent_dirs":     [],  # derniers dossiers utilisés (max 5)
     "current_preset":  "",  # nom du preset actif
+    "plocks":          [],  # p-locks par voix (volca_drum uniquement)
+    "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
+    "max_poly":        0,   # 0 = illimité
 }
 
 # ---------------------------------------------------------------------------
@@ -135,7 +262,7 @@ _NOTE_COLOR = {
 _custom_notes: dict[int, int] = {}  # slot_index -> note MIDI
 
 
-def _build_pianoroll_rows(voices: list, steps: int) -> list:
+def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) -> list:
     rows = []
     for note, dna, vtype in voices:
         if vtype == "cc":
@@ -161,12 +288,81 @@ def _build_pianoroll_rows(voices: list, steps: int) -> list:
         else:
             color = _NOTE_COLOR.get(note, "#94a3b8")
             name  = _NOTE_NAMES.get(note, f"n{note}")
+        cells = _thin_cells(cells, _state["voice_thin"].get(name, 1))
+        voice_plocks = plocks[len(rows)] if plocks and len(rows) < len(plocks) else []
         rows.append({
             "name": name, "cells": cells,
             "dna_len": dna_len, "color": color,
             "boundaries": boundaries,
+            "plocks": voice_plocks,
         })
     return rows
+
+def _thin_cells(cells: list, factor: int) -> list:
+    """Piano-roll : garde 1 trigger sur `factor` (÷2 / ÷4)."""
+    if factor <= 1:
+        return cells
+    trig_idx = 0
+    result = []
+    for cell in cells:
+        if cell["trigger"]:
+            keep = (trig_idx % factor == 0)
+            result.append(cell if keep else {**cell, "trigger": False, "opacity": 0.0})
+            trig_idx += 1
+        else:
+            result.append(cell)
+    return result
+
+
+def _thin_events(events: list, factor: int) -> list:
+    """MIDI player : garde 1 event sur `factor`."""
+    if factor <= 1:
+        return events
+    return [e for i, e in enumerate(events) if i % factor == 0]
+
+
+def _apply_poly_to_rows(rows: list, max_poly: int) -> list:
+    """Per-step : si plus de max_poly voix simultanées, les dernières sont muettes."""
+    if max_poly <= 0 or not rows:
+        return rows
+    steps = max(len(r["cells"]) for r in rows)
+    for step in range(steps):
+        active = [ri for ri, r in enumerate(rows)
+                  if step < len(r["cells"]) and r["cells"][step]["trigger"]]
+        for ri in active[max_poly:]:
+            c = rows[ri]["cells"][step]
+            rows[ri]["cells"][step] = {**c, "trigger": False, "opacity": 0.0}
+    return rows
+
+
+def _apply_poly_to_events(voices_data: list, max_poly: int) -> list:
+    """MIDI player : per-step, garde les max_poly premières voix."""
+    if max_poly <= 0:
+        return voices_data
+    step_count: dict[int, int] = defaultdict(int)
+    result = []
+    for v in voices_data:
+        new_events = []
+        for e in v["events"]:
+            if step_count[e["step"]] < max_poly:
+                new_events.append(e)
+                step_count[e["step"]] += 1
+        result.append({**v, "events": new_events})
+    return result
+
+
+def _build_pr_html(voices: list, steps: int, plocks: list | None = None) -> str:
+    rows = _build_pianoroll_rows(voices, steps, plocks)
+    rows = _apply_poly_to_rows(rows, _state["max_poly"])
+    return jinja.get_template("_pianoroll.html").render(rows=rows, steps=steps)
+
+
+def _build_voices_html(voices: list) -> str:
+    return jinja.get_template("_voices.html").render(
+        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in voices],
+        voice_thin=_state["voice_thin"],
+    )
+
 
 _DNA_CLASS = {"x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db"}
 
@@ -321,7 +517,9 @@ def _read_form(
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return render("index.html",
-        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in _state["voices"]],
+        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in _state["voices"]],
+        voice_thin=_state["voice_thin"],
+        max_poly=_state["max_poly"],
         log=_state["log"][-20:],
         weather=_state["weather"],
         last_seed=_state["last_seed"],
@@ -346,13 +544,12 @@ async def generate(
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
-    voices_html = jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
-    )
-    pr_rows = _build_pianoroll_rows(voices, p["steps"])
-    pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=p["steps"])
+    plocks = _generate_plocks(voices, p) if p["mode"] == "volca_drum" else []
+    _state["plocks"] = plocks
+
+    pr_html = _build_pr_html(voices, p["steps"], plocks)
     oob     = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
-    return HTMLResponse(voices_html + oob)
+    return HTMLResponse(_build_voices_html(voices) + oob)
 
 
 @app.post("/export", response_class=HTMLResponse)
@@ -523,18 +720,26 @@ async def get_pattern():
                 "ratchet":  int(row[3]),
             })
         if vtype.startswith("vd"):
-            channel = int(vtype[2:])   # ch 1→6 (0-indexed 0→5)
+            channel = int(vtype[2:])
             name    = _VD_PART_NAMES[channel]
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")
+        # Appliquer thinning par voix
+        thin = _state["voice_thin"].get(name, 1)
+        events = _thin_events(events, thin)
+        voice_plocks = _state["plocks"][len(voices_data)] if len(voices_data) < len(_state["plocks"]) else []
         voices_data.append({
             "note":    note,
             "name":    name,
             "channel": channel,
             "type":    vtype,
             "events":  events,
+            "plocks":  voice_plocks,
         })
+
+    # Appliquer le filtre de polyphonie globale
+    voices_data = _apply_poly_to_events(voices_data, _state["max_poly"])
 
     return {
         "ok":      True,
@@ -543,6 +748,24 @@ async def get_pattern():
         "step_ms": step_ms,
         "voices":  voices_data,
     }
+
+
+@app.post("/voice/thin", response_class=HTMLResponse)
+async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()] = 1):
+    _state["voice_thin"][name] = max(1, factor)
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse(_build_voices_html([]))
+    pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/poly", response_class=HTMLResponse)
+async def set_poly(max_poly: Annotated[int, Form()] = 0):
+    _state["max_poly"] = max(0, max_poly)
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    return HTMLResponse(_build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None))
 
 
 @app.get("/presets")
@@ -556,18 +779,13 @@ async def list_presets():
 
 
 def _rebuild_after_remap() -> str:
-    """Rebuilds voices + returns voices_html + OOB pianoroll HTML."""
     if not _state["last_p"]:
         return ""
     voices = _apply_note_remap(_build_voices(_state["last_p"]))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(_state["last_p"], voices)
-    voices_html = jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
-    )
-    pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
-    pr_html  = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
-    return voices_html + f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    return _build_voices_html(voices) + f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
 
 
 @app.post("/preset/apply", response_class=HTMLResponse)

@@ -1,9 +1,12 @@
 {% if rows %}
 {% set cw = 8 %}
 {% set ch = 16 %}
+{% set pl_h = 7 %}
 {% set lm = 48 %}
 {% set total_w = lm + steps * cw %}
 {% set total_h = rows|length * ch %}
+
+{# SVG principal : triggers #}
 <svg xmlns="http://www.w3.org/2000/svg"
      width="{{ total_w }}" height="{{ total_h }}"
      style="display:block">
@@ -35,6 +38,45 @@
         stroke="rgba(255,255,255,0.7)" stroke-width="1.5"
         style="pointer-events:none"/>
 </svg>
+
+{# SVG p-locks (volca_drum uniquement) #}
+{% set has_plocks = rows | selectattr("plocks") | list | length > 0 %}
+{% if has_plocks %}
+{% set pl_label_w = 56 %}
+{% set pl_rows = [] %}
+{% for row in rows %}
+  {% for pl in row.plocks %}
+    {% set _ = pl_rows.append({"label": row.name ~ "." ~ pl.name, "color": row.color, "vals": pl['values'], "cc": pl.cc}) %}
+  {% endfor %}
+{% endfor %}
+{% set pl_total_h = pl_rows|length * pl_h + 10 %}
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="{{ lm + steps * cw }}" height="{{ pl_total_h }}"
+     style="display:block;margin-top:3px">
+  <text x="0" y="8" font-size="8" fill="#475569" font-family="monospace"
+        letter-spacing="1">P-LOCKS</text>
+  {% for pl_row in pl_rows %}
+  {% set ry = 10 + loop.index0 * pl_h %}
+  <text x="{{ lm - 3 }}" y="{{ ry + pl_h - 1 }}"
+        text-anchor="end" font-size="7" fill="{{ pl_row.color }}"
+        font-family="monospace" opacity="0.8">{{ pl_row.label }}</text>
+  <rect x="{{ lm }}" y="{{ ry }}" width="{{ steps * cw }}" height="{{ pl_h - 1 }}"
+        fill="#1e293b"/>
+  {% for i in range(steps) %}
+  {% if pl_row.vals[i] is not none %}
+  {% set bar_h = ((pl_row.vals[i] / 127) * (pl_h - 2)) | int %}
+  {% if bar_h > 0 %}
+  <rect x="{{ lm + i * cw + 1 }}"
+        y="{{ ry + pl_h - 1 - bar_h }}"
+        width="{{ cw - 2 }}" height="{{ bar_h }}"
+        fill="{{ pl_row.color }}" opacity="0.55"/>
+  {% endif %}
+  {% endif %}
+  {% endfor %}
+  {% endfor %}
+</svg>
+{% endif %}
+
 {% else %}
-<p style="color:#64748b;font-size:12px;padding:.25rem 0">Appuyez sur Générer</p>
+<p style="color:#64748b;font-size:11px;padding:.25rem 0">Appuyez sur Générer</p>
 {% endif %}

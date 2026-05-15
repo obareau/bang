@@ -5,6 +5,10 @@ BANG produit des fichiers `.mid` évolutifs, non-répétitifs, destinés à êtr
 
 ---
 
+![Workflow BANG](workflow.png)
+
+---
+
 ## Concept
 
 BANG repose sur une logique de **complexité sous-marine** : des structures simples en surface, des mécanismes chaotiques en profondeur.
