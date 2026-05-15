@@ -113,6 +113,7 @@
     }
     .note-input:hover { border-color: var(--border); }
     .note-input:focus { border-color: var(--primary); background: var(--surface); outline: none; }
+    .note-name { font-size: 11px; color: var(--muted); min-width: 2.2rem; }
 
     .remap-row { padding: 4px 0 2px; }
     .btn-remap {
@@ -465,6 +466,16 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'e' || e.key === 'E') openExportModal();
   if (e.key === 'w' || e.key === 'W') document.querySelector('.btn-met').click();
   if (e.key === 'Escape') closeExportModal();
+});
+
+// Mise à jour live du nom de note MIDI (convention Roland/GM : C-2=0)
+const _CHROM = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiNoteName(n) { return _CHROM[n % 12] + (Math.floor(n / 12) - 2); }
+document.addEventListener('input', function(e) {
+  if (!e.target.classList.contains('note-input')) return;
+  const span = e.target.nextElementSibling;
+  if (span && span.classList.contains('note-name'))
+    span.textContent = midiNoteName(parseInt(e.target.value) || 0);
 });
 
 let _exportDir = '';

@@ -59,6 +59,16 @@ _state: dict = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+_CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+
+def midi_note_name(n: int) -> str:
+    """Convention Roland/GM : C-2=0, C1=36 (Kick GM), Middle C=C3=60."""
+    return f"{_CHROMATIC[n % 12]}{n // 12 - 2}"
+
+
+jinja.globals["midi_note_name"] = midi_note_name
+
 _NOTE_NAMES = {
     24: "Bass", 33: "A1", 36: "Kick", 38: "Snare",
     40: "E1",   42: "HiHat", 43: "G1", 48: "Tom",

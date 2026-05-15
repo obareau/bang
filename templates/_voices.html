@@ -5,6 +5,7 @@
     {% if vtype != "cc" and note %}
       <input class="note-input" type="number" name="remap_{{ name }}"
              value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
+      <span class="note-name">{{ midi_note_name(note) }}</span>
     {% else %}
       <span class="note">—</span>
     {% endif %}
