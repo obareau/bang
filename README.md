@@ -150,6 +150,32 @@ Les valeurs CC sont capturées pendant `--capture` secondes au lancement, puis n
 
 ---
 
+## DNA et Steps — ce que vous voyez vs ce qui est exporté
+
+L'interface affiche le **pattern DNA de base** de chaque voix — une cellule courte (typiquement 16 caractères = 1 mesure en double-croches). Ce n'est **pas** la séquence complète.
+
+Le paramètre **Steps** définit combien de fois le moteur itère sur toutes les voix. BANG boucle chaque cellule DNA autant de fois que nécessaire pour atteindre ce total :
+
+| Steps | Cellule 16 pas | Résultat dans le .mid |
+|-------|----------------|-----------------------|
+| 16 | `x---x---x---x---` | 1 boucle — 1 mesure |
+| 64 | `x---x---x---x---` | 4 boucles — 4 mesures |
+| 128 | `x---x---x---x---` | 8 boucles — 8 mesures |
+
+La **polyrythmie** émerge du fait que chaque voix a une cellule de longueur différente. Exemple en mode `morph` :
+
+- Kick : cellule de 16 pas
+- Snare : cellule de 16 pas
+- HiHat : cellule de 16 pas
+- Basse : cellule de **5 pas**
+
+Sur 64 steps, la basse boucle 12 fois (+ 4 pas) pendant que le kick boucle 4 fois exactement. Le motif ne se répète jamais à l'identique — c'est intentionnel.
+
+> Ce que l'interface affiche = la cellule de base.  
+> Ce que le fichier .mid contient = la cellule répétée et entrelacée sur N steps.
+
+---
+
 ## Modes de génération
 
 | Mode | Description |
