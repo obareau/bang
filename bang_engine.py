@@ -3,6 +3,7 @@ import json
 import os
 import random
 import time as _time
+import urllib.request
 from pathlib import Path
 
 import mido
@@ -25,17 +26,80 @@ _LOG_FILE = Path(__file__).parent / "bang_sessions.jsonl"
 # Chemins SSH candidats pour l'entropie additionnelle
 _SSH_KEY_PATHS = ["~/.ssh/id_ed25519", "~/.ssh/id_rsa", "~/.ssh/id_ecdsa"]
 
+# Coordonnées de Scaër (Finistère, Bretagne)
+_SCAER_LAT = 48.0253
+_SCAER_LON = -3.6854
+
+
+# ---------------------------------------------------------------------------
+# Météo — Scaër
+# ---------------------------------------------------------------------------
+
+def fetch_weather(timeout: int = 5) -> dict | None:
+    """
+    Récupère température (°C) et vent (km/h) à Scaër via Open-Meteo (sans clé API).
+    Retourne None si hors-ligne ou timeout.
+    """
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={_SCAER_LAT}&longitude={_SCAER_LON}"
+        "&current=temperature_2m,wind_speed_10m"
+        "&forecast_days=1"
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            data = json.loads(resp.read())
+        c = data["current"]
+        return {
+            "temperature": c["temperature_2m"],   # °C
+            "wind_speed":  c["wind_speed_10m"],    # km/h
+        }
+    except Exception:
+        return None
+
+
+def weather_dna(weather: dict, length: int = 16) -> str:
+    """
+    DNA dont la texture est dictée par la météo de Scaër :
+      - Température froide → sparse (silences, vide)
+      - Température chaude → dense (triggers)
+      - Vent fort → ratchets (↺) et jitter (░)
+    Mapping: -10°C→densité 0.15 / 30°C→densité 0.85
+    """
+    temp  = weather.get("temperature", 10.0)
+    wind  = weather.get("wind_speed",  10.0)
+
+    density     = max(0.15, min(0.85, (temp + 10) / 40))
+    wind_factor = min(1.0, wind / 60)
+
+    result = []
+    for _ in range(length):
+        if random.random() > density:
+            result.append('-')
+        else:
+            r = random.random()
+            if r < wind_factor * 0.25:
+                result.append('↺')
+            elif r < wind_factor * 0.50:
+                result.append('░')
+            elif r < 0.40:
+                result.append('?')
+            else:
+                result.append('x')
+    return ''.join(result)
+
 
 # ---------------------------------------------------------------------------
 # Entropie & seed
 # ---------------------------------------------------------------------------
 
-def generate_seed() -> str:
+def generate_seed(weather: dict | None = None) -> str:
     """
     Seed cryptographique SHA-256 issue de :
       - os.urandom(16) : entropie système
       - time.time_ns() : unicité temporelle (microsecondes)
       - fragment de clé SSH locale si disponible
+      - données météo Scaër si fournies
     """
     entropy = os.urandom(16) + str(_time.time_ns()).encode()
     for path in _SSH_KEY_PATHS:
@@ -48,6 +112,8 @@ def generate_seed() -> str:
             except OSError:
                 pass
             break
+    if weather:
+        entropy += f"{weather['temperature']:.1f}{weather['wind_speed']:.1f}".encode()
     return hashlib.sha256(entropy).hexdigest()
 
 
@@ -59,7 +125,7 @@ def _seed_to_int(seed: str) -> int:
 # Log
 # ---------------------------------------------------------------------------
 
-def _log_session(filename: str, seed: str, engine: "BangEngine") -> None:
+def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict | None = None) -> None:
     entry = {
         "timestamp": _time.strftime("%Y-%m-%dT%H:%M:%S"),
         "seed": seed,
@@ -70,6 +136,8 @@ def _log_session(filename: str, seed: str, engine: "BangEngine") -> None:
             for v in engine.voices
         ],
     }
+    if weather:
+        entry["weather"] = weather
     with open(_LOG_FILE, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -141,9 +209,10 @@ class BangEngine:
         num_steps: int = 64,
         filename: str = "output.mid",
         seed: str | None = None,
+        weather: dict | None = None,
     ) -> str:
         if seed is None:
-            seed = generate_seed()
+            seed = generate_seed(weather=weather)
         random.seed(_seed_to_int(seed))
         np.random.seed(_seed_to_int(seed) % (2 ** 32))
         self.last_seed = seed
@@ -186,7 +255,7 @@ class BangEngine:
             current_tick = abs_tick
 
         mid.save(filename)
-        _log_session(filename, seed, self)
+        _log_session(filename, seed, self, weather=weather)
         print(f"Exported: {os.path.abspath(filename)}  [seed: {seed[:16]}…]")
         return filename
 

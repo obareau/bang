@@ -1,4 +1,4 @@
-from bang_engine import BangEngine, morph_dna, mutate_dna, random_dna
+from bang_engine import BangEngine, fetch_weather, morph_dna, mutate_dna, random_dna, weather_dna
 
 
 def main():
@@ -34,6 +34,20 @@ def main():
         session3_bis.add_voice(note, dna)
     session3_bis.export_midi(num_steps=32, filename="bang_random_regen.mid", seed=session3.last_seed)
     print(f"Seed réutilisée : {session3.last_seed}")
+
+    # --- SESSION 4 : entropie météo de Scaër ---
+    w = fetch_weather()
+    if w:
+        print(f"\nMétéo Scaër : {w['temperature']}°C, vent {w['wind_speed']} km/h")
+        session4 = BangEngine(bpm=110)
+        (session4
+            .add_voice(36, weather_dna(w, length=16))   # kick sculpté par la temp
+            .add_voice(38, weather_dna(w, length=8))    # snare plus court
+            .add_voice(42, weather_dna(w, length=16))   # hihat
+            .add_voice(24, weather_dna(w, length=5)))   # bass drone (polyrhythmie)
+        session4.export_midi(num_steps=64, filename="bang_meteo.mid", weather=w)
+    else:
+        print("\nMétéo Scaër : hors-ligne, session météo ignorée")
 
 
 if __name__ == "__main__":
