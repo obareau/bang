@@ -1,0 +1,16 @@
+{% if voices %}
+  {% for note, dna, vtype, name in voices %}
+  <div class="voice-row">
+    <span class="note">{{ note if note else "—" }}</span>
+    <span class="name">{{ name }}</span>
+    <span class="dna">{{ dna | safe }}</span>
+    {% if vtype == "markov" %}
+      <span class="tag">↳ Markov</span>
+    {% elif vtype == "cc" %}
+      <span class="tag cc">↳ CC</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <p class="voice-hint">Appuyez sur Générer pour créer des patterns DNA</p>
+{% endif %}

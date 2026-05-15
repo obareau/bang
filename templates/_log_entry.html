@@ -1,0 +1,16 @@
+{% if entry.ok %}
+<div class="log-entry">
+  <span class="log-ts">{{ entry.ts }}</span>
+  <a class="log-file" href="/download/{{ entry.file }}" download>{{ entry.file }}</a>
+  <span class="log-seed">seed: {{ entry.seed }}…</span>
+  <span class="log-tag">{{ entry.mode }}</span>
+  <span class="log-tag">{{ entry.bpm }} BPM</span>
+  {% if entry.meteo %}<span class="log-tag">{{ entry.meteo }}</span>{% endif %}
+  {% if entry.tmp %}<span class="log-tag">+temporal</span>{% endif %}
+</div>
+{% else %}
+<div class="log-entry log-err">
+  <span class="log-ts">{{ entry.ts }}</span>
+  <span>✗ {{ entry.error }}</span>
+</div>
+{% endif %}

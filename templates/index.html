@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BANG — Dark Umbrae</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f172a;
+      --surface:  #1e293b;
+      --border:   #334155;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --primary:  #38bdf8;
+      --success:  #4ade80;
+      --warn:     #fb923c;
+      --dx: #f1f5f9; --dd: #475569; --dq: #facc15;
+      --dr: #67e8f9; --db: #c084fc;
+    }
+
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      height: 40px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 15px; color: var(--primary); letter-spacing: .1em; }
+
+    /* Weather bar */
+    #weather-bar {
+      padding: 4px 1.5rem;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 12px;
+      border-bottom: 1px solid var(--border);
+      min-height: 24px;
+      flex-shrink: 0;
+    }
+
+    /* Main layout */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Voices panel */
+    #voices-panel {
+      flex: 3;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+    }
+    #voices-panel h2 {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .15em;
+      margin-bottom: .75rem;
+    }
+
+    /* Voice rows */
+    .voice-row {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: 3px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    .voice-row .note  { color: var(--success); width: 2.5rem; font-weight: bold; }
+    .voice-row .name  { color: var(--text); width: 4rem; }
+    .voice-row .dna   { flex: 1; letter-spacing: .05em; }
+    .voice-row .tag   { font-size: 11px; color: var(--primary); }
+    .voice-row .tag.cc { color: var(--warn); }
+
+    /* DNA colors */
+    .dx { color: var(--dx); font-weight: bold; }
+    .dd { color: var(--dd); }
+    .dq { color: var(--dq); font-weight: bold; }
+    .dr { color: var(--dr); font-weight: bold; }
+    .db { color: var(--db); font-weight: bold; }
+
+    .voice-hint { color: var(--muted); font-size: 12px; padding: .5rem 0; }
+
+    /* Controls panel */
+    #controls-panel {
+      flex: 2;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .1em;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    select, input[type=text], input[type=number] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 4px;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: var(--primary); }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    input[type=checkbox] { accent-color: var(--primary); width: 14px; height: 14px; }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: .5rem;
+      margin-top: .5rem;
+    }
+    button {
+      padding: 7px 14px;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: opacity .15s;
+    }
+    button:hover { opacity: .85; }
+    .btn-gen  { background: var(--primary); color: #0f172a; }
+    .btn-exp  { background: var(--success); color: #0f172a; }
+    .btn-met  { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+    /* HTMX indicator */
+    .htmx-indicator { display: none; color: var(--muted); font-size: 11px; }
+    .htmx-request .htmx-indicator { display: inline; }
+
+    /* Seed bar */
+    #seed-bar {
+      padding: 3px 1.5rem;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      min-height: 22px;
+      flex-shrink: 0;
+    }
+    {% if last_seed %}
+    /* already set */
+    {% endif %}
+
+    /* Log */
+    #log-panel {
+      height: 140px;
+      border-top: 1px solid var(--border);
+      overflow-y: auto;
+      padding: .5rem 1.5rem;
+      flex-shrink: 0;
+    }
+    #log-panel h2 {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: .15em;
+      margin-bottom: .25rem;
+    }
+    .log-entry {
+      font-size: 12px;
+      padding: 2px 0;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      gap: .75rem;
+      align-items: center;
+    }
+    .log-ts   { color: var(--muted); }
+    .log-file { color: var(--primary); text-decoration: none; }
+    .log-file:hover { text-decoration: underline; }
+    .log-seed { color: var(--muted); font-size: 11px; }
+    .log-tag  { font-size: 10px; background: var(--border); padding: 1px 5px; border-radius: 3px; }
+    .log-err  { color: #f87171; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>BANG · Dark Umbrae Sequencer</h1>
+  <span style="color:var(--muted);font-size:12px">http://100.64.201.127:8000</span>
+</header>
+
+<div id="weather-bar">
+  {% if weather %}
+    🌡 {{ weather.temperature }}°C &nbsp; 💨 {{ weather.wind_speed }} km/h &nbsp; Scaër
+  {% else %}
+    Météo non chargée — cliquez W ou appuyez sur Météo
+  {% endif %}
+</div>
+
+<div id="main">
+
+  <!-- Voices -->
+  <div id="voices-panel">
+    <h2>VOIX</h2>
+    <div id="voices">
+      {% include "_voices.html" %}
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls-panel">
+    <form id="params">
+
+      <div>
+        <label>MODE</label>
+        <select name="mode">
+          <option value="morph">Morph</option>
+          <option value="random">Random</option>
+          <option value="weather">Weather</option>
+          <option value="markov">Markov</option>
+          <option value="phase2">Phase 2</option>
+        </select>
+      </div>
+
+      <div>
+        <label>CHAOS &nbsp;<span style="color:var(--text)">0.0 – 1.0</span></label>
+        <input type="number" name="chaos" value="0.30" min="0" max="1" step="0.05">
+      </div>
+
+      <div>
+        <label>BPM</label>
+        <input type="number" name="bpm" value="110" min="40" max="200">
+      </div>
+
+      <div>
+        <label>STEPS</label>
+        <input type="number" name="steps" value="64" min="8" max="256">
+      </div>
+
+      <div>
+        <label>GRAVITY MARKOV &nbsp;<span style="color:var(--text)">0.0 – 1.0</span></label>
+        <input type="number" name="gravity" value="0.70" min="0" max="1" step="0.05">
+      </div>
+
+      <div>
+        <label>CC DEPTH &nbsp;<span style="color:var(--text)">0.0 – 1.0</span></label>
+        <input type="number" name="cc_depth" value="0.50" min="0" max="1" step="0.05">
+      </div>
+
+      <div>
+        <label>FICHIER DE SORTIE</label>
+        <input type="text" name="out" value="bang_out.mid">
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" name="temporal" id="temporal" value="1">
+        <label for="temporal" style="margin:0;color:var(--text)">Entropie temporelle</label>
+      </div>
+
+    </form>
+
+    <div class="btn-row">
+      <button class="btn-gen"
+              hx-post="/generate"
+              hx-include="#params"
+              hx-target="#voices"
+              hx-swap="innerHTML">
+        Générer
+      </button>
+
+      <button class="btn-exp"
+              hx-post="/export"
+              hx-include="#params"
+              hx-target="#log-entries"
+              hx-swap="afterbegin">
+        Exporter
+      </button>
+
+      <button class="btn-met"
+              hx-post="/weather"
+              hx-target="#weather-bar"
+              hx-swap="innerHTML">
+        Météo
+      </button>
+    </div>
+
+    <div>
+      <span class="htmx-indicator">…</span>
+    </div>
+
+  </div>
+</div>
+
+<div id="seed-bar">
+  {% if last_seed %}seed : {{ last_seed[:16] }}…{% endif %}
+</div>
+
+<div id="log-panel">
+  <h2>LOG</h2>
+  <div id="log-entries"
+       hx-post="/export"
+       hx-trigger="none">
+    {% for entry in log|reverse %}
+      {% include "_log_entry.html" %}
+    {% endfor %}
+  </div>
+</div>
+
+</body>
+</html>
