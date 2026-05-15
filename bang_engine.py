@@ -1,8 +1,13 @@
-import numpy as np
-import mido
-from mido import Message, MidiFile, MidiTrack
-import random
+import hashlib
+import json
 import os
+import random
+import time as _time
+from pathlib import Path
+
+import mido
+import numpy as np
+from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 # BANG DNA syntax: each character encodes [trigger, velocity, prob, ratchet, jitter]
 DNA_SYMBOLS = ['x', '-', '?', '↺', '░']
@@ -15,6 +20,63 @@ _CHAR_MAP = {
     '░': [1,  85, 1.0, 1, 25],   # hit avec jitter ±25 ticks
 }
 
+_LOG_FILE = Path(__file__).parent / "bang_sessions.jsonl"
+
+# Chemins SSH candidats pour l'entropie additionnelle
+_SSH_KEY_PATHS = ["~/.ssh/id_ed25519", "~/.ssh/id_rsa", "~/.ssh/id_ecdsa"]
+
+
+# ---------------------------------------------------------------------------
+# Entropie & seed
+# ---------------------------------------------------------------------------
+
+def generate_seed() -> str:
+    """
+    Seed cryptographique SHA-256 issue de :
+      - os.urandom(16) : entropie système
+      - time.time_ns() : unicité temporelle (microsecondes)
+      - fragment de clé SSH locale si disponible
+    """
+    entropy = os.urandom(16) + str(_time.time_ns()).encode()
+    for path in _SSH_KEY_PATHS:
+        full = os.path.expanduser(path)
+        if os.path.exists(full):
+            try:
+                key_data = Path(full).read_bytes()
+                mid = len(key_data) // 2
+                entropy += key_data[mid:mid + 64]
+            except OSError:
+                pass
+            break
+    return hashlib.sha256(entropy).hexdigest()
+
+
+def _seed_to_int(seed: str) -> int:
+    return int(seed[:16], 16)
+
+
+# ---------------------------------------------------------------------------
+# Log
+# ---------------------------------------------------------------------------
+
+def _log_session(filename: str, seed: str, engine: "BangEngine") -> None:
+    entry = {
+        "timestamp": _time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "seed": seed,
+        "filename": os.path.basename(filename),
+        "bpm": engine.bpm,
+        "voices": [
+            {"note": v["note"], "pattern_len": len(v["matrix"])}
+            for v in engine.voices
+        ],
+    }
+    with open(_LOG_FILE, "a") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# DNA helpers
+# ---------------------------------------------------------------------------
 
 def compile_dna(dna: str) -> np.ndarray:
     return np.array([_CHAR_MAP.get(c, _CHAR_MAP['-']) for c in dna], dtype=float)
@@ -48,12 +110,19 @@ def mutate_dna(dna: str, intensity: float = 0.2) -> str:
     return ''.join(result)
 
 
+# ---------------------------------------------------------------------------
+# Moteur
+# ---------------------------------------------------------------------------
+
 class BangEngine:
     """
     Séquenceur MIDI multi-voix basé sur la syntaxe DNA BANG.
 
     Chaque voix a sa propre longueur de pattern → polyrhythmie naturelle.
     Ex: kick 8 pas + bass 5 pas = décalage cyclique toutes les 40 steps.
+
+    La seed cryptographique est embarquée dans chaque MIDI exporté et loggée
+    dans bang_sessions.jsonl pour pouvoir régénérer un fichier à l'identique.
     """
 
     def __init__(self, bpm: int = 124, ticks_per_step: int = 120):
@@ -61,14 +130,25 @@ class BangEngine:
         # 120 ticks/step = 16th note à 480 ticks/beat (standard MIDI)
         self.ticks_per_step = ticks_per_step
         self.voices: list[dict] = []
+        self.last_seed: str | None = None
 
     def add_voice(self, note: int, dna: str) -> "BangEngine":
         self.voices.append({"note": note, "matrix": compile_dna(dna)})
-        return self  # chaînable
+        return self
 
-    def export_midi(self, num_steps: int = 64, filename: str = "output.mid") -> str:
-        # Collecte tous les events en ticks absolus pour éviter les bugs de delta
-        events: list[tuple] = []  # (abs_tick, priority, msg_type, note, velocity)
+    def export_midi(
+        self,
+        num_steps: int = 64,
+        filename: str = "output.mid",
+        seed: str | None = None,
+    ) -> str:
+        if seed is None:
+            seed = generate_seed()
+        random.seed(_seed_to_int(seed))
+        np.random.seed(_seed_to_int(seed) % (2 ** 32))
+        self.last_seed = seed
+
+        events: list[tuple] = []
 
         for voice in self.voices:
             note = voice["note"]
@@ -87,15 +167,17 @@ class BangEngine:
 
                 for r in range(r_div):
                     t_on = actual_start + r * r_dur
-                    # priority 1 = note_on après note_off si même tick
-                    events.append((t_on,          1, 'note_on',  note, int(vel)))
-                    events.append((t_on + r_dur,  0, 'note_off', note, 0))
+                    events.append((t_on,         1, 'note_on',  note, int(vel)))
+                    events.append((t_on + r_dur, 0, 'note_off', note, 0))
 
         events.sort(key=lambda e: (e[0], e[1]))
 
         mid = MidiFile(ticks_per_beat=480)
         track = MidiTrack()
         mid.tracks.append(track)
+
+        # Seed embarquée dans les métadonnées MIDI → régénération possible
+        track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
 
         current_tick = 0
         for abs_tick, _, msg_type, note, vel in events:
@@ -104,7 +186,8 @@ class BangEngine:
             current_tick = abs_tick
 
         mid.save(filename)
-        print(f"Exported: {os.path.abspath(filename)}")
+        _log_session(filename, seed, self)
+        print(f"Exported: {os.path.abspath(filename)}  [seed: {seed[:16]}…]")
         return filename
 
     def save_session(self, filename: str = "session.npy") -> None:
@@ -127,6 +210,6 @@ if __name__ == "__main__":
     engine.add_voice(36, kick)
     engine.add_voice(38, "----x-------x---")
     engine.add_voice(42, "x-x-x-x-x-x-x-x")
-    engine.add_voice(24, "x-?-░")  # 5 pas → polyrhythmie
+    engine.add_voice(24, "x-?-░")
     engine.export_midi(num_steps=64, filename="morph_test.mid")
     engine.save_session("dna_precieux.npy")

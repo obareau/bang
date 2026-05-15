@@ -6,7 +6,7 @@ Ce document consigne les évolutions futures du séquenceur algorithmique pour l
 ## 🌀 Phase 1 : Sources d'Entropie (En cours)
 L'objectif est de remplacer le hasard pur par des données systémiques ou environnementales.
 - [ ] **Entropie Temporelle :** Utiliser l'heure système (microsecondes) pour influencer le Jitter.
-- [ ] **Entropie Cryptographique :** Utiliser des fragments de clés SSH ou de Hash (SHA-256) pour générer des patterns uniques et non-reproductibles.
+- [x] **Entropie Cryptographique :** Utiliser des fragments de clés SSH ou de Hash (SHA-256) pour générer des patterns uniques et non-reproductibles.
 - [ ] **Lien Local :** Injecter les données météo de Scaër (température, vent) pour moduler la densité des séquences.
 
 ## 🎛️ Phase 2 : Moteurs de Génération
@@ -17,7 +17,7 @@ L'objectif est de remplacer le hasard pur par des données systémiques ou envir
 ## 💻 Phase 3 : Interface & Workflow
 - [ ] **CLI Interactive :** Pouvoir choisir le "degré de chaos" (0.1 à 1.0) via une commande au lancement.
 - [ ] **Mode Live Controller :** Utiliser le Zoom R8 pour modifier certains paramètres d'entropie en temps réel pendant la génération.
-- [ ] **Système de Logs :** Chaque fichier MIDI exporté contient en méta-donnée la "graine" (seed) utilisée pour pouvoir le régénérer si besoin.
+- [x] **Système de Logs :** Chaque fichier MIDI exporté contient en méta-donnée la "graine" (seed) utilisée pour pouvoir le régénérer si besoin.
 
 ---
 *Dernière mise à jour : Mai 2026 - Cadre Robōtariis*
