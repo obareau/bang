@@ -9,3 +9,6 @@ dependencies = [
     "numpy>=2.4.4",
     "python-rtmidi>=1.5.8",
 ]
+
+[project.scripts]
+bang = "cli:main"

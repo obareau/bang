@@ -126,7 +126,7 @@ def _seed_to_int(seed: str) -> int:
 # Log
 # ---------------------------------------------------------------------------
 
-def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict | None = None) -> None:
+def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict | None = None, temporal_jitter: bool = False) -> None:
     entry = {
         "timestamp": _time.strftime("%Y-%m-%dT%H:%M:%S"),
         "seed": seed,
@@ -143,6 +143,8 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
     }
     if weather:
         entry["weather"] = weather
+    if temporal_jitter:
+        entry["temporal_jitter"] = True
     with open(_LOG_FILE, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -317,7 +319,12 @@ class BangEngine:
         filename: str = "output.mid",
         seed: str | None = None,
         weather: dict | None = None,
+        temporal_jitter: bool = False,
     ) -> str:
+        """
+        temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
+        basé sur time_ns() % 1000 — rend chaque performance unique même seed identique.
+        """
         if seed is None:
             seed = generate_seed(weather=weather)
         random.seed(_seed_to_int(seed))
@@ -352,8 +359,13 @@ class BangEngine:
                     note = voice["note"]
 
                 if trig == 1 and random.random() < prob:
-                    abs_start    = i * self.ticks_per_step
-                    actual_start = max(0, abs_start + int(random.uniform(-jit, jit)))
+                    abs_start = i * self.ticks_per_step
+                    base_jit  = int(random.uniform(-jit, jit))
+                    # Entropie temporelle : microsecondes système → décalage supplémentaire
+                    if temporal_jitter and jit > 0:
+                        micro    = _time.time_ns() % 1000
+                        base_jit += int((micro / 1000 - 0.5) * jit * 0.5)
+                    actual_start = max(0, abs_start + base_jit)
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 
@@ -403,8 +415,9 @@ class BangEngine:
             current_tick = abs_tick
 
         mid.save(filename)
-        _log_session(filename, seed, self, weather=weather)
-        print(f"Exported: {os.path.abspath(filename)}  [seed: {seed[:16]}…]")
+        _log_session(filename, seed, self, weather=weather, temporal_jitter=temporal_jitter)
+        label = f"[seed: {seed[:16]}…]" + (" [+temporal]" if temporal_jitter else "")
+        print(f"Exported: {os.path.abspath(filename)}  {label}")
         return filename
 
     def save_session(self, filename: str = "session.npy") -> None:
