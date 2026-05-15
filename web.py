@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -271,6 +272,7 @@ async def download(filename: str):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("BANG Web — http://0.0.0.0:8000")
-    print(f"Sur Tailscale : http://100.64.201.127:8000")
-    uvicorn.run("web:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("BANG_PORT", 9000))
+    print(f"BANG Web — http://0.0.0.0:{port}")
+    print(f"Sur Tailscale : http://100.64.201.127:{port}")
+    uvicorn.run("web:app", host="0.0.0.0", port=port, reload=True)
