@@ -14,6 +14,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from bang_engine import (
     BangEngine,
+    compile_dna,
     fetch_weather,
     morph_dna,
     mutate_dna,
@@ -46,9 +47,11 @@ _state: dict = {
     "weather":    None,
     "voices":     [],   # list of (note, dna, type)
     "engine":     None,
-    "log":        [],   # list of str (HTML)
+    "log":        [],
     "last_file":  None,
     "last_seed":  None,
+    "last_p":     None,
+    "note_remap": {},   # voice_name -> midi_note (ex: {"Kick": 35, "Snare": 40})
 }
 
 # ---------------------------------------------------------------------------
@@ -59,6 +62,44 @@ _NOTE_NAMES = {
     24: "Bass", 33: "A1", 36: "Kick", 38: "Snare",
     40: "E1",   42: "HiHat", 43: "G1", 48: "Tom",
 }
+
+_NOTE_COLOR = {
+    36: "#38bdf8", 38: "#4ade80", 42: "#fb923c",
+    48: "#facc15", 24: "#c084fc", 33: "#67e8f9",
+    40: "#f472b6", 43: "#a3e635",
+}
+
+# Notes MIDI customisables par l'utilisateur (remplace _NOTE_NAMES pour les voix)
+_custom_notes: dict[int, int] = {}  # slot_index -> note MIDI
+
+
+def _build_pianoroll_rows(voices: list, steps: int) -> list:
+    rows = []
+    for note, dna, vtype in voices:
+        if vtype == "cc":
+            continue
+        compiled = compile_dna(dna)
+        dna_len  = len(compiled)
+        cells    = []
+        for i in range(steps):
+            step    = compiled[i % dna_len]
+            trigger = bool(step[0] > 0)
+            prob    = float(step[2])
+            ratchet = int(step[3])
+            cells.append({
+                "trigger": trigger,
+                "opacity": round(0.35 + prob * 0.65, 2) if trigger else 0.0,
+                "ratchet": ratchet,
+            })
+        boundaries = [j * dna_len for j in range(1, steps // dna_len + 1) if j * dna_len < steps]
+        rows.append({
+            "name":       _NOTE_NAMES.get(note, f"n{note}"),
+            "cells":      cells,
+            "dna_len":    dna_len,
+            "color":      _NOTE_COLOR.get(note, "#94a3b8"),
+            "boundaries": boundaries,
+        })
+    return rows
 
 _DNA_CLASS = {"x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db"}
 
@@ -111,6 +152,16 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
         return voices
 
     return []
+
+
+def _apply_note_remap(voices: list) -> list:
+    remap = _state["note_remap"]
+    if not remap:
+        return voices
+    return [
+        (remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
+        for n, dna, vtype in voices
+    ]
 
 
 def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
@@ -189,13 +240,18 @@ async def generate(
     temporal: Annotated[str,   Form()] = "",
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
-    voices = _build_voices(p)
+    _state["last_p"] = p
+    voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
-    return render("_voices.html",
+    voices_html = jinja.get_template("_voices.html").render(
         voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
     )
+    pr_rows = _build_pianoroll_rows(voices, p["steps"])
+    pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=p["steps"])
+    oob     = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    return HTMLResponse(voices_html + oob)
 
 
 @app.post("/export", response_class=HTMLResponse)
@@ -259,6 +315,45 @@ async def weather_route(request: Request):
     return render("_weather.html", weather=w)
 
 
+@app.get("/next-filename")
+async def next_filename(mode: str = "morph"):
+    import re
+    existing = sorted(EXPORT_DIR.glob(f"gen-{mode}-*.mid"))
+    if not existing:
+        return {"filename": f"gen-{mode}-001.mid"}
+    last = existing[-1].stem  # e.g. "gen-morph-007"
+    m = re.search(r"-(\d+)$", last)
+    n = int(m.group(1)) + 1 if m else 1
+    return {"filename": f"gen-{mode}-{n:03d}.mid"}
+
+
+@app.post("/notes", response_class=HTMLResponse)
+async def notes_remap(request: Request):
+    form = await request.form()
+    for key, val in form.items():
+        if key.startswith("remap_"):
+            name = key[6:]
+            try:
+                _state["note_remap"][name] = max(0, min(127, int(val)))
+            except ValueError:
+                pass
+
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+
+    voices = _apply_note_remap(_build_voices(_state["last_p"]))
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+
+    voices_html = jinja.get_template("_voices.html").render(
+        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+    )
+    pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
+    pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    return HTMLResponse(voices_html + oob)
+
+
 @app.get("/download/{filename}")
 async def download(filename: str):
     path = EXPORT_DIR / filename
@@ -272,7 +367,7 @@ async def download(filename: str):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    port = int(os.environ.get("BANG_PORT", 9000))
+    port = int(os.environ.get("BANG_PORT", 7777))
     print(f"BANG Web — http://0.0.0.0:{port}")
     print(f"Sur Tailscale : http://100.64.201.127:{port}")
     uvicorn.run("web:app", host="0.0.0.0", port=port, reload=True)

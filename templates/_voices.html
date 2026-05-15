@@ -1,7 +1,13 @@
 {% if voices %}
+<form id="voice-notes">
   {% for note, dna, vtype, name in voices %}
   <div class="voice-row">
-    <span class="note">{{ note if note else "—" }}</span>
+    {% if vtype != "cc" and note %}
+      <input class="note-input" type="number" name="remap_{{ name }}"
+             value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
+    {% else %}
+      <span class="note">—</span>
+    {% endif %}
     <span class="name">{{ name }}</span>
     <span class="dna">{{ dna | safe }}</span>
     {% if vtype == "markov" %}
@@ -11,6 +17,16 @@
     {% endif %}
   </div>
   {% endfor %}
+  <div class="remap-row">
+    <button type="button" class="btn-remap"
+            hx-post="/notes"
+            hx-include="#voice-notes"
+            hx-target="#voices"
+            hx-swap="innerHTML">
+      ↳ Appliquer notes
+    </button>
+  </div>
+</form>
 {% else %}
   <p class="voice-hint">Appuyez sur Générer pour créer des patterns DNA</p>
 {% endif %}

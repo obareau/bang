@@ -1,0 +1,37 @@
+{% if rows %}
+{% set cw = 8 %}
+{% set ch = 16 %}
+{% set lm = 48 %}
+{% set total_w = lm + steps * cw %}
+{% set total_h = rows|length * ch %}
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="{{ total_w }}" height="{{ total_h }}"
+     style="display:block">
+  {% for row in rows %}
+  {% set ry = loop.index0 * ch %}
+  <text x="{{ lm - 3 }}" y="{{ ry + ch - 4 }}"
+        text-anchor="end" font-size="9" fill="#64748b"
+        font-family="monospace">{{ row.name }}</text>
+  <rect x="{{ lm }}" y="{{ ry }}" width="{{ steps * cw }}" height="{{ ch - 1 }}" fill="#1e293b"/>
+  {% for cell in row.cells %}
+  {% if cell.trigger %}
+  <rect x="{{ lm + loop.index0 * cw + 1 }}" y="{{ ry + 1 }}"
+        width="{{ cw - 2 }}" height="{{ ch - 3 }}"
+        fill="{{ row.color }}" opacity="{{ cell.opacity }}"/>
+  {% if cell.ratchet >= 2 %}
+  <rect x="{{ lm + loop.index0 * cw + cw // 2 }}" y="{{ ry + 1 }}"
+        width="1" height="{{ ch - 3 }}"
+        fill="#0f172a" opacity="0.8"/>
+  {% endif %}
+  {% endif %}
+  {% endfor %}
+  {% for bx in row.boundaries %}
+  <line x1="{{ lm + bx * cw }}" y1="{{ ry }}"
+        x2="{{ lm + bx * cw }}" y2="{{ ry + ch - 1 }}"
+        stroke="#334155" stroke-width="1"/>
+  {% endfor %}
+  {% endfor %}
+</svg>
+{% else %}
+<p style="color:#64748b;font-size:12px;padding:.25rem 0">Appuyez sur Générer</p>
+{% endif %}

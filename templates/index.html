@@ -99,6 +99,39 @@
 
     .voice-hint { color: var(--muted); font-size: 12px; padding: .5rem 0; }
 
+    /* Editable MIDI note */
+    .note-input {
+      width: 2.8rem;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--success);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: bold;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+    .note-input:hover { border-color: var(--border); }
+    .note-input:focus { border-color: var(--primary); background: var(--surface); outline: none; }
+
+    .remap-row { padding: 4px 0 2px; }
+    .btn-remap {
+      font-size: 10px; padding: 2px 8px;
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+    }
+    .btn-remap:hover { color: var(--text); }
+
+    /* Piano-roll panel */
+    #pianoroll-panel {
+      border-top: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: .4rem 1.5rem;
+      flex-shrink: 0;
+      min-height: 20px;
+    }
+
     /* Controls panel */
     #controls-panel {
       flex: 2;
@@ -204,13 +237,51 @@
     .log-seed { color: var(--muted); font-size: 11px; }
     .log-tag  { font-size: 10px; background: var(--border); padding: 1px 5px; border-radius: 3px; }
     .log-err  { color: #f87171; }
+
+    /* Export modal */
+    #export-modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    #export-modal.open { display: flex; }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+    .modal-box h3 { font-size: 13px; color: var(--primary); letter-spacing: .1em; }
+    .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .25rem; }
+    .btn-cancel { background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+                  padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .btn-confirm { background: var(--success); color: #0f172a; border: none;
+                   padding: 6px 14px; border-radius: 4px; font-family: inherit; font-size: 13px;
+                   font-weight: bold; cursor: pointer; }
+
+    kbd {
+      font-family: inherit;
+      font-size: 10px;
+      background: rgba(255,255,255,.12);
+      border-radius: 3px;
+      padding: 1px 4px;
+      margin-left: 4px;
+      opacity: .7;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <h1>BANG · Dark Umbrae Sequencer</h1>
-  <span style="color:var(--muted);font-size:12px">http://100.64.201.127:9000</span>
+  <span style="color:var(--muted);font-size:12px">http://100.64.201.127:7777</span>
 </header>
 
 <div id="weather-bar">
@@ -289,22 +360,18 @@
               hx-include="#params"
               hx-target="#voices"
               hx-swap="innerHTML">
-        Générer
+        Générer <kbd>G</kbd>
       </button>
 
-      <button class="btn-exp"
-              hx-post="/export"
-              hx-include="#params"
-              hx-target="#log-entries"
-              hx-swap="afterbegin">
-        Exporter
+      <button class="btn-exp" onclick="openExportModal()">
+        Exporter <kbd>E</kbd>
       </button>
 
       <button class="btn-met"
               hx-post="/weather"
               hx-target="#weather-bar"
               hx-swap="innerHTML">
-        Météo
+        Météo <kbd>W</kbd>
       </button>
     </div>
 
@@ -312,6 +379,12 @@
       <span class="htmx-indicator">…</span>
     </div>
 
+  </div>
+</div>
+
+<div id="pianoroll-panel">
+  <div id="pianoroll">
+    <p style="color:var(--muted);font-size:11px">Appuyez sur Générer pour voir le piano roll</p>
   </div>
 </div>
 
@@ -330,5 +403,59 @@
   </div>
 </div>
 
+<!-- Export modal -->
+<div id="export-modal">
+  <div class="modal-box">
+    <h3>EXPORTER MIDI</h3>
+    <div>
+      <label>Nom du fichier</label>
+      <input type="text" id="export-filename" value="bang_out.mid">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExportModal()">Annuler</button>
+      <button class="btn-confirm" onclick="confirmExport()">Exporter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'g' || e.key === 'G') document.querySelector('.btn-gen').click();
+  if (e.key === 'e' || e.key === 'E') openExportModal();
+  if (e.key === 'w' || e.key === 'W') document.querySelector('.btn-met').click();
+  if (e.key === 'Escape') closeExportModal();
+});
+
+function openExportModal() {
+  const mode = document.querySelector('select[name=mode]').value;
+  fetch('/next-filename?mode=' + mode)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('export-filename').value = d.filename;
+      document.getElementById('export-modal').classList.add('open');
+      document.getElementById('export-filename').select();
+    });
+}
+
+function closeExportModal() {
+  document.getElementById('export-modal').classList.remove('open');
+}
+
+function confirmExport() {
+  const filename = document.getElementById('export-filename').value.trim() || 'bang_out.mid';
+  document.querySelector('input[name=out]').value = filename;
+  closeExportModal();
+  htmx.ajax('POST', '/export', {
+    target: '#log-entries',
+    swap: 'afterbegin',
+    values: Object.fromEntries(new FormData(document.getElementById('params')))
+  });
+}
+
+document.getElementById('export-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeExportModal();
+});
+</script>
 </body>
 </html>
