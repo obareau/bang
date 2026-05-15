@@ -155,6 +155,30 @@
     }
     .btn-remap:hover { color: var(--text); }
 
+    /* D.I.M legend */
+    #dim-legend {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 3px 1.5rem;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .dim-title {
+      color: var(--muted);
+      letter-spacing: .15em;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .dim-item { color: var(--muted); display: flex; align-items: center; gap: .3rem; }
+    .dim-item .dx { color: var(--dx); font-weight: bold; }
+    .dim-item .dd { color: var(--dd); }
+    .dim-item .dq { color: var(--dq); font-weight: bold; }
+    .dim-item .dr { color: var(--dr); font-weight: bold; }
+    .dim-item .db { color: var(--db); font-weight: bold; }
+
     /* MIDI Player */
     .btn-play { background: var(--primary); color: #0f172a; min-width: 110px; }
     .btn-play.playing { background: #f87171; color: #fff; }
@@ -476,6 +500,16 @@
   <div id="pianoroll">
     <p style="color:var(--muted);font-size:11px">Appuyez sur Générer pour voir le piano roll</p>
   </div>
+</div>
+
+<!-- D.I.M syntax legend -->
+<div id="dim-legend">
+  <span class="dim-title">D.I.M</span>
+  <span class="dim-item"><span class="dx">x</span> trigger</span>
+  <span class="dim-item"><span class="dd">-</span> silence</span>
+  <span class="dim-item"><span class="dq">?</span> prob 50%</span>
+  <span class="dim-item"><span class="dr">↺</span> ratchet ×3</span>
+  <span class="dim-item"><span class="db">░</span> jitter ±25t</span>
 </div>
 
 <div id="seed-bar">
