@@ -322,7 +322,7 @@
     .log-err  { color: #f87171; }
 
     /* Export modal */
-    #export-modal {
+    #export-modal, #song-modal {
       display: none;
       position: fixed; inset: 0;
       background: rgba(0,0,0,.65);
@@ -330,7 +330,8 @@
       align-items: center;
       justify-content: center;
     }
-    #export-modal.open { display: flex; }
+    #export-modal.open, #song-modal.open { display: flex; }
+    .song-files { display: flex; flex-wrap: wrap; gap: .4rem .6rem; margin: .5rem 0; }
     .modal-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -563,6 +564,22 @@
     {% for entry in log|reverse %}
       {% include "_log_entry.html" %}
     {% endfor %}
+  </div>
+</div>
+
+<!-- Song modal -->
+<div id="song-modal">
+  <div class="modal-box" style="width:460px">
+    <h3>⬡ SONG EXPORTÉE</h3>
+    <div id="song-modal-tag" style="color:var(--muted);font-size:11px;margin-bottom:.25rem"></div>
+    <div class="song-files" id="song-modal-links"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSongModal()">Fermer</button>
+      <a id="song-zip-btn" href="#" download
+         style="background:#7c3aed;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-family:inherit;font-size:13px;font-weight:bold;cursor:pointer;text-decoration:none">
+        ⬡ Télécharger ZIP
+      </a>
+    </div>
   </div>
 </div>
 
@@ -940,10 +957,37 @@ document.getElementById('export-modal').addEventListener('click', function(e) {
   if (e.target === this) closeExportModal();
 });
 
-function exportSong() {
-  const vals = Object.fromEntries(new FormData(document.getElementById('params')));
-  htmx.ajax('POST', '/export/song', {target: '#log-entries', swap: 'afterbegin', values: vals});
+async function exportSong() {
+  const vals = new URLSearchParams(Object.fromEntries(new FormData(document.getElementById('params'))));
+  const res  = await fetch('/export/song', {method: 'POST', body: vals});
+  const html = await res.text();
+  document.getElementById('log-entries').insertAdjacentHTML('afterbegin', html);
+  const tag   = res.headers.get('X-Song-Tag');
+  const files = (res.headers.get('X-Song-Files') || '').split(',').filter(Boolean);
+  if (tag) showSongModal(tag, files);
 }
+
+function showSongModal(tag, files) {
+  document.getElementById('song-modal-tag').textContent = tag;
+  const zipFile = `bang-${tag}.zip`;
+  const btn = document.getElementById('song-zip-btn');
+  btn.href     = `/download/${zipFile}`;
+  btn.download = zipFile;
+  document.getElementById('song-modal-links').innerHTML = files.map(f =>
+    `<a class="log-file" href="/download/${f}" download draggable="true"
+        ondragstart="event.dataTransfer.setData('DownloadURL','audio/midi:${f}:'+window.location.origin+'/download/${f}')">
+      ⠿ ${f.split('-')[0]}</a>`
+  ).join('');
+  document.getElementById('song-modal').classList.add('open');
+}
+
+function closeSongModal() {
+  document.getElementById('song-modal').classList.remove('open');
+}
+
+document.getElementById('song-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSongModal();
+});
 </script>
 </body>
 </html>

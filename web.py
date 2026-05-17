@@ -436,11 +436,11 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             (40, 9),  (43, 11), (24, 7),  (33, 13),
         ]
         w_dense = [2 + chaos * 3, max(0.1, 2 - chaos * 1.5), 1 + chaos, chaos * 1.5, chaos]
-        w_hh    = [0.5 + chaos, 3.0, 1.5 + chaos, chaos * 0.5, chaos * 0.3]  # hihat plus sparse
+        w_hh    = [0.8, 6.0, 0.4, 0.0, 0.0]  # ~2 hits par pattern, no ratchet/jitter
         return [
             (note, mutate_dna(
                 ''.join(random.choices(DNA_SYMBOLS, weights=(w_hh if note == 42 else w_dense), k=length)),
-                intensity=chaos * 0.4
+                intensity=(chaos * 0.08 if note == 42 else chaos * 0.4)
             ), "drum")
             for note, length in _NOISE_VOICES
         ]
@@ -670,13 +670,16 @@ async def export_song(
 
     # section: (name, mode, chaos_mult, steps)
     SECTIONS = [
-        ("intro",    "ambient", 0.30, 32),
-        ("couplet1", "noise",   0.80, 32),
-        ("couplet2", "noise",   1.00, 32),
-        ("riser",    "noise",   1.30, 16),
-        ("break",    "ambient", 0.10, 32),
-        ("fill",     "noise",   1.50,  8),
-        ("fin",      "ambient", 0.20, 32),
+        ("intro",       "ambient", 0.20, 32),
+        ("intro2",      "ambient", 0.45, 32),
+        ("transition",  "noise",   0.60, 16),
+        ("couplet1",    "noise",   0.80, 32),
+        ("couplet2",    "noise",   1.00, 32),
+        ("riser",       "noise",   1.30, 16),
+        ("break",       "ambient", 0.10, 32),
+        ("fill",        "noise",   1.50,  8),
+        ("outro",       "ambient", 0.50, 32),
+        ("fin",         "ambient", 0.15, 32),
     ]
 
     files = []
@@ -719,7 +722,10 @@ async def export_song(
             f'⠿ {section}</a>'
         )
     html += '</div></div>'
-    return HTMLResponse(html)
+    return HTMLResponse(html, headers={
+        "X-Song-Tag":   tag,
+        "X-Song-Files": ",".join(files),
+    })
 
 
 @app.post("/weather", response_class=HTMLResponse)
