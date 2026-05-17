@@ -189,6 +189,8 @@ Sur 64 steps, la basse boucle 12 fois (+ 4 pas) pendant que le kick boucle 4 foi
 | `weather` | DNA dérivé de la température et du vent (densité, ratchets) |
 | `markov` | Voix mélodique pilotée par chaîne de Markov + drone CC74 |
 | `phase2` | Markov + kick polyrhythmique + drone CC91 modulé météo |
+| `noise` ◼ | 8 voix aux cycles asymétriques (5/7/9/11/13 pas), haute entropie — Rhythmic Noise |
+| `ambient` ◌ | 3 voix ultra-sparse, longues silences, jitter minimal — Dark Ambient |
 
 ---
 
@@ -210,21 +212,75 @@ L'option `--temporal` ajoute `time_ns() % 1000` comme jitter par pas — **non-r
 
 ---
 
+## Presets drum machine
+
+L'interface web permet de sélectionner un preset pour mapper automatiquement les voix aux notes MIDI du synthétiseur cible.
+
+| Preset | Cible |
+|--------|-------|
+| `GM` | Standard General MIDI (Kick=36, Snare=38, HH=42…) |
+| `TR-808` | Roland TR-8 / AudioRealism RD-808 |
+| `TR-909` | Roland TR-8 mode 909 |
+| `MPC60` | Akai MPC60 / MPC3000 |
+| `Battery 4` | NI Battery 4 (kits standard, mapping GM) |
+| `Tekno` | Baby Audio Tekno v1.001 — C1→G1 séquentiel |
+| `LinnDrum` | Linn LM-1 |
+| `Volca Drum` ★ | Korg Volca Drum — 6 parts sur canaux MIDI 1–6 + p-locks CC |
+
+Les presets custom peuvent être sauvegardés depuis l'interface.
+
+---
+
+## Song export ⬡
+
+Exporte une **session complète de 30 fichiers MIDI** organisée en arc narratif de 9 groupes, avec un ZIP téléchargeable.
+
+```
+01a-intro1 … 01d-intro4    Ambient  4 variations — montée progressive
+02a-transition             Noise    1 — pont
+03a-couplet1 … 03h-couplet8 Noise   8 — variations subtiles (morphées)
+04a-break                  Ambient  1 — rupture
+05a-couplet2-1 … 05d-couplet2-4 Noise 4
+06a-climax1 … 06d-climax4  Noise    4 — chaos maximal
+07a-break2-1, 07b-break2-2 Ambient  2 — nouvelle rupture
+08a-outro1, 08b-outro2     Ambient  2 — dissolution
+09a-fin1 … 09d-fin4        Ambient  4 — ultra-sparse
+```
+
+**Cohérence temporelle** : dans chaque groupe, chaque variation morphe le DNA de la précédente (mutation douce). Les breaks sont régénérés indépendamment.
+
+Le nom de piste dans chaque `.mid` correspond au nom du fichier — lisible directement dans le piano roll du DAW.
+
+---
+
+## Archive ☰
+
+L'archive regroupe tous les exports serveur, persistés indéfiniment.
+
+- **Songs** — groupées par session, triées par date (favoris en tête).
+- **⭐ Favoris** — épinglez une session particulièrement réussie en un clic.
+- **↺ Regen** — relancez 30 nouveaux fichiers depuis les mêmes paramètres (chaos, BPM, gravity, cc_depth).
+- **Drag & drop** — glissez n'importe quel `.mid` depuis l'archive vers Ableton Live ou Logic (Chrome uniquement, API DownloadURL).
+
+---
+
 ## Structure du projet
 
 ```
 bang/
-├── bang_engine.py     # Moteur central (DNA, Markov, export MIDI, météo, seeds)
-├── cli.py             # Interface CLI + MIDI controller
-├── tui.py             # Interface TUI Textual
-├── web.py             # Interface Web FastAPI+HTMX
+├── bang_engine.py       # Moteur central (DNA, Markov, export MIDI, météo, seeds)
+├── cli.py               # Interface CLI + MIDI controller
+├── tui.py               # Interface TUI Textual
+├── web.py               # Interface Web FastAPI+HTMX
 ├── templates/
 │   ├── index.html
 │   ├── _voices.html
 │   ├── _log_entry.html
 │   └── _weather.html
-├── exports/           # Fichiers .mid générés
+├── exports/             # Fichiers .mid générés
 ├── bang_sessions.jsonl  # Log de toutes les sessions
+├── bang_favorites.json  # Songs épinglées
+├── bang_song_params.json # Paramètres par session (pour regen)
 └── pyproject.toml
 ```
 
