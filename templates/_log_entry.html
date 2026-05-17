@@ -1,7 +1,14 @@
 {% if entry.ok %}
 <div class="log-entry">
   <span class="log-ts">{{ entry.ts }}</span>
-  <a class="log-file" href="/download/{{ entry.file }}" download>{{ entry.file }}</a>
+  <a class="log-file"
+     href="/download/{{ entry.file }}"
+     download
+     draggable="true"
+     title="Drag → Live / DAW"
+     ondragstart="event.dataTransfer.setData('DownloadURL', 'audio/midi:{{ entry.file }}:' + window.location.origin + '/download/{{ entry.file }}')">
+    ⠿ {{ entry.file }}
+  </a>
   <span class="log-seed">seed: {{ entry.seed }}…</span>
   <span class="log-tag">{{ entry.mode }}</span>
   <span class="log-tag">{{ entry.bpm }} BPM</span>

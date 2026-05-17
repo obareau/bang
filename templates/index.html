@@ -312,8 +312,10 @@
       align-items: center;
     }
     .log-ts   { color: var(--muted); }
-    .log-file { color: var(--primary); text-decoration: none; }
+    .log-file { color: var(--primary); text-decoration: none; cursor: grab; }
     .log-file:hover { text-decoration: underline; }
+    .log-file:active { cursor: grabbing; }
+    .log-file[draggable]:hover::after { content: " ↗"; opacity: .5; font-size: 10px; }
     .log-seed { color: var(--muted); font-size: 11px; }
     .log-tag  { font-size: 10px; background: var(--border); padding: 1px 5px; border-radius: 3px; }
     .log-err  { color: #f87171; }
