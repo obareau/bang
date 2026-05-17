@@ -403,6 +403,7 @@ class BangEngine:
         mid   = MidiFile(ticks_per_beat=480)
         track = MidiTrack()
         mid.tracks.append(track)
+        track.append(MetaMessage('track_name', name=os.path.splitext(os.path.basename(filename))[0], time=0))
         track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
 
         current_tick = 0
