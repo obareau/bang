@@ -6,6 +6,7 @@ import io
 import json
 import os
 import random
+import re
 import secrets
 import zipfile
 from collections import defaultdict
@@ -655,6 +656,28 @@ async def export(
     return render("_log_entry.html", entry=entry)
 
 
+_LETTERS = "abcdefghijklmnopqrstuvwxyz"
+_TAG_RE  = re.compile(r"-(\d{8}-[0-9a-f]{8})$")
+
+# (group_num, basename, mode, chaos_mult_start, chaos_mult_end, steps, count, is_break)
+_SONG_STRUCTURE = [
+    (1, "intro",      "ambient", 0.15, 0.35, 32, 4, False),
+    (2, "transition", "noise",   0.55, 0.70, 16, 1, False),
+    (3, "couplet",    "noise",   0.70, 1.00, 32, 8, False),
+    (4, "break",      "ambient", 0.05, 0.12, 32, 1, True),
+    (5, "couplet2",   "noise",   0.90, 1.15, 32, 4, False),
+    (6, "climax",     "noise",   1.10, 1.40, 32, 4, False),
+    (7, "break2",     "ambient", 0.05, 0.18, 32, 2, True),
+    (8, "outro",      "ambient", 0.40, 0.12, 32, 2, False),
+    (9, "fin",        "ambient", 0.08, 0.04, 32, 4, False),
+]
+
+
+def _morph_voices(voices: list, intensity: float) -> list:
+    """Morphe le DNA de chaque voix pour rester proche de la variation précédente."""
+    return [(note, mutate_dna(dna, intensity=intensity), vtype) for note, dna, vtype in voices]
+
+
 @app.post("/export/song", response_class=HTMLResponse)
 async def export_song(
     request:  Request,
@@ -663,63 +686,63 @@ async def export_song(
     gravity:  Annotated[float, Form()] = 0.70,
     cc_depth: Annotated[float, Form()] = 0.50,
 ):
-    uid     = secrets.token_hex(4)
-    date    = datetime.now().strftime("%Y%m%d")
-    tag     = f"{date}-{uid}"
-    ts      = datetime.now().strftime("%H:%M:%S")
+    uid = secrets.token_hex(4)
+    date = datetime.now().strftime("%Y%m%d")
+    tag  = f"{date}-{uid}"
+    ts   = datetime.now().strftime("%H:%M:%S")
 
-    # section: (name, mode, chaos_mult, steps)
-    SECTIONS = [
-        ("intro",       "ambient", 0.20, 32),
-        ("intro2",      "ambient", 0.45, 32),
-        ("transition",  "noise",   0.60, 16),
-        ("couplet1",    "noise",   0.80, 32),
-        ("couplet2",    "noise",   1.00, 32),
-        ("riser",       "noise",   1.30, 16),
-        ("break",       "ambient", 0.10, 32),
-        ("fill",        "noise",   1.50,  8),
-        ("outro",       "ambient", 0.50, 32),
-        ("fin",         "ambient", 0.15, 32),
-    ]
-
-    files = []
+    files: list[str] = []
     zip_buf = io.BytesIO()
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for section, mode, cmult, steps in SECTIONS:
-            fname = f"{section}-{tag}.mid"
-            p = {
-                "mode": mode, "chaos": min(1.0, chaos * cmult),
-                "bpm": bpm, "steps": steps,
-                "gravity": gravity, "cc_depth": cc_depth,
-                "out": fname, "temporal": False,
-            }
-            voices  = _apply_note_remap(_build_voices(p))
-            engine  = _assemble_engine(p, voices)
-            fpath   = str(EXPORT_DIR / fname)
-            engine.export_midi(num_steps=steps, filename=fpath, weather=_state["weather"])
-            zf.write(fpath, fname)
-            files.append(fname)
+        for grp_num, basename, mode, cstart, cend, steps, count, is_break in _SONG_STRUCTURE:
+            prev_voices: list | None = None
+            for i in range(count):
+                letter        = _LETTERS[i]
+                cmult         = cstart if count == 1 else cstart + (i / (count - 1)) * (cend - cstart)
+                section_chaos = min(1.0, chaos * cmult)
+                section_name  = basename if count == 1 else f"{basename}{i + 1}"
+                fname         = f"{grp_num:02d}{letter}-{section_name}-{tag}.mid"
+                p = {
+                    "mode": mode, "chaos": section_chaos,
+                    "bpm": bpm, "steps": steps,
+                    "gravity": gravity, "cc_depth": cc_depth,
+                    "out": fname, "temporal": False,
+                }
+                if is_break or prev_voices is None:
+                    voices = _apply_note_remap(_build_voices(p))
+                else:
+                    # Morphe depuis la variation précédente — cohérence temporelle
+                    morph_intensity = 0.08 + section_chaos * 0.06
+                    voices = _morph_voices(prev_voices, morph_intensity)
+                prev_voices = voices
+                engine = _assemble_engine(p, voices)
+                fpath  = str(EXPORT_DIR / fname)
+                engine.export_midi(num_steps=steps, filename=fpath, weather=_state["weather"])
+                zf.write(fpath, fname)
+                files.append(fname)
 
     zip_name = f"bang-{tag}.zip"
-    zip_path = EXPORT_DIR / zip_name
-    zip_path.write_bytes(zip_buf.getvalue())
+    (EXPORT_DIR / zip_name).write_bytes(zip_buf.getvalue())
 
-    html = f'<div class="log-entry log-song" style="flex-direction:column;gap:.3rem;padding:.5rem 0">'
+    html  = f'<div class="log-entry log-song" style="flex-direction:column;gap:.3rem;padding:.5rem 0">'
     html += f'<div style="display:flex;gap:.75rem;align-items:center">'
     html += f'<span class="log-ts">{ts}</span>'
     html += f'<strong style="color:var(--primary)">SONG</strong>'
     html += f'<span class="log-tag">{bpm} BPM</span>'
     html += f'<span class="log-tag">{tag}</span>'
-    html += f'<a href="/download/{zip_name}" download style="color:var(--primary);text-decoration:none;font-weight:bold" draggable="true" '
-    html += f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'application/zip:{zip_name}:\'+window.location.origin+\'/download/{zip_name}\')">⬡ {zip_name}</a>'
+    html += (f'<a href="/download/{zip_name}" download '
+             f'style="color:var(--primary);text-decoration:none;font-weight:bold" draggable="true" '
+             f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'application/zip:{zip_name}:\''
+             f'+window.location.origin+\'/download/{zip_name}\')">⬡ {zip_name}</a>')
     html += f'</div><div style="display:flex;flex-wrap:wrap;gap:.4rem .75rem">'
     for fname in files:
-        section = fname.split("-")[0]
+        m     = _TAG_RE.search(Path(fname).stem)
+        label = Path(fname).stem[:m.start()] if m else fname
         html += (
             f'<a class="log-file" href="/download/{fname}" download draggable="true" '
             f'title="Drag → Live" '
-            f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'audio/midi:{fname}:\'+window.location.origin+\'/download/{fname}\')">'
-            f'⠿ {section}</a>'
+            f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'audio/midi:{fname}:\''
+            f'+window.location.origin+\'/download/{fname}\')">⠿ {label}</a>'
         )
     html += '</div></div>'
     return HTMLResponse(html, headers={
@@ -728,27 +751,20 @@ async def export_song(
     })
 
 
-_SONG_SECTIONS = {
-    "intro", "intro2", "transition", "couplet1", "couplet2",
-    "riser", "break", "fill", "outro", "fin",
-}
-
 def _scan_archive() -> tuple[dict, list]:
-    """Retourne (songs, individuals) en scannant EXPORT_DIR."""
+    """Retourne (songs_by_tag, individuals) — détection par suffixe YYYYMMDD-xxxxxxxx."""
     songs: dict[str, list[tuple[str, float]]] = {}
     individuals: list[tuple[str, float]] = []
     for f in EXPORT_DIR.glob("*.mid"):
         mtime = f.stat().st_mtime
-        parts = f.stem.split("-", 1)
-        if len(parts) == 2 and parts[0] in _SONG_SECTIONS:
-            section, tag = parts[0], parts[1]
-            songs.setdefault(tag, []).append((f.name, mtime))
+        m = _TAG_RE.search(f.stem)
+        if m:
+            songs.setdefault(m.group(1), []).append((f.name, mtime))
         else:
             individuals.append((f.name, mtime))
-    # Trier songs par mtime de la première section
     songs_sorted = dict(sorted(
         songs.items(),
-        key=lambda kv: max(m for _, m in kv[1]),
+        key=lambda kv: max(mt for _, mt in kv[1]),
         reverse=True,
     ))
     individuals.sort(key=lambda x: x[1], reverse=True)
@@ -767,43 +783,34 @@ async def archive():
     songs, individuals = _scan_archive()
     h = '<div class="archive-wrap">'
 
-    # ── Songs ──────────────────────────────────────────────────────────────
     h += '<h4 class="archive-head">Songs</h4>'
     if not songs:
         h += '<p class="archive-empty">Aucune song générée.</p>'
     for tag, files in songs.items():
-        section_order = list(_SONG_SECTIONS)
-        files_sorted  = sorted(files, key=lambda x: (
-            section_order.index(x[0].split("-")[0])
-            if x[0].split("-")[0] in section_order else 99
-        ))
-        zip_name = f"bang-{tag}.zip"
+        files_sorted = sorted(files, key=lambda x: x[0])  # 01a-… < 01b-… < 02a-…
+        zip_name   = f"bang-{tag}.zip"
         zip_exists = (EXPORT_DIR / zip_name).exists()
-        h += f'<div class="archive-song">'
-        h += f'<div class="archive-song-head">'
+        h += f'<div class="archive-song"><div class="archive-song-head">'
         h += f'<span class="archive-tag">{tag}</span>'
         if zip_exists:
             h += (f'<a class="archive-zip" href="/download/{zip_name}" download draggable="true" '
                   f'{_drag(zip_name, "application/zip")}>⬡ ZIP</a>')
-        h += '</div>'
-        h += '<div class="archive-sections">'
+        h += '</div><div class="archive-sections">'
         for fname, _ in files_sorted:
-            section = fname.split("-")[0]
+            m     = _TAG_RE.search(Path(fname).stem)
+            label = Path(fname).stem[:m.start()] if m else fname
             h += (f'<a class="log-file" href="/download/{fname}" download '
-                  f'draggable="true" title="{fname}" {_drag(fname)}>⠿ {section}</a>')
+                  f'draggable="true" title="{fname}" {_drag(fname)}>⠿ {label}</a>')
         h += '</div></div>'
 
-    # ── Exports individuels ────────────────────────────────────────────────
     h += '<h4 class="archive-head" style="margin-top:1rem">Exports individuels</h4>'
     if not individuals:
         h += '<p class="archive-empty">Aucun export individuel.</p>'
     for fname, mtime in individuals:
-        ts = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
-        h += (f'<div class="log-entry">'
-              f'<span class="log-ts">{ts}</span>'
+        ts_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+        h += (f'<div class="log-entry"><span class="log-ts">{ts_str}</span>'
               f'<a class="log-file" href="/download/{fname}" download draggable="true" '
-              f'title="{fname}" {_drag(fname)}>⠿ {fname}</a>'
-              f'</div>')
+              f'title="{fname}" {_drag(fname)}>⠿ {fname}</a></div>')
 
     h += '</div>'
     return HTMLResponse(h)
@@ -837,7 +844,6 @@ async def browse(path: str = ""):
 
 @app.get("/next-filename")
 async def next_filename(mode: str = "morph", dest_dir: str = ""):
-    import re
     target_dir = Path(dest_dir).expanduser() if dest_dir else EXPORT_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
     existing = sorted(target_dir.glob(f"gen-{mode}-*.mid"))
