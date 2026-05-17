@@ -322,7 +322,8 @@
     .log-err  { color: #f87171; }
 
     /* Export modal */
-    #export-modal, #song-modal {
+    .btn-arch { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    #export-modal, #song-modal, #archive-modal {
       display: none;
       position: fixed; inset: 0;
       background: rgba(0,0,0,.65);
@@ -330,8 +331,20 @@
       align-items: center;
       justify-content: center;
     }
-    #export-modal.open, #song-modal.open { display: flex; }
+    #export-modal.open, #song-modal.open, #archive-modal.open { display: flex; }
     .song-files { display: flex; flex-wrap: wrap; gap: .4rem .6rem; margin: .5rem 0; }
+
+    /* Archive */
+    .archive-wrap { max-height: 65vh; overflow-y: auto; padding-right: .25rem; }
+    .archive-head { font-size: 11px; color: var(--muted); letter-spacing: .1em;
+                    margin: .5rem 0 .25rem; border-bottom: 1px solid var(--border); padding-bottom: .2rem; }
+    .archive-empty { color: var(--muted); font-size: 12px; }
+    .archive-song { margin-bottom: .75rem; }
+    .archive-song-head { display: flex; align-items: center; gap: .75rem; margin-bottom: .3rem; }
+    .archive-tag  { font-size: 11px; color: var(--muted); font-family: monospace; }
+    .archive-zip  { font-size: 12px; color: #7c3aed; text-decoration: none; font-weight: bold; }
+    .archive-zip:hover { text-decoration: underline; }
+    .archive-sections { display: flex; flex-wrap: wrap; gap: .3rem .5rem; }
     .modal-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -507,6 +520,10 @@
         Song ⬡
       </button>
 
+      <button class="btn-arch" onclick="openArchive()">
+        Archive ☰
+      </button>
+
       <button class="btn-met"
               hx-post="/weather"
               hx-target="#weather-bar"
@@ -564,6 +581,17 @@
     {% for entry in log|reverse %}
       {% include "_log_entry.html" %}
     {% endfor %}
+  </div>
+</div>
+
+<!-- Archive modal -->
+<div id="archive-modal">
+  <div class="modal-box" style="width:520px">
+    <h3>☰ ARCHIVE</h3>
+    <div id="archive-content">Chargement…</div>
+    <div class="modal-actions" style="margin-top:.5rem">
+      <button class="btn-cancel" onclick="closeArchive()">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -984,9 +1012,20 @@ function showSongModal(tag, files) {
 function closeSongModal() {
   document.getElementById('song-modal').classList.remove('open');
 }
-
 document.getElementById('song-modal').addEventListener('click', function(e) {
   if (e.target === this) closeSongModal();
+});
+
+async function openArchive() {
+  document.getElementById('archive-modal').classList.add('open');
+  const res = await fetch('/archive');
+  document.getElementById('archive-content').innerHTML = await res.text();
+}
+function closeArchive() {
+  document.getElementById('archive-modal').classList.remove('open');
+}
+document.getElementById('archive-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeArchive();
 });
 </script>
 </body>

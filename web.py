@@ -728,6 +728,87 @@ async def export_song(
     })
 
 
+_SONG_SECTIONS = {
+    "intro", "intro2", "transition", "couplet1", "couplet2",
+    "riser", "break", "fill", "outro", "fin",
+}
+
+def _scan_archive() -> tuple[dict, list]:
+    """Retourne (songs, individuals) en scannant EXPORT_DIR."""
+    songs: dict[str, list[tuple[str, float]]] = {}
+    individuals: list[tuple[str, float]] = []
+    for f in EXPORT_DIR.glob("*.mid"):
+        mtime = f.stat().st_mtime
+        parts = f.stem.split("-", 1)
+        if len(parts) == 2 and parts[0] in _SONG_SECTIONS:
+            section, tag = parts[0], parts[1]
+            songs.setdefault(tag, []).append((f.name, mtime))
+        else:
+            individuals.append((f.name, mtime))
+    # Trier songs par mtime de la première section
+    songs_sorted = dict(sorted(
+        songs.items(),
+        key=lambda kv: max(m for _, m in kv[1]),
+        reverse=True,
+    ))
+    individuals.sort(key=lambda x: x[1], reverse=True)
+    return songs_sorted, individuals
+
+
+def _drag(fname: str, mime: str = "audio/midi") -> str:
+    return (
+        f'ondragstart="event.dataTransfer.setData(\'DownloadURL\','
+        f'\'{mime}:{fname}:\'+window.location.origin+\'/download/{fname}\')"'
+    )
+
+
+@app.get("/archive", response_class=HTMLResponse)
+async def archive():
+    songs, individuals = _scan_archive()
+    h = '<div class="archive-wrap">'
+
+    # ── Songs ──────────────────────────────────────────────────────────────
+    h += '<h4 class="archive-head">Songs</h4>'
+    if not songs:
+        h += '<p class="archive-empty">Aucune song générée.</p>'
+    for tag, files in songs.items():
+        section_order = list(_SONG_SECTIONS)
+        files_sorted  = sorted(files, key=lambda x: (
+            section_order.index(x[0].split("-")[0])
+            if x[0].split("-")[0] in section_order else 99
+        ))
+        zip_name = f"bang-{tag}.zip"
+        zip_exists = (EXPORT_DIR / zip_name).exists()
+        h += f'<div class="archive-song">'
+        h += f'<div class="archive-song-head">'
+        h += f'<span class="archive-tag">{tag}</span>'
+        if zip_exists:
+            h += (f'<a class="archive-zip" href="/download/{zip_name}" download draggable="true" '
+                  f'{_drag(zip_name, "application/zip")}>⬡ ZIP</a>')
+        h += '</div>'
+        h += '<div class="archive-sections">'
+        for fname, _ in files_sorted:
+            section = fname.split("-")[0]
+            h += (f'<a class="log-file" href="/download/{fname}" download '
+                  f'draggable="true" title="{fname}" {_drag(fname)}>⠿ {section}</a>')
+        h += '</div></div>'
+
+    # ── Exports individuels ────────────────────────────────────────────────
+    h += '<h4 class="archive-head" style="margin-top:1rem">Exports individuels</h4>'
+    if not individuals:
+        h += '<p class="archive-empty">Aucun export individuel.</p>'
+    for fname, mtime in individuals:
+        ts = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+        h += (f'<div class="log-entry">'
+              f'<span class="log-ts">{ts}</span>'
+              f'<a class="log-file" href="/download/{fname}" download draggable="true" '
+              f'title="{fname}" {_drag(fname)}>⠿ {fname}</a>'
+              f'</div>')
+
+    h += '</div>'
+    return HTMLResponse(h)
+
+
 @app.post("/weather", response_class=HTMLResponse)
 async def weather_route(request: Request):
     w = fetch_weather()
