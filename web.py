@@ -432,11 +432,11 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             (36, 11), (38, 7),  (42, 13), (48, 5),
             (40, 9),  (43, 11), (24, 7),  (33, 13),
         ]
-        # Plus de chaos = plus de ratchets/jitter, moins de silences
-        w = [2 + chaos * 3, max(0.1, 2 - chaos * 1.5), 1 + chaos, chaos * 1.5, chaos]
+        w_dense = [2 + chaos * 3, max(0.1, 2 - chaos * 1.5), 1 + chaos, chaos * 1.5, chaos]
+        w_hh    = [0.5 + chaos, 3.0, 1.5 + chaos, chaos * 0.5, chaos * 0.3]  # hihat plus sparse
         return [
             (note, mutate_dna(
-                ''.join(random.choices(DNA_SYMBOLS, weights=w, k=length)),
+                ''.join(random.choices(DNA_SYMBOLS, weights=(w_hh if note == 42 else w_dense), k=length)),
                 intensity=chaos * 0.4
             ), "drum")
             for note, length in _NOISE_VOICES
