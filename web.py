@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import random
+import secrets
+import zipfile
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +15,7 @@ from typing import Annotated
 
 import uvicorn
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from bang_engine import (
@@ -650,6 +653,73 @@ async def export(
     _state["log"].append(entry)
 
     return render("_log_entry.html", entry=entry)
+
+
+@app.post("/export/song", response_class=HTMLResponse)
+async def export_song(
+    request:  Request,
+    chaos:    Annotated[float, Form()] = 0.50,
+    bpm:      Annotated[int,   Form()] = 110,
+    gravity:  Annotated[float, Form()] = 0.70,
+    cc_depth: Annotated[float, Form()] = 0.50,
+):
+    uid     = secrets.token_hex(4)
+    date    = datetime.now().strftime("%Y%m%d")
+    tag     = f"{date}-{uid}"
+    ts      = datetime.now().strftime("%H:%M:%S")
+
+    # section: (name, mode, chaos_mult, steps)
+    SECTIONS = [
+        ("intro",    "ambient", 0.30, 32),
+        ("couplet1", "noise",   0.80, 32),
+        ("couplet2", "noise",   1.00, 32),
+        ("riser",    "noise",   1.30, 16),
+        ("break",    "ambient", 0.10, 32),
+        ("fill",     "noise",   1.50,  8),
+        ("fin",      "ambient", 0.20, 32),
+    ]
+
+    files = []
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for section, mode, cmult, steps in SECTIONS:
+            fname = f"{section}-{tag}.mid"
+            p = {
+                "mode": mode, "chaos": min(1.0, chaos * cmult),
+                "bpm": bpm, "steps": steps,
+                "gravity": gravity, "cc_depth": cc_depth,
+                "out": fname, "temporal": False,
+            }
+            voices  = _apply_note_remap(_build_voices(p))
+            engine  = _assemble_engine(p, voices)
+            fpath   = str(EXPORT_DIR / fname)
+            engine.export_midi(num_steps=steps, filename=fpath, weather=_state["weather"])
+            zf.write(fpath, fname)
+            files.append(fname)
+
+    zip_name = f"bang-{tag}.zip"
+    zip_path = EXPORT_DIR / zip_name
+    zip_path.write_bytes(zip_buf.getvalue())
+
+    html = f'<div class="log-entry log-song" style="flex-direction:column;gap:.3rem;padding:.5rem 0">'
+    html += f'<div style="display:flex;gap:.75rem;align-items:center">'
+    html += f'<span class="log-ts">{ts}</span>'
+    html += f'<strong style="color:var(--primary)">SONG</strong>'
+    html += f'<span class="log-tag">{bpm} BPM</span>'
+    html += f'<span class="log-tag">{tag}</span>'
+    html += f'<a href="/download/{zip_name}" download style="color:var(--primary);text-decoration:none;font-weight:bold" draggable="true" '
+    html += f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'application/zip:{zip_name}:\'+window.location.origin+\'/download/{zip_name}\')">⬡ {zip_name}</a>'
+    html += f'</div><div style="display:flex;flex-wrap:wrap;gap:.4rem .75rem">'
+    for fname in files:
+        section = fname.split("-")[0]
+        html += (
+            f'<a class="log-file" href="/download/{fname}" download draggable="true" '
+            f'title="Drag → Live" '
+            f'ondragstart="event.dataTransfer.setData(\'DownloadURL\',\'audio/midi:{fname}:\'+window.location.origin+\'/download/{fname}\')">'
+            f'⠿ {section}</a>'
+        )
+    html += '</div></div>'
+    return HTMLResponse(html)
 
 
 @app.post("/weather", response_class=HTMLResponse)

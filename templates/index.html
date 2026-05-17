@@ -269,6 +269,7 @@
     button:hover { opacity: .85; }
     .btn-gen  { background: var(--primary); color: #0f172a; }
     .btn-exp  { background: var(--success); color: #0f172a; }
+    .btn-song { background: #7c3aed; color: #fff; }
     .btn-met  { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 
     /* HTMX indicator */
@@ -499,6 +500,10 @@
 
       <button class="btn-exp" onclick="openExportModal()">
         Exporter <kbd>E</kbd>
+      </button>
+
+      <button class="btn-song" onclick="exportSong()">
+        Song ⬡
       </button>
 
       <button class="btn-met"
@@ -934,6 +939,11 @@ function confirmExport() {
 document.getElementById('export-modal').addEventListener('click', function(e) {
   if (e.target === this) closeExportModal();
 });
+
+function exportSong() {
+  const vals = Object.fromEntries(new FormData(document.getElementById('params')));
+  htmx.ajax('POST', '/export/song', {target: '#log-entries', swap: 'afterbegin', values: vals});
+}
 </script>
 </body>
 </html>
