@@ -37,8 +37,10 @@ from cli import _markov_from_gravity
 # ---------------------------------------------------------------------------
 
 BASE_DIR      = Path(__file__).parent
-EXPORT_DIR    = BASE_DIR / "exports"
-PRESETS_FILE  = BASE_DIR / "bang_presets.json"
+EXPORT_DIR       = BASE_DIR / "exports"
+PRESETS_FILE     = BASE_DIR / "bang_presets.json"
+FAVORITES_FILE   = BASE_DIR / "bang_favorites.json"
+SONG_PARAMS_FILE = BASE_DIR / "bang_song_params.json"
 EXPORT_DIR.mkdir(exist_ok=True)
 
 # ---------------------------------------------------------------------------
@@ -221,6 +223,25 @@ def _load_custom_presets() -> dict:
 
 def _save_custom_presets(custom: dict) -> None:
     PRESETS_FILE.write_text(json.dumps(custom, indent=2, ensure_ascii=False))
+
+
+def _load_favorites() -> list[str]:
+    if FAVORITES_FILE.exists():
+        try: return json.loads(FAVORITES_FILE.read_text())
+        except Exception: return []
+    return []
+
+def _save_favorites(favs: list[str]) -> None:
+    FAVORITES_FILE.write_text(json.dumps(favs))
+
+def _load_song_params() -> dict:
+    if SONG_PARAMS_FILE.exists():
+        try: return json.loads(SONG_PARAMS_FILE.read_text())
+        except Exception: return {}
+    return {}
+
+def _save_song_params(p: dict) -> None:
+    SONG_PARAMS_FILE.write_text(json.dumps(p, indent=2))
 
 app      = App = FastAPI(title="BANG — Dark Umbrae")
 jinja    = Environment(
@@ -678,18 +699,17 @@ def _morph_voices(voices: list, intensity: float) -> list:
     return [(note, mutate_dna(dna, intensity=intensity), vtype) for note, dna, vtype in voices]
 
 
-@app.post("/export/song", response_class=HTMLResponse)
-async def export_song(
-    request:  Request,
-    chaos:    Annotated[float, Form()] = 0.50,
-    bpm:      Annotated[int,   Form()] = 110,
-    gravity:  Annotated[float, Form()] = 0.70,
-    cc_depth: Annotated[float, Form()] = 0.50,
-):
-    uid = secrets.token_hex(4)
+def _generate_song(chaos: float, bpm: int, gravity: float, cc_depth: float) -> tuple[str, str, list[str]]:
+    """Génère 30 fichiers MIDI + ZIP, persiste les params. Retourne (html_log, tag, files)."""
+    uid  = secrets.token_hex(4)
     date = datetime.now().strftime("%Y%m%d")
     tag  = f"{date}-{uid}"
     ts   = datetime.now().strftime("%H:%M:%S")
+
+    # Persister les paramètres pour la fonction regen
+    song_params = _load_song_params()
+    song_params[tag] = {"chaos": chaos, "bpm": bpm, "gravity": gravity, "cc_depth": cc_depth}
+    _save_song_params(song_params)
 
     files: list[str] = []
     zip_buf = io.BytesIO()
@@ -703,10 +723,10 @@ async def export_song(
                 if count == 1:
                     section_name = basename
                 elif basename[-1].isdigit():
-                    section_name = f"{basename}-{i + 1}"   # couplet2-1, break2-1
+                    section_name = f"{basename}-{i + 1}"
                 else:
-                    section_name = f"{basename}{i + 1}"    # intro1, couplet1, climax1
-                fname         = f"{grp_num:02d}{letter}-{section_name}-{tag}.mid"
+                    section_name = f"{basename}{i + 1}"
+                fname = f"{grp_num:02d}{letter}-{section_name}-{tag}.mid"
                 p = {
                     "mode": mode, "chaos": section_chaos,
                     "bpm": bpm, "steps": steps,
@@ -716,7 +736,6 @@ async def export_song(
                 if is_break or prev_voices is None:
                     voices = _apply_note_remap(_build_voices(p))
                 else:
-                    # Morphe depuis la variation précédente — cohérence temporelle
                     morph_intensity = 0.08 + section_chaos * 0.06
                     voices = _morph_voices(prev_voices, morph_intensity)
                 prev_voices = voices
@@ -750,6 +769,18 @@ async def export_song(
             f'+window.location.origin+\'/download/{fname}\')">⠿ {label}</a>'
         )
     html += '</div></div>'
+    return html, tag, files
+
+
+@app.post("/export/song", response_class=HTMLResponse)
+async def export_song(
+    request:  Request,
+    chaos:    Annotated[float, Form()] = 0.50,
+    bpm:      Annotated[int,   Form()] = 110,
+    gravity:  Annotated[float, Form()] = 0.70,
+    cc_depth: Annotated[float, Form()] = 0.50,
+):
+    html, tag, files = _generate_song(chaos, bpm, gravity, cc_depth)
     return HTMLResponse(html, headers={
         "X-Song-Tag":   tag,
         "X-Song-Files": ",".join(files),
@@ -783,20 +814,44 @@ def _drag(fname: str, mime: str = "audio/midi") -> str:
     )
 
 
-@app.get("/archive", response_class=HTMLResponse)
-async def archive():
+def _build_archive_html() -> str:
     songs, individuals = _scan_archive()
-    h = '<div class="archive-wrap">'
+    favs       = set(_load_favorites())
+    all_params = _load_song_params()
 
+    # Favoris en tête, puis tri par mtime desc
+    songs_items = sorted(
+        songs.items(),
+        key=lambda kv: (kv[0] not in favs, -max(mt for _, mt in kv[1])),
+    )
+
+    h = '<div class="archive-wrap">'
     h += '<h4 class="archive-head">Songs</h4>'
-    if not songs:
+    if not songs_items:
         h += '<p class="archive-empty">Aucune song générée.</p>'
-    for tag, files in songs.items():
-        files_sorted = sorted(files, key=lambda x: x[0])  # 01a-… < 01b-… < 02a-…
+
+    for tag, files in songs_items:
+        files_sorted = sorted(files, key=lambda x: x[0])
         zip_name   = f"bang-{tag}.zip"
         zip_exists = (EXPORT_DIR / zip_name).exists()
-        h += f'<div class="archive-song"><div class="archive-song-head">'
+        is_fav     = tag in favs
+        params     = all_params.get(tag, {})
+        card_cls   = "archive-song is-fav" if is_fav else "archive-song"
+        star       = "⭐" if is_fav else "☆"
+        fav_title  = "Retirer des favoris" if is_fav else "Ajouter aux favoris"
+
+        h += f'<div class="{card_cls}"><div class="archive-song-head">'
         h += f'<span class="archive-tag">{tag}</span>'
+        h += (f'<button class="archive-fav" hx-post="/song/favorite/{tag}" '
+              f'hx-target="#archive-content" hx-swap="innerHTML" '
+              f'title="{fav_title}">{star}</button>')
+        if params:
+            h += f'<span class="log-tag">{params.get("bpm", "?")} BPM</span>'
+            h += (f'<button class="archive-regen" '
+                  f'hx-post="/song/regen/{tag}" '
+                  f'hx-target="#log-entries" hx-swap="afterbegin" '
+                  f'hx-on:htmx:after-request="closeArchive()" '
+                  f'title="Régénérer depuis ces paramètres">↺ Regen</button>')
         if zip_exists:
             h += (f'<a class="archive-zip" href="/download/{zip_name}" download draggable="true" '
                   f'{_drag(zip_name, "application/zip")}>⬡ ZIP</a>')
@@ -818,7 +873,37 @@ async def archive():
               f'title="{fname}" {_drag(fname)}>⠿ {fname}</a></div>')
 
     h += '</div>'
-    return HTMLResponse(h)
+    return h
+
+
+@app.get("/archive", response_class=HTMLResponse)
+async def archive():
+    return HTMLResponse(_build_archive_html())
+
+
+@app.post("/song/favorite/{tag}", response_class=HTMLResponse)
+async def toggle_favorite(tag: str):
+    favs = _load_favorites()
+    if tag in favs:
+        favs.remove(tag)
+    else:
+        favs.insert(0, tag)
+    _save_favorites(favs)
+    return HTMLResponse(_build_archive_html())
+
+
+@app.post("/song/regen/{tag}", response_class=HTMLResponse)
+async def regen_song(tag: str):
+    p        = _load_song_params().get(tag, {})
+    chaos    = float(p.get("chaos",    0.50))
+    bpm      = int(p.get("bpm",        110))
+    gravity  = float(p.get("gravity",  0.70))
+    cc_depth = float(p.get("cc_depth", 0.50))
+    html, new_tag, files = _generate_song(chaos, bpm, gravity, cc_depth)
+    return HTMLResponse(html, headers={
+        "X-Song-Tag":   new_tag,
+        "X-Song-Files": ",".join(files),
+    })
 
 
 @app.post("/weather", response_class=HTMLResponse)

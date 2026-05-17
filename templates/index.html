@@ -345,6 +345,19 @@
     .archive-zip  { font-size: 12px; color: #7c3aed; text-decoration: none; font-weight: bold; }
     .archive-zip:hover { text-decoration: underline; }
     .archive-sections { display: flex; flex-wrap: wrap; gap: .3rem .5rem; }
+    .archive-fav {
+      background: none; border: none; cursor: pointer;
+      font-size: 14px; padding: 0 .1rem; color: var(--muted); line-height: 1; flex-shrink: 0;
+    }
+    .archive-fav:hover { color: #f59e0b; }
+    .archive-regen {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 3px;
+      font-size: 11px; padding: 2px 7px; cursor: pointer;
+      font-family: inherit; font-weight: normal; flex-shrink: 0;
+    }
+    .archive-regen:hover { color: var(--primary); border-color: var(--primary); }
+    .archive-song.is-fav { border-left: 2px solid #f59e0b; padding-left: .5rem; }
     .modal-box {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -1018,8 +1031,10 @@ document.getElementById('song-modal').addEventListener('click', function(e) {
 
 async function openArchive() {
   document.getElementById('archive-modal').classList.add('open');
-  const res = await fetch('/archive');
-  document.getElementById('archive-content').innerHTML = await res.text();
+  const res     = await fetch('/archive');
+  const content = document.getElementById('archive-content');
+  content.innerHTML = await res.text();
+  htmx.process(content);  // câble les hx-* des boutons favoris/regen
 }
 function closeArchive() {
   document.getElementById('archive-modal').classList.remove('open');
