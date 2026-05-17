@@ -700,7 +700,12 @@ async def export_song(
                 letter        = _LETTERS[i]
                 cmult         = cstart if count == 1 else cstart + (i / (count - 1)) * (cend - cstart)
                 section_chaos = min(1.0, chaos * cmult)
-                section_name  = basename if count == 1 else f"{basename}{i + 1}"
+                if count == 1:
+                    section_name = basename
+                elif basename[-1].isdigit():
+                    section_name = f"{basename}-{i + 1}"   # couplet2-1, break2-1
+                else:
+                    section_name = f"{basename}{i + 1}"    # intro1, couplet1, climax1
                 fname         = f"{grp_num:02d}{letter}-{section_name}-{tag}.mid"
                 p = {
                     "mode": mode, "chaos": section_chaos,
