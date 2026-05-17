@@ -17,6 +17,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from bang_engine import (
     BangEngine,
+    DNA_SYMBOLS,
     compile_dna,
     fetch_weather,
     morph_dna,
@@ -61,9 +62,20 @@ DRUM_PRESETS: dict[str, dict[str, int]] = {
         "Bass": 36, "A1": 38, "E1": 39, "G1": 43,
     },
     "Battery 4": {
-        # NI Battery 4 kit par défaut
+        # NI Battery 4 — mapping GM (kits standard)
         "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
         "Bass": 24, "A1": 33, "E1": 40, "G1": 43,
+    },
+    "Tekno": {
+        # Baby Audio Tekno v1.001 — C1→F2 séquentiel
+        "Kick":  36,  # Kick A  — C1
+        "Bass":  37,  # Kick B  — C#1
+        "Snare": 38,  # Snare A — D1
+        "E1":    39,  # Snare B — D#1
+        "HiHat": 40,  # Hat A   — E1  (≠ GM)
+        "G1":    41,  # Hat B   — F1
+        "A1":    42,  # Hat Op  — F#1
+        "Tom":   43,  # Tom L   — G1  (≠ GM)
     },
     "LinnDrum": {
         "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
@@ -413,6 +425,35 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             if _state["weather"]:
                 voices.append((0, "CC91 réverb (météo)", "cc"))
         return voices
+
+    if mode == "noise":
+        # Rhythmic Noise — 8 voix, cycles asymétriques, haute entropie
+        _NOISE_VOICES = [
+            (36, 11), (38, 7),  (42, 13), (48, 5),
+            (40, 9),  (43, 11), (24, 7),  (33, 13),
+        ]
+        # Plus de chaos = plus de ratchets/jitter, moins de silences
+        w = [2 + chaos * 3, max(0.1, 2 - chaos * 1.5), 1 + chaos, chaos * 1.5, chaos]
+        return [
+            (note, mutate_dna(
+                ''.join(random.choices(DNA_SYMBOLS, weights=w, k=length)),
+                intensity=chaos * 0.4
+            ), "drum")
+            for note, length in _NOISE_VOICES
+        ]
+
+    if mode == "ambient":
+        # Dark Ambient — 3 voix ultra-sparse, longues silences
+        length = p["steps"]
+        # x=rare, -=dominant, ?=épars, ↺=jamais, ░=jamais
+        w = [0.3 + chaos * 0.3, 9.0, 0.5 + chaos * 0.2, 0.0, 0.0]
+        return [
+            (note, mutate_dna(
+                ''.join(random.choices(DNA_SYMBOLS, weights=w, k=length)),
+                intensity=chaos * 0.05
+            ), "drum")
+            for note in [36, 24, 33]
+        ]
 
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
