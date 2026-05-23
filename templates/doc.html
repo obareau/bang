@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>BANG! — Documentation v{{ app_version }}</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #64748b;
+    --primary: #38bdf8; --success: #4ade80; --warn: #fbbf24;
+    --dx: #4ade80; --dd: #475569; --dq: #fbbf24;
+    --dr: #f97316; --db: #94a3b8;
+    --babka: #e879f9; --alt: #fb7185; --euc: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace;
+         font-size: 13px; line-height: 1.6; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.4rem; color: var(--primary); margin-bottom: .25rem; }
+  h2 { font-size: 1rem; color: var(--primary); margin: 2rem 0 .75rem;
+       border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+  h3 { font-size: .85rem; color: var(--warn); margin: 1.25rem 0 .5rem; }
+  p  { color: var(--text); margin-bottom: .75rem; }
+  a  { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .subtitle { color: var(--muted); font-size: 11px; margin-bottom: 2rem; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 1.25rem; }
+  th { background: var(--surface); color: var(--muted); font-weight: normal;
+       text-align: left; padding: .35rem .6rem; border: 1px solid var(--border); font-size: 11px; }
+  td { padding: .3rem .6rem; border: 1px solid var(--border); vertical-align: top; }
+  tr:nth-child(even) td { background: #0f1929; }
+  code { background: var(--surface); color: var(--primary); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+  pre  { background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+         padding: .75rem 1rem; overflow-x: auto; margin-bottom: 1rem; }
+  pre code { background: none; padding: 0; }
+  .sym-x  { color: var(--dx);   font-weight: bold; }
+  .sym-d  { color: var(--dd); }
+  .sym-q  { color: var(--dq);   font-weight: bold; }
+  .sym-r  { color: var(--dr);   font-weight: bold; }
+  .sym-b  { color: var(--db);   font-weight: bold; }
+  .sym-bk { color: var(--babka); font-weight: bold; }
+  .sym-al { color: var(--alt);   font-weight: bold; }
+  .sym-eu { color: var(--euc);   font-weight: bold; }
+  .example { color: var(--euc); }
+  .note { background: #1e293b; border-left: 3px solid var(--warn);
+          padding: .5rem .75rem; margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
+  .btn-row { display: flex; gap: .5rem; margin: 1.5rem 0; flex-wrap: wrap; }
+  button, .btn { background: var(--surface); color: var(--text); border: 1px solid var(--border);
+                 border-radius: 4px; padding: .3rem .8rem; font-family: inherit; font-size: 12px;
+                 cursor: pointer; text-decoration: none; display: inline-block; }
+  button:hover, .btn:hover { border-color: var(--primary); color: var(--primary); }
+  .back { margin-bottom: 1.5rem; font-size: 12px; }
+
+  @media print {
+    body { background: #fff; color: #000; max-width: 100%; }
+    :root { --bg: #fff; --surface: #f5f5f5; --border: #ccc; --text: #000;
+            --muted: #666; --primary: #0369a1; --success: #16a34a; --warn: #ca8a04;
+            --dx: #16a34a; --dd: #6b7280; --dq: #ca8a04; --dr: #ea580c; --db: #64748b;
+            --babka: #a21caf; --alt: #be123c; --euc: #065f46; }
+    .btn-row, .back { display: none; }
+    h2 { page-break-before: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="back"><a href="/">← Retour à BANG!</a></div>
+
+<h1>BANG! — Documentation</h1>
+<p class="subtitle">v{{ app_version }} · Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis</p>
+
+<div class="btn-row">
+  <button onclick="downloadMd()">⬇ Télécharger .md</button>
+  <button onclick="window.print()">🖨 Exporter PDF</button>
+  <a class="btn" href="/">← Interface</a>
+</div>
+
+<h2>Syntaxe DNA</h2>
+<p>Les atomes DNA sont les briques de base de tout pattern BANG!. Ils s'enchaînent directement, sans séparateur.</p>
+
+<table>
+  <tr><th>Symbole</th><th>Nom</th><th>Trigger</th><th>Velocity</th><th>Prob</th><th>Ratchet</th><th>Jitter</th></tr>
+  <tr><td><span class="sym-x">x</span></td><td>Hit</td><td>oui</td><td>105</td><td>100%</td><td>×1</td><td>—</td></tr>
+  <tr><td><span class="sym-d">-</span></td><td>Silence</td><td>non</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td><span class="sym-q">?</span></td><td>Probable</td><td>oui</td><td>90</td><td>50%</td><td>×1</td><td>—</td></tr>
+  <tr><td><span class="sym-r">↺</span></td><td>Ratchet</td><td>oui</td><td>110</td><td>100%</td><td>×3</td><td>—</td></tr>
+  <tr><td><span class="sym-b">░</span></td><td>Ghost</td><td>oui</td><td>85</td><td>100%</td><td>×1</td><td>±25ms</td></tr>
+</table>
+
+<h3>Exemples DNA</h3>
+<pre><code>x---x---       → kick sur 1 et 3
+x-x-x-x-       → hi-hat double-croche
+?-?-?-?-       → pattern 50% aléatoire
+x-░-x-░-      → ghost notes sur les temps faibles
+↺---x---      → ratchet sur le 1</code></pre>
+
+<h2>Syntaxe Babka ⚗</h2>
+<p>Extension de DNA avec la mini-notation Strudel. Tout pattern DNA reste valide. Les opérateurs structurels s'ajoutent par-dessus.</p>
+
+<table>
+  <tr><th>Opérateur</th><th>Syntaxe</th><th>Comportement</th></tr>
+  <tr>
+    <td><span class="sym-bk">[ ]</span></td>
+    <td><code>[a b c]</code></td>
+    <td>Subdivision — n atomes partagent 1 step. Durées divisées équitablement.</td>
+  </tr>
+  <tr>
+    <td><span class="sym-al">&lt; &gt;</span></td>
+    <td><code>&lt;a b c&gt;</code></td>
+    <td>Alternance — sélectionne une alternative par cycle (séparées par espaces).</td>
+  </tr>
+  <tr>
+    <td><span class="sym-eu">( )</span></td>
+    <td><code>x(n,k)</code></td>
+    <td>Euclidien inline — distribue n triggers sur k steps (algorithme de Bresenham).</td>
+  </tr>
+  <tr>
+    <td><span class="sym-bk">[ ]</span> + <span class="sym-eu">( )</span></td>
+    <td><code>[x(n,k)]</code></td>
+    <td>Euclidien overlay — k steps euclidiens compressés dans 1 step.</td>
+  </tr>
+</table>
+
+<h3>Subdivision <code class="sym-bk">[a b c]</code></h3>
+<pre><code>[x x]           → 2 hits dans 1 step (16e → 32e)
+[x x x]         → triolet dans 1 step
+x-[x x]-        → step 1: hit · step 2: silence · step 3: 2 hits · step 4: silence
+[x x]-[x x x]-  → combinaison subdivisions</code></pre>
+<div class="note">La durée totale du groupe reste 1 step, quelle que soit la profondeur d'imbrication.</div>
+
+<h3>Alternance <code class="sym-al">&lt;a b c&gt;</code></h3>
+<pre><code>&lt;x- -x&gt;         → cycle 0: x- | cycle 1: -x | cycle 2: x- ...
+&lt;x---x--- x-[x-]x--&gt;   → alternance de patterns complexes
+&lt;x ↺ ?&gt;         → alterne hit / ratchet / prob sur chaque cycle</code></pre>
+<div class="note">Les alternatives sont séparées par des espaces au niveau 0. Les imbrications <code>&lt;&gt;</code> ou <code>[]</code> internes sont correctement gérées.</div>
+
+<h3>Euclidien inline <code class="sym-eu">x(n,k)</code></h3>
+<pre><code>x(3,8)          → 3 hits sur 8 steps : x--x--x-
+x(5,8)          → 5 hits sur 8 steps : x-xx-xx-
+?(2,8)          → 2 hits probables sur 8 steps
+↺(2,8)         → 2 ratchets sur 8 steps</code></pre>
+<div class="note">Tout atome DNA supporte le suffixe euclidien. Les k steps sont générés à durée 1.0 (inline = séquence plate).</div>
+
+<h3>Euclidien overlay <code class="sym-bk">[</code><code class="sym-eu">x(n,k)</code><code class="sym-bk">]</code></h3>
+<pre><code>[x(3,4)]        → 3 hits sur 4 steps, compressés dans 1 step
+[x(3,8)]        → 3 hits sur 8 steps dans 1 step (durées = 0.125 chacune)</code></pre>
+<div class="note">L'overlay <code>[x(n,k)]</code> diffère de l'inline <code>x(n,k)</code> : les k steps sont normalisés pour tenir dans 1 step de base.</div>
+
+<h3>Combinaisons</h3>
+<pre><code>x-[x x]-?              → hit · silence · 2 hits subdivisés · prob
+&lt;x---x--- x-[x-]x--&gt;  → alternance de patterns avec subdivision
+&lt;[x x]- x--&gt;           → subdivision dans une alternance
+↺-[x ?]-░(2,4)        → ratchet · silence · prob/hit subdiivisés · 2 ghosts sur 4</code></pre>
+
+<h2>Modes de génération</h2>
+
+<table>
+  <tr><th>Mode</th><th>Description</th><th>Usage</th></tr>
+  <tr><td>Morph</td><td>DNA morphé + mutation selon le chaos</td><td>Évolution organique d'un pattern existant</td></tr>
+  <tr><td>Random</td><td>Aléatoire pur</td><td>Exploration, point de départ</td></tr>
+  <tr><td>Weather</td><td>Densité/texture selon météo Scaër (température, vent)</td><td>Ambient génératif</td></tr>
+  <tr><td>Markov</td><td>Ligne mélodique via chaîne de Markov + CC drone</td><td>Mélodies sombres, Dark Umbrae</td></tr>
+  <tr><td>Phase 2</td><td>Markov + CC drone + polyrythmie (2 patterns kick)</td><td>Textures complexes en évolution</td></tr>
+  <tr><td>Noise ◼</td><td>8 voix, cycles asymétriques, haute entropie</td><td>Percussion industrielle dense</td></tr>
+  <tr><td>Ambient ◌</td><td>3 voix ultra-sparse</td><td>Espace, respiration</td></tr>
+  <tr><td>Babka ⚗</td><td>Syntaxe Babka — 3 niveaux selon chaos</td><td>Patterns structurés avec subdivision et euclidien</td></tr>
+  <tr><td>Volca Drum ★</td><td>6 parts canaux 1–6, P-locks CC par step</td><td>Korg Volca Drum natif</td></tr>
+</table>
+
+<h2>Paramètres</h2>
+
+<table>
+  <tr><th>Paramètre</th><th>Plage</th><th>Effet</th></tr>
+  <tr><td>BPM</td><td>40–300</td><td>Tempo en battements par minute</td></tr>
+  <tr><td>Steps</td><td>4–128</td><td>Longueur du pattern (16 = 1 mesure 4/4)</td></tr>
+  <tr><td>Chaos</td><td>0–1</td><td>Intensité des mutations et de l'aléatoire</td></tr>
+  <tr><td>Gravity</td><td>0–1</td><td>Gravité de la chaîne Markov (modes Markov/Phase 2)</td></tr>
+  <tr><td>CC Depth</td><td>0–1</td><td>Amplitude du drone CC MIDI</td></tr>
+  <tr><td>VEL MIN</td><td>0–126</td><td>Plancher de velocity après mappage</td></tr>
+  <tr><td>VEL MAX</td><td>1–127</td><td>Plafond de velocity après mappage</td></tr>
+  <tr><td>DYNAMICS</td><td>0.1–4.0</td><td>&lt;1 = compression · 1 = linéaire · &gt;1 = expansion</td></tr>
+  <tr><td>Poly</td><td>0 = ∞</td><td>Nombre max de voix simultanées par step</td></tr>
+</table>
+
+<h2>Opérateurs de voix</h2>
+
+<table>
+  <tr><th>Bouton</th><th>Effet</th></tr>
+  <tr><td>×1</td><td>Pattern complet</td></tr>
+  <tr><td>÷2</td><td>Garde 1 trigger sur 2 (half-time)</td></tr>
+  <tr><td>÷4</td><td>Garde 1 trigger sur 4 (quarter-time)</td></tr>
+</table>
+
+<h2>BangEngine API</h2>
+<pre><code>from bang_engine import BangEngine, dark_chain
+import babka
+
+e = BangEngine(bpm=120, ticks_per_step=120,
+               vel_floor=20, vel_ceiling=110, vel_curve=0.7)
+
+e.add_voice(36, "x---x---")              # voix DNA simple
+e.add_voice(42, ["x-x-", "x--x"])       # polyrythmie (liste de patterns)
+e.add_markov_voice(dark_chain(), "x-?-") # mélodie Markov
+e.add_babka_voice(38, "x(3,8)")         # voix Babka euclidienne
+e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")  # alternance + subdivision
+e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
+
+e.export_midi(num_steps=64, filename="out.mid")</code></pre>
+
+<h2>Format Session (.json)</h2>
+<p>Une session BANG! sauvegarde l'état complet pour reproduction exacte :</p>
+<pre><code>{
+  "bang_version": "0.3.0",
+  "timestamp": "2026-05-23T10:00:00",
+  "seed": "abc123",
+  "params": {
+    "mode": "babka", "bpm": 120, "steps": 16,
+    "chaos": 0.3, "gravity": 0.7, "cc_depth": 0.5,
+    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0
+  },
+  "voices": [
+    {"note": 36, "pattern": "x---x---", "type": "babka"},
+    {"note": 38, "pattern": "x(3,8)",   "type": "babka"}
+  ],
+  "voice_thin": {},
+  "note_remap": {},
+  "max_poly": 0
+}</code></pre>
+
+<div class="btn-row" style="margin-top:2rem">
+  <button onclick="downloadMd()">⬇ Télécharger .md</button>
+  <button onclick="window.print()">🖨 Exporter PDF</button>
+  <a class="btn" href="/">← Interface</a>
+</div>
+
+<script>
+function downloadMd() {
+  const md = `# BANG! — Documentation v{{ app_version }}
+
+Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis
+
+## Syntaxe DNA
+
+| Symbole | Nom | Trigger | Velocity | Prob | Ratchet | Jitter |
+|---------|-----|---------|----------|------|---------|--------|
+| \`x\` | Hit | oui | 105 | 100% | ×1 | — |
+| \`-\` | Silence | non | — | — | — | — |
+| \`?\` | Probable | oui | 90 | 50% | ×1 | — |
+| \`↺\` | Ratchet | oui | 110 | 100% | ×3 | — |
+| \`░\` | Ghost | oui | 85 | 100% | ×1 | ±25ms |
+
+## Syntaxe Babka ⚗
+
+| Opérateur | Syntaxe | Comportement |
+|-----------|---------|-------------|
+| \`[ ]\` | \`[a b c]\` | Subdivision — n atomes dans 1 step |
+| \`< >\` | \`<a b c>\` | Alternance cycle par cycle |
+| \`( )\` | \`x(n,k)\` | Euclidien inline — n triggers sur k steps |
+| \`[( )]\` | \`[x(n,k)]\` | Euclidien overlay — compressé dans 1 step |
+
+### Exemples
+
+\`\`\`
+x---x---          DNA pur — kick sur 1 et 3
+[x x]-x-[x x]-x-  subdivisions
+x(3,8)            3 hits euclidiens sur 8 steps
+<x-x- ?-?->       alternance deux patterns
+↺(2,8)           2 ratchets euclidiens
+<[x x]- x-->      subdivision dans alternance
+\`\`\`
+
+## Modes de génération
+
+| Mode | Description |
+|------|-------------|
+| Morph | DNA morphé + mutation selon chaos |
+| Random | Aléatoire pur |
+| Weather | Densité selon météo Scaër |
+| Markov | Ligne mélodique via chaîne de Markov |
+| Phase 2 | Markov + CC drone + polyrythmie |
+| Noise ◼ | 8 voix cycles asymétriques, haute entropie |
+| Ambient ◌ | 3 voix ultra-sparse |
+| Babka ⚗ | Syntaxe Babka — 3 niveaux selon chaos |
+| Volca Drum ★ | 6 parts sur canaux 1–6, P-locks CC |
+
+## Paramètres
+
+| Paramètre | Plage | Effet |
+|-----------|-------|-------|
+| BPM | 40–300 | Tempo |
+| Steps | 4–128 | Longueur du pattern |
+| Chaos | 0–1 | Intensité des mutations |
+| Gravity | 0–1 | Gravité Markov |
+| CC Depth | 0–1 | Amplitude drone CC |
+| VEL MIN | 0–126 | Plancher velocity |
+| VEL MAX | 1–127 | Plafond velocity |
+| DYNAMICS | 0.1–4.0 | <1 compresse · 1 linéaire · >1 expand |
+| Poly | 0=∞ | Max voix simultanées |
+`;
+  const blob = new Blob([md], {type: 'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bang-doc.md';
+  a.click();
+}
+</script>
+
+</body>
+</html>

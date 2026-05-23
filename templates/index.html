@@ -341,6 +341,11 @@
 
     /* Export modal */
     .btn-arch { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .btn-session { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .btn-session:hover { color: var(--success); border-color: var(--success); }
+    #session-load-input { display: none; }
+    .btn-doc { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .btn-doc:hover { color: var(--primary); border-color: var(--primary); }
     #export-modal, #song-modal, #archive-modal {
       display: none;
       position: fixed; inset: 0;
@@ -564,6 +569,23 @@
       <button class="btn-arch" onclick="openArchive()">
         Archive ☰
       </button>
+
+      <a class="btn btn-session" href="/session/export" title="Sauver l'état complet (JSON)">
+        💾 Session
+      </a>
+
+      <form id="session-load-form" method="post" action="/session/import" enctype="multipart/form-data" style="display:inline">
+        <input type="file" id="session-load-input" name="file" accept=".json"
+               onchange="this.form.submit()">
+        <button type="button" class="btn btn-session" onclick="document.getElementById('session-load-input').click()"
+                title="Charger une session JSON">
+          📂 Charger
+        </button>
+      </form>
+
+      <a class="btn btn-doc" href="/doc" target="_blank" title="Documentation DNA / Babka">
+        ? Doc
+      </a>
 
       <button class="btn-met"
               hx-post="/weather"

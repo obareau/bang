@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Annotated
 
 import uvicorn
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -1190,6 +1190,52 @@ async def set_poly(max_poly: Annotated[int, Form()] = 0):
     if not _state["voices"] or not _state["last_p"]:
         return HTMLResponse("")
     return HTMLResponse(_build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None))
+
+
+@app.get("/doc", response_class=HTMLResponse)
+async def doc_page():
+    return render("doc.html", app_version=APP_VERSION)
+
+
+@app.get("/session/export")
+async def session_export():
+    payload = {
+        "bang_version": APP_VERSION,
+        "timestamp":    datetime.utcnow().isoformat(),
+        "seed":         _state["last_seed"],
+        "params":       _state["last_p"] or {},
+        "voices":       [{"note": n, "pattern": d, "type": t} for n, d, t in _state["voices"]],
+        "voice_thin":   _state["voice_thin"],
+        "note_remap":   _state["note_remap"],
+        "max_poly":     _state["max_poly"],
+    }
+    content = json.dumps(payload, ensure_ascii=False, indent=2)
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="bang-session-{ts}.json"'},
+    )
+
+
+@app.post("/session/import")
+async def session_import(file: UploadFile = File(...)):
+    from fastapi.responses import RedirectResponse
+    try:
+        data = json.loads(await file.read())
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return HTMLResponse("Fichier JSON invalide", status_code=400)
+
+    _state["voices"]       = [(v["note"], v["pattern"], v["type"]) for v in data.get("voices", [])]
+    _state["voice_thin"]   = data.get("voice_thin", {})
+    _state["note_remap"]   = data.get("note_remap", {})
+    _state["max_poly"]     = int(data.get("max_poly", 0))
+    _state["last_seed"]    = data.get("seed", "")
+    if data.get("params"):
+        _state["last_p"]   = data["params"]
+    if _state["last_p"] and _state["voices"]:
+        _state["engine"]   = _assemble_engine(_state["last_p"], _state["voices"])
+    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/presets")
