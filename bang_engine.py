@@ -443,6 +443,7 @@ class BangEngine:
         temporal_jitter: bool = False,
         swing: float = 0.0,
         plocks: list | None = None,
+        vel_humanize: int = 0,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -486,7 +487,8 @@ class BangEngine:
                             actual_start = max(0, int(cursor_tick + base_jit))
                             r_div    = int(max(1, s.ratchet))
                             r_dur    = max(1, int(dur_ticks) // r_div)
-                            out_vel  = vel_map(s.velocity, self.vel_floor, self.vel_ceiling, self.vel_curve)
+                            raw_vel  = s.velocity + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
+                            out_vel  = vel_map(raw_vel, self.vel_floor, self.vel_ceiling, self.vel_curve)
                             for r in range(r_div):
                                 t_on = actual_start + r * r_dur
                                 v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
@@ -527,7 +529,8 @@ class BangEngine:
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 
-                    out_vel = vel_map(int(vel), self.vel_floor, self.vel_ceiling, self.vel_curve)
+                    raw_vel = int(vel) + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
+                    out_vel = vel_map(raw_vel, self.vel_floor, self.vel_ceiling, self.vel_curve)
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
                         v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
