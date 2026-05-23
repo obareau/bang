@@ -136,6 +136,7 @@
   <a href="#presets">Presets</a>
   <a href="#tui">Interface</a>
   <a href="#params">Paramètres</a>
+  <a href="#gammes">Gammes</a>
   <a href="#dna">Syntaxe DNA</a>
   <a href="#babka">Syntaxe Babka</a>
   <a href="#api">API HTTP</a>
@@ -156,6 +157,7 @@
       <li>Une fonction Play — lecture du pattern dans le navigateur, pianoroll synchronisé</li>
       <li>Une fonction Preview — modification DNA → pianoroll mis à jour en temps réel</li>
       <li>Des P-locks CC par step pour les synths hardware</li>
+      <li>Des gammes configurables pour les modes mélodiques — 12 toniques × 8 modes</li>
     </ul>
   </div>
   <div class="what-box what-no">
@@ -186,13 +188,13 @@ Canal 10 · note 42 (HH)    · pattern 16 steps
 Canal 10 · note 24 (Bass)  · pattern 5 steps   ← décalage polyrythmique</code></pre>
 
 <h3>Ligne de basse — mode Bassline ♩</h3>
-<p>2 voix mélodiques sur <strong>canal 1</strong> pilotées par une chaîne de Markov sur la gamme pentatonique mineure (A1–C3, 2 octaves). Les notes changent à chaque step selon une matrice de transitions. Un drone CC74 (filtre) et optionnellement CC5 (portamento) sont exportés sur la même piste.</p>
-<pre><code>Canal 1 · notes Markov Am penta 2 octaves · 2 patterns indépendants
+<p>2 voix mélodiques sur <strong>canal 1</strong> pilotées par une chaîne de Markov. La tonique et la gamme sont configurables (ROOT + SCALE) — défaut A pentatonique mineur, 2 octaves. Les notes changent à chaque step selon une matrice de transitions pondérées par distance de degré et gravité tonique/quinte. Un drone CC74 (filtre) et optionnellement CC5 (portamento) sont exportés sur la même piste.</p>
+<pre><code>Canal 1 · notes Markov [ROOT] [SCALE] 2 octaves · 2 patterns indépendants
 Canal 1 · CC74 (filtre) drone continu
 Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
 
 <h3>Markov mélodique — modes Markov, Phase 2</h3>
-<p>Batterie standard + 1 voix mélodique Markov sur gamme mineure (A1–G2). Phase 2 ajoute un kick polyrhythmique (2 patterns morphés) et un second drone CC91 modulé par la météo.</p>
+<p>Batterie standard + 1 voix mélodique Markov. Tonique et gamme configurables (ROOT + SCALE) — défaut A pentatonique mineur, 1 octave. Phase 2 ajoute un kick polyrhythmique (2 patterns morphés) et un second drone CC91 modulé par la météo.</p>
 
 <h3>Korg Volca Kick ★ — mode Volca Kick</h3>
 <p>1 voix sur <strong>canal 1</strong>. La note MIDI (défaut C3/60) contrôle la hauteur de l'oscillateur du Volca Kick. 5 P-locks CC automatisés par step :</p>
@@ -248,12 +250,12 @@ Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
   <tr><td><code>morph</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>DNA morphé + mutation proportionnelle au chaos</td></tr>
   <tr><td><code>random</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>DNA entièrement aléatoire — point de départ</td></tr>
   <tr><td><code>weather</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>Densité/texture dérivée météo Scaër (temp, vent)</td></tr>
-  <tr><td><code>markov</code></td><td>4 drums + 1 mélodie</td><td>ch10 + ch10</td><td>libre</td><td>Voix mélodique Markov gamme Am + drone CC74</td></tr>
-  <tr><td><code>phase2</code></td><td>4 drums + 1 mélodie</td><td>ch10</td><td>libre</td><td>Markov + kick polyrhythmique + CC91 météo</td></tr>
+  <tr><td><code>markov</code></td><td>4 drums + 1 mélodie</td><td>ch10 + ch10</td><td>libre</td><td>Voix Markov gamme configurable (ROOT/SCALE) 1 oct + CC74</td></tr>
+  <tr><td><code>phase2</code></td><td>4 drums + 1 mélodie</td><td>ch10</td><td>libre</td><td>Markov configurable + kick polyrhythmique + CC91 météo</td></tr>
   <tr><td><code>noise</code></td><td>8 (drums)</td><td>ch10</td><td>libre</td><td>8 voix, cycles asymétriques, haute entropie</td></tr>
   <tr><td><code>ambient</code></td><td>3 (drums)</td><td>ch10</td><td>libre</td><td>3 voix ultra-sparse — espace, respiration</td></tr>
   <tr><td><code>babka</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>Syntaxe Babka — subdivision / euclidien / alternance</td></tr>
-  <tr><td><code>bassline</code> ♩</td><td>2 basse + CC</td><td>ch1</td><td>≤128</td><td>Ligne de basse Markov Am penta 2 octaves, portamento</td></tr>
+  <tr><td><code>bassline</code> ♩</td><td>2 basse + CC</td><td>ch1</td><td>≤128</td><td>Basse Markov gamme configurable (ROOT/SCALE) 2 oct, portamento</td></tr>
   <tr><td><code>volca_kick</code> ★</td><td>1 synth</td><td>ch1</td><td>≤16</td><td>Volca Kick — 1 voix + 5 P-locks CC</td></tr>
   <tr><td><code>volca_fm</code> ⚡</td><td>3 synths</td><td>ch1</td><td>≤16</td><td>Volca FM — polyphonie 3 voix + P-locks FM1</td></tr>
   <tr><td><code>volca_drum</code> ★</td><td>6 parts</td><td>ch1→ch6</td><td>≤16</td><td>Volca Drum — 6 canaux split + P-locks par part</td></tr>
@@ -285,7 +287,7 @@ Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
 <table>
   <tr><th>Zone</th><th>Description</th></tr>
   <tr><td>Header</td><td>Sélecteur de thème (AMB/GRN/RED/TRQ/WHT) + version</td></tr>
-  <tr><td>Panneau gauche</td><td>Formulaire : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, météo</td></tr>
+  <tr><td>Panneau gauche</td><td>Formulaire : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, root, scale (visible sur markov/phase2/bassline), météo</td></tr>
   <tr><td>Panneau central</td><td>Voix — note MIDI éditable, DNA coloré cliquable, boutons thin (×1/÷2/÷4), tags de type</td></tr>
   <tr><td>Panneau droit</td><td>Pianoroll SVG + P-locks + contrôles zoom (×0.5 à ×3)</td></tr>
   <tr><td>Log</td><td>Historique des exports (timestamp, fichier, seed, BPM, mode)</td></tr>
@@ -330,10 +332,29 @@ systemctl start bang        # via systemd</code></pre>
   <tr><td>VEL MAX</td><td>1–127</td><td>Plafond de velocity après mappage courbe</td></tr>
   <tr><td>DYNAMICS</td><td>0.1–4.0</td><td>&lt;1 = compression · 1 = linéaire · &gt;1 = expansion des dynamiques</td></tr>
   <tr><td>Poly</td><td>0 = ∞</td><td>Max de voix simultanées par step (filtre les excédents)</td></tr>
+  <tr><td>ROOT</td><td>C … B</td><td>Tonique de la chaîne Markov (modes markov / phase2 / bassline uniquement)</td></tr>
+  <tr><td>SCALE</td><td>8 gammes</td><td>Mode scalaire de la chaîne Markov — voir section Gammes</td></tr>
 </table>
 
 <h3>Thinning de voix (÷2 / ÷4)</h3>
 <p>Réduit la densité d'une voix sans modifier le pattern DNA. <code>÷2</code> garde 1 trigger sur 2, <code>÷4</code> garde 1 sur 4. Appliqué aussi bien au pianoroll qu'à l'export MIDI.</p>
+
+<!-- ─── GAMMES ────────────────────────────────────────────────────────────── -->
+<h2 id="gammes">Gammes configurables</h2>
+<p>Les modes <code>markov</code>, <code>phase2</code> et <code>bassline</code> utilisent une chaîne de Markov construite algorithmiquement à partir d'une tonique (ROOT) et d'un mode scalaire (SCALE). Les sélecteurs apparaissent dans l'interface uniquement pour ces trois modes.</p>
+<p>La matrice de transitions est pondérée par : distance de degré (préférence stepwise), gravité tonique (×1.5) et quinte (×1.2), pénalité de répétition (×0.35). Markov utilise 1 octave, Bassline 2 octaves.</p>
+<table>
+  <tr><th>Gamme</th><th>Intervalles (demi-tons)</th><th>Couleur sonore</th></tr>
+  <tr><td><code>penta_min</code></td><td>0 3 5 7 10</td><td>Pentatonique mineure — sombre, blues</td></tr>
+  <tr><td><code>penta_maj</code></td><td>0 2 4 7 9</td><td>Pentatonique majeure — ouverte, lumineuse</td></tr>
+  <tr><td><code>minor</code></td><td>0 2 3 5 7 8 10</td><td>Mineur naturel — expressif, dramatique</td></tr>
+  <tr><td><code>dorian</code></td><td>0 2 3 5 7 9 10</td><td>Dorien — jazz, funk, modal</td></tr>
+  <tr><td><code>phrygian</code></td><td>0 1 3 5 7 8 10</td><td>Phrygien — espagnol, flamenco, metal</td></tr>
+  <tr><td><code>major</code></td><td>0 2 4 5 7 9 11</td><td>Majeur — classique, pop</td></tr>
+  <tr><td><code>mixo</code></td><td>0 2 4 5 7 9 10</td><td>Mixolydien — rock, dominante</td></tr>
+  <tr><td><code>lydian</code></td><td>0 2 4 6 7 9 11</td><td>Lydien — onirique, cinématique</td></tr>
+</table>
+<div class="note">La chaîne générée via <code>build_markov_chain(root_note, intervals, num_octaves)</code> peut être utilisée directement dans l'API Python.</div>
 
 <!-- ─── DNA ──────────────────────────────────────────────────────────────── -->
 <h2 id="dna">Syntaxe DNA</h2>
@@ -381,8 +402,8 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
 <table>
   <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
   <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/</code></td><td>Interface principale</td></tr>
-  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/generate</code></td><td>Génère voix + pianoroll. Form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve</code></td></tr>
-  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export</code></td><td>Génère + écrit le <code>.mid</code>. Param supplémentaire : <code>dest_dir</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/generate</code></td><td>Génère voix + pianoroll. Form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve, root, scale</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export</code></td><td>Génère + écrit le <code>.mid</code>. Params supplémentaires : <code>dest_dir, root, scale</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export/song</code></td><td>Song complète multi-fichiers (intro → couplets → climax → outro)</td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/weather</code></td><td>Rafraîchit la météo Scaër</td></tr>
 </table>
@@ -444,9 +465,10 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
   "timestamp": "2026-05-23T10:00:00",
   "seed": "abc123def456",
   "params": {
-    "mode": "volca_kick", "bpm": 120, "steps": 16,
+    "mode": "bassline", "bpm": 120, "steps": 32,
     "chaos": 0.4, "gravity": 0.7, "cc_depth": 0.5,
-    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0
+    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0,
+    "root": "D", "scale": "dorian"
   },
   "voices": [
     {"note": 60, "pattern": "x---x-?-x---x---", "type": "vk"}
@@ -461,9 +483,9 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
   <tr><th>Type</th><th>Canal MIDI</th><th>Description</th></tr>
   <tr><td><code>drum</code></td><td>ch10</td><td>Batterie GM — note fixe, pattern DNA</td></tr>
   <tr><td><code>babka</code></td><td>ch10</td><td>Batterie avec syntaxe Babka</td></tr>
-  <tr><td><code>markov</code></td><td>ch10</td><td>Voix mélodique — notes Markov gamme Am</td></tr>
+  <tr><td><code>markov</code></td><td>ch10</td><td>Voix mélodique — notes Markov gamme/tonique configurables, 1 oct</td></tr>
   <tr><td><code>cc</code></td><td>—</td><td>Drone CC (pas de note, automation continue)</td></tr>
-  <tr><td><code>bl</code></td><td>ch1</td><td>Basse Markov — notes Am penta 2 octaves</td></tr>
+  <tr><td><code>bl</code></td><td>ch1</td><td>Basse Markov — gamme/tonique configurables, 2 oct</td></tr>
   <tr><td><code>vk</code></td><td>ch1</td><td>Volca Kick — note = pitch oscillateur</td></tr>
   <tr><td><code>vd{N}</code></td><td>ch{N+1}</td><td>Volca Drum part N (0–5)</td></tr>
   <tr><td><code>vfm{N}</code></td><td>ch1</td><td>Volca FM voix N (0–2) — polyphonique</td></tr>
@@ -472,15 +494,22 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
 
 <!-- ─── ENGINE ────────────────────────────────────────────────────────────── -->
 <h2 id="engine">BangEngine — API Python</h2>
-<pre><code>from bang_engine import BangEngine, dark_chain, bass_chain
+<pre><code>from bang_engine import BangEngine, build_markov_chain, SCALE_INTERVALS
 
 e = BangEngine(bpm=120, vel_floor=20, vel_ceiling=110, vel_curve=0.7)
 
 e.add_voice(36, "x---x---")                        # DNA simple, ch10
 e.add_voice(42, ["x-x-", "x--x"])                  # polyrythmie (liste)
 e.add_voice(60, "x---x-?-x---x---", channel=0)     # Volca Kick, ch1
-e.add_markov_voice(dark_chain(), "x-?-")            # mélodie Am gamme mineure
-e.add_markov_voice(bass_chain(), "x---x-x-")        # basse Am penta 2 octaves
+
+# Mélodie Markov — D dorien, 1 octave
+chain = build_markov_chain(root_note=50, intervals=SCALE_INTERVALS["dorian"], num_octaves=1)
+e.add_markov_voice(chain, "x-?-")
+
+# Basse Markov — C pentatonique mineur, 2 octaves
+bass = build_markov_chain(root_note=36, intervals=SCALE_INTERVALS["penta_min"], num_octaves=2)
+e.add_markov_voice(bass, "x---x-x-")
+
 e.add_babka_voice(38, "x(3,8)")                     # euclidien
 e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")        # alternance + subdivision
 e.add_cc_drone(control=74, breakpoints=[20,100,20]) # automation filtre
