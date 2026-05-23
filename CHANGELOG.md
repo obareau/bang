@@ -1,5 +1,13 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.5.2] — 2026-05-23
+
+### Séquençage & génération
+
+- **Euclidien par voix** — bouton `E` par voix dans le panneau DNA. Cliquer ouvre un champ numérique ; entrer `k` (nombre de hits) et valider avec Entrée applique le rythme euclidien E(n,k) sur la longueur du pattern courant. Algorithme Bresenham. Mise à jour pianoroll et engine immédiate.
+
+---
+
 ## [0.5.1] — 2026-05-23
 
 ### Séquençage & génération

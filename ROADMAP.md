@@ -6,7 +6,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Acquis (v0.1 → v0.5.1)
+## Acquis (v0.1 → v0.5.2)
 
 - Entropie multi-sources (temporelle, cryptographique, météo Scaër)
 - Markov, Babka, P-locks, presets hardware (Volca Drum/Kick/FM, MicroFreak)
@@ -25,6 +25,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 - **Chord mode Markov** — 11 types (mono→aug), export + player JS ✅
 - **OSC output** — thread UDP, `/bang/clock`, `/bang/{voix}` ✅
 - **Mode Keystep Pro ♜** — 4 pistes Markov ch1-4 + drums ✅
+- **Euclidien par voix** — bouton `E` par voix, input `k` hits → applique E(n,k) sur la voix ✅
 
 ---
 
@@ -34,7 +35,6 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 | Item | Effort | Notes |
 |------|--------|-------|
-| **Euclidien par voix** | 🟢 1h | Bouton E(n,k) dans l'éditeur DNA pour générer un pattern euclidien directement sur une voix. |
 | **Micro-timing global** | 🟡 2h | Quantize strength 0–1 : à 0 = free, à 1 = on-grid. Interpolation du swing step-par-step. |
 | **Variation automatique** | 🟡 3h | Bouton "Varier" : mutate légèrement le pattern courant sans tout régénérer (entre Undo et Generate). |
 | **Polymetry** | 🔴 5h | Longueurs de pattern indépendantes par voix (ex. 5 steps sur Kick, 7 sur Snare). Déjà partiellement là via `trigger_dna` list. |
@@ -56,12 +56,11 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Ordre suggéré (suite v0.5.1)
+## Ordre suggéré (suite v0.5.2)
 
-1. 🟢 Euclidien par voix — rapide, musicalement utile
-2. 🟢 Preset KSP — complète le mode Keystep Pro
-3. 🟡 Variation automatique — workflow exploration
-4. 🟡 Micro-timing global — finition musicale
-5. 🟡 OSC bidirectionnel — intégration écosystème complète
-6. 🔴 Polymetry — nouveau territoire rythmique
-7. 🔴 MIDI input — franchissement de seuil majeur
+1. 🟢 Preset KSP — complète le mode Keystep Pro
+2. 🟡 Variation automatique — workflow exploration
+3. 🟡 Micro-timing global — finition musicale
+4. 🟡 OSC bidirectionnel — intégration écosystème complète
+5. 🔴 Polymetry — nouveau territoire rythmique
+6. 🔴 MIDI input — franchissement de seuil majeur

@@ -97,6 +97,22 @@
               hx-target="#voices"
               hx-swap="innerHTML"
               title="{{ '🔓 Déverrouiller' if is_locked else '🔒 Verrouiller cette voix' }}">🔒</button>
+      <span class="euclid-wrap">
+        <button type="button" class="btn-euclid"
+                onclick="bangToggleEuclid(this)"
+                title="Rythme euclidien — entrer le nombre de hits, valider avec Entrée">E</button>
+        <input class="euclid-k" type="number" min="1" max="{{ raw|length }}"
+               value="{{ (raw|length) // 2 }}"
+               style="display:none"
+               hx-post="/voice/euclidean"
+               hx-vals='{"idx": {{ idx }}}'
+               hx-include="this"
+               hx-target="#voices"
+               hx-swap="innerHTML"
+               hx-trigger="keydown[key=='Enter']"
+               name="k"
+               title="Nombre de hits (1–{{ raw|length }})">
+      </span>
       {% endif %}
     </div>
     {% if vtype != "cc" %}

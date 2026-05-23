@@ -310,6 +310,31 @@
     }
     .chord-select:focus { outline: none; border-color: var(--accent); }
 
+    /* Euclidean per-voice */
+    .euclid-wrap { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .btn-euclid {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-euclid:hover { color: var(--text); border-color: var(--muted); }
+    .euclid-k {
+      width: 34px;
+      font-size: 10px;
+      padding: 1px 3px;
+      background: var(--bg2);
+      color: var(--fg);
+      border: 1px solid var(--accent);
+      border-radius: 3px;
+      text-align: center;
+    }
+    .euclid-k:focus { outline: none; }
+
     /* D.I.M legend (inline dans bottom-bar) */
     .dim-item { color: var(--muted); display: flex; align-items: center; gap: .25rem; font-size: 11px; }
     .dim-item .dx { color: var(--dx); font-weight: bold; }
@@ -1631,6 +1656,14 @@ function bangCancelEdit(inp) {
   inp.style.display = 'none';
   const view = inp.previousElementSibling;
   if (view) view.style.display = 'block';
+}
+
+function bangToggleEuclid(btn) {
+  const inp = btn.nextElementSibling;
+  if (!inp) return;
+  const visible = inp.style.display !== 'none';
+  inp.style.display = visible ? 'none' : 'inline-block';
+  if (!visible) { inp.focus(); inp.select(); }
 }
 
 let _bangPreviewTimer = null;

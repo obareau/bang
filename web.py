@@ -1696,6 +1696,36 @@ async def voice_density(name: Annotated[str, Form()], density: Annotated[float, 
 
 _VALID_CHORDS = {"mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"}
 
+
+def _euclid_dna(n: int, k: int) -> str:
+    """Distribue k hits sur n steps (Bresenham)."""
+    if n <= 0:
+        return ""
+    k = max(0, min(k, n))
+    if k == 0:
+        return "-" * n
+    return "".join("x" if (i * k % n) < k else "-" for i in range(n))
+
+
+@app.post("/voice/euclidean", response_class=HTMLResponse)
+async def voice_euclidean(idx: Annotated[int, Form()], k: Annotated[int, Form()]):
+    if not _state["voices"] or not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, raw, vtype = _state["voices"][idx]
+    n = len(raw)
+    if n == 0:
+        return HTMLResponse("")
+    new_dna = _euclid_dna(n, k)
+    _state["voices"][idx] = (note, new_dna, vtype)
+    if _state["last_p"]:
+        _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+        pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
+        oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    else:
+        oob = ""
+    return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
 @app.post("/voice/chord", response_class=HTMLResponse)
 async def voice_chord(name: Annotated[str, Form()], chord_type: Annotated[str, Form()] = "mono"):
     if chord_type in _VALID_CHORDS:
