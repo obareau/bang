@@ -93,6 +93,11 @@ DRUM_PRESETS: dict[str, dict[str, int]] = {
     "Volca Kick": {
         "VKick": 60,   # C3 — pitch initial du kick (note → hauteur de l'oscillateur)
     },
+    "Volca FM": {
+        "FM1": 36,  # C1 — voix grave
+        "FM2": 43,  # G1 — quinte
+        "FM3": 48,  # C2 — octave
+    },
 }
 
 
@@ -178,6 +183,21 @@ VOLCA_KICK_CC: dict[int, str] = {
 }
 
 # ---------------------------------------------------------------------------
+# Korg Volca FM — MIDI CC (DX7-compatible, 4 opérateurs)
+# ---------------------------------------------------------------------------
+
+VOLCA_FM_CC: dict[int, str] = {
+    40: "Algorithm",    # algorithme FM (0-127 → 8 algos)
+    41: "Feedback",     # auto-feedback opérateur 1
+    42: "LFO Rate",     # vitesse LFO (vibrato/tremolo)
+    43: "LFO Depth",    # profondeur pitch LFO
+    44: "Op1 Level",    # niveau opérateur 1 (porteur)
+    45: "Op2 Level",    # niveau opérateur 2 (modulateur)
+    46: "Op3 Level",    # niveau opérateur 3
+    47: "Op4 Level",    # niveau opérateur 4
+}
+
+# ---------------------------------------------------------------------------
 # Profils P-locks génériques (vk, puis vfm, vmf à venir)
 # ---------------------------------------------------------------------------
 
@@ -188,6 +208,13 @@ _SYNTH_PLOCK_PROFILES: dict[str, list[tuple]] = {
         (46, "Drive",  "texture"),  # saturation variable
         (47, "Fold",   "texture"),  # contenu harmonique
         (48, "BitRed", "spike"),    # artefacts lo-fi
+    ],
+    "vfm0": [
+        (40, "Algo",   "spike"),    # changement d'algorithme — rupture timbre
+        (41, "Feedbk", "texture"),  # auto-feedback — densité harmonique
+        (44, "Op1Lvl", "sweep"),    # balance porteur/modulateur
+        (45, "Op2Lvl", "sweep"),    # balance porteur/modulateur
+        (42, "LFOSpd", "texture"),  # vitesse vibrato
     ],
 }
 
@@ -387,6 +414,10 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             idx   = int(vtype[2:])
             color = _VD_PART_COLORS[idx]
             name  = _VD_PART_NAMES[idx]
+        elif vtype.startswith("vfm"):
+            idx   = int(vtype[3:])
+            color = _VFM_PART_COLORS[idx]
+            name  = _VFM_PART_NAMES[idx]
         elif vtype == "bl":
             bl_idx = sum(1 for r in rows if r.get("vtype") == "bl")
             color  = "#a78bfa"
@@ -614,6 +645,26 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
         dna  = mutate_dna(dna, intensity=chaos * 0.25)
         return [(60, dna, "vk")]  # C3 — pitch initial
 
+    if mode == "volca_fm":
+        # 3 voix polyphoniques FM — canal unique ch1 (index 0)
+        # Notes : C1=36 (grave), G1=43 (quinte), C2=48 (octave)
+        # DNA limité à 16 steps
+        _VFM_NOTES = [36, 43, 48]
+        _VFM_BASES = [
+            # FM1 (grave) — ligne principale, syncopes avec silence
+            ("x---x---x---x---", "x---x--?x---x---"),
+            # FM2 (quinte) — contre-rythme, plus épars
+            ("--x---x---x---x-", "--x?--x---x---x-"),
+            # FM3 (octave) — atmosphérique, rare
+            ("---?---x--------", "---?--------x---"),
+        ]
+        voices = []
+        for i, ((base_a, base_b), note) in enumerate(zip(_VFM_BASES, _VFM_NOTES)):
+            dna = morph_dna(base_a, base_b, mutation_rate=chaos * 0.45)
+            dna = mutate_dna(dna, intensity=chaos * 0.25)
+            voices.append((note, dna, f"vfm{i}"))
+        return voices
+
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
         # Note indifférente (on envoie 60/C3) — seul le canal compte
@@ -639,10 +690,15 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
 _VD_PART_NAMES  = ["Punch", "Snap", "HH", "OH", "Perc", "Acc"]
 _VD_PART_COLORS = ["#38bdf8", "#4ade80", "#fb923c", "#facc15", "#c084fc", "#67e8f9"]
 
+_VFM_PART_NAMES  = ["FM1", "FM2", "FM3"]
+_VFM_PART_COLORS = ["#60a5fa", "#2dd4bf", "#818cf8"]  # bleu, teal, indigo
+
 
 def _voice_label(note: int, vtype: str) -> str:
     if vtype.startswith("vd"):
         return _VD_PART_NAMES[int(vtype[2:])]
+    if vtype.startswith("vfm"):
+        return _VFM_PART_NAMES[int(vtype[3:])]
     if vtype == "babka":
         return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     if vtype == "bl":
@@ -659,6 +715,7 @@ def _apply_note_remap(voices: list) -> list:
     return [
         (n if (vtype.startswith("vd") or vtype == "bl") else
          remap.get("VKick", n) if vtype == "vk" else
+         remap.get(_VFM_PART_NAMES[int(vtype[3:])], n) if vtype.startswith("vfm") else
          remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
         for n, dna, vtype in voices
     ]
@@ -686,6 +743,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_voice(note, dna, channel=int(vtype[2:]))
         elif vtype == "vk":
             engine.add_voice(note, dna, channel=0)  # MIDI ch1
+        elif vtype.startswith("vfm"):
+            engine.add_voice(note, dna, channel=0)  # MIDI ch1 — polyphonique
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna)
         elif vtype == "bl":
@@ -727,7 +786,7 @@ def _read_form(
     vel_curve:   float = 1.0,
 ) -> dict:
     _steps = max(1, int(steps))
-    if mode in ("volca_drum", "volca_kick"):
+    if mode in ("volca_drum", "volca_kick", "volca_fm"):
         _steps = min(_steps, 16)
     elif mode == "bassline" and _steps > 128:
         _steps = 128
@@ -785,7 +844,7 @@ async def generate(
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
-    plocks = _generate_plocks(voices, p) if p["mode"] in ("volca_drum", "volca_kick") else []
+    plocks = _generate_plocks(voices, p) if p["mode"] in ("volca_drum", "volca_kick", "volca_fm") else []
     _state["plocks"] = plocks
 
     pr_html = _build_pr_html(voices, p["steps"], plocks)
@@ -1237,8 +1296,11 @@ async def get_pattern():
             channel = 0
             name    = "Bass ♩"
         elif vtype == "vk":
-            channel = 0   # MIDI ch1 — Volca Kick
+            channel = 0
             name    = "VKick"
+        elif vtype.startswith("vfm"):
+            channel = 0
+            name    = _VFM_PART_NAMES[int(vtype[3:])]
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")

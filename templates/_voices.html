@@ -37,6 +37,8 @@
         <span class="tag bl">♩ Bass</span>
       {% elif vtype == "vk" %}
         <span class="tag vk">★ VKick</span>
+      {% elif vtype.startswith("vfm") %}
+        <span class="tag vfm">⚡ VFM</span>
       {% endif %}
     </div>
     {% if vtype != "cc" %}
