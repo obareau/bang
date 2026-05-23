@@ -356,6 +356,7 @@ _state: dict = {
     "recent_dirs":     [],  # derniers dossiers utilisés (max 5)
     "current_preset":  "",  # nom du preset actif
     "plocks":          [],  # p-locks par voix (volca_drum uniquement)
+    "locked_voices":   set(),  # indices de voix verrouillées
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "max_poly":        0,   # 0 = illimité
 }
@@ -545,7 +546,19 @@ def _build_voices_html(voices: list) -> str:
     return jinja.get_template("_voices.html").render(
         voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in voices],
         voice_thin=_state["voice_thin"],
+        locked_voices=_state.get("locked_voices", set()),
     )
+
+
+def _apply_locks(new_voices: list) -> list:
+    """Remplace les voix lockées dans new_voices par celles de l'état courant."""
+    locked  = _state.get("locked_voices", set())
+    current = _state.get("voices") or []
+    result  = list(new_voices)
+    for idx in locked:
+        if idx < len(current) and idx < len(result):
+            result[idx] = current[idx]
+    return result
 
 
 _DNA_CLASS = {
@@ -930,7 +943,7 @@ async def generate(
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
                    vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel)
     _state["last_p"] = p
-    voices = _apply_note_remap(_build_voices(p))
+    voices = _apply_note_remap(_apply_locks(_build_voices(p)))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
@@ -1492,6 +1505,16 @@ async def voice_pattern(idx: Annotated[int, Form()], pattern: Annotated[str, For
     else:
         oob = ""
     return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/lock_voice", response_class=HTMLResponse)
+async def lock_voice(idx: Annotated[int, Form()]):
+    locked = _state["locked_voices"]
+    if idx in locked:
+        locked.discard(idx)
+    else:
+        locked.add(idx)
+    return HTMLResponse(_build_voices_html(_state["voices"]))
 
 
 @app.post("/poly", response_class=HTMLResponse)

@@ -267,6 +267,24 @@
     .btn-thin:hover  { color: var(--text); border-color: var(--muted); }
     .btn-thin.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 
+    /* Voice lock button */
+    .btn-lock {
+      font-size: 10px;
+      padding: 1px 4px;
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+      flex-shrink: 0;
+      opacity: .4;
+      transition: opacity .15s;
+    }
+    .btn-lock:hover  { opacity: 1; border-color: var(--border); }
+    .btn-lock.active { opacity: 1; color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+    .voice-locked    { border-left: 2px solid var(--accent); padding-left: 4px; }
+
     /* D.I.M legend (inline dans bottom-bar) */
     .dim-item { color: var(--muted); display: flex; align-items: center; gap: .25rem; font-size: 11px; }
     .dim-item .dx { color: var(--dx); font-weight: bold; }
