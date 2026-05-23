@@ -660,7 +660,7 @@ def _read_form(
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return render("index.html",
-        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in _state["voices"]],
+        voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in _state["voices"]],
         voice_thin=_state["voice_thin"],
         max_poly=_state["max_poly"],
         log=_state["log"][-20:],
@@ -1057,7 +1057,8 @@ async def notes_remap(request: Request):
     _state["engine"] = _assemble_engine(_state["last_p"], voices)
 
     voices_html = jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+        voices=[(n, dna_html(d), d, t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+        voice_thin=_state["voice_thin"],
     )
     pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
     pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
