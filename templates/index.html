@@ -8,27 +8,56 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── Système de thèmes RGB ─────────────────────────────────────────────── */
     :root {
-      --bg:       #0f172a;
-      --surface:  #1e293b;
-      --border:   #334155;
-      --text:     #e2e8f0;
-      --muted:    #64748b;
-      --primary:  #38bdf8;
-      --success:  #4ade80;
-      --warn:     #fb923c;
-      --dx: #f1f5f9; --dd: #475569; --dq: #facc15;
-      --dr: #67e8f9; --db: #c084fc;
+      --ar: 255; --ag: 170; --ab: 0;              /* amber par défaut */
+    }
+    [data-theme="green"]     { --ar: 0;   --ag: 255; --ab: 65;  }
+    [data-theme="red"]       { --ar: 255; --ag: 34;  --ab: 0;   }
+    [data-theme="turquoise"] { --ar: 0;   --ag: 220; --ab: 200; }
+    [data-theme="white"]     { --ar: 200; --ag: 200; --ab: 200; }
+
+    :root {
+      --accent:     rgb(var(--ar), var(--ag), var(--ab));
+      --accent-mid: rgba(var(--ar), var(--ag), var(--ab), 0.45);
+      --accent-dim: rgba(var(--ar), var(--ag), var(--ab), 0.18);
+      --accent-glo: rgba(var(--ar), var(--ag), var(--ab), 0.30);
+
+      --bg:      #030303;
+      --surface: #090909;
+      --border:  rgba(var(--ar), var(--ag), var(--ab), 0.22);
+
+      --text:    var(--accent);
+      --muted:   var(--accent-mid);
+      --primary: var(--accent);
+      --success: var(--accent);
+      --warn:    var(--accent);
+
+      /* DNA atom brightness via opacity */
+      --dx: var(--accent);   /* hit      — 100% */
+      --dd: var(--accent);   /* silence  — 25%  (voir .dd) */
+      --dq: var(--accent);   /* prob     — 70%  */
+      --dr: var(--accent);   /* ratchet  — 100% */
+      --db: var(--accent);   /* ghost    — 55%  */
     }
 
     body {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
       background: var(--bg);
       color: var(--text);
-      font-size: 14px;
+      font-size: 13px;
       height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Scanlines CRT (très subtiles) */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(0deg,
+        transparent 0px, transparent 3px,
+        rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px);
     }
 
     /* Header */
@@ -36,23 +65,36 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 1.5rem;
-      height: 40px;
+      padding: 0 1rem;
+      height: 36px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    header h1 { font-size: 15px; color: var(--primary); letter-spacing: .1em; }
+    header h1 {
+      font-size: 13px; color: var(--accent); letter-spacing: .18em; text-transform: uppercase;
+      text-shadow: 0 0 18px var(--accent-glo);
+    }
+    #theme-switcher { display: flex; align-items: center; gap: .3rem; }
+    .th-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      font-family: inherit; font-size: 9px; letter-spacing: .1em;
+      padding: 1px 6px; cursor: pointer; height: 20px;
+    }
+    .th-btn:hover, .th-btn.active { border-color: var(--accent); color: var(--accent); }
+    .th-btn.active { background: var(--accent-dim); }
+    #ver { color: var(--accent-mid); font-size: 10px; letter-spacing: .08em; margin-left: .5rem; }
 
     /* Weather bar */
     #weather-bar {
-      padding: 4px 1.5rem;
+      padding: 2px 1rem;
       background: var(--bg);
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
       border-bottom: 1px solid var(--border);
-      min-height: 24px;
+      min-height: 20px;
       flex-shrink: 0;
+      letter-spacing: .06em;
     }
 
     /* Main layout */
@@ -108,61 +150,89 @@
     .btn-preset-save:hover { color: var(--success); border-color: var(--success); }
     .btn-preset-del:hover  { color: #f87171;         border-color: #f87171; }
 
-    /* Voice rows */
+    /* Voice rows — layout colonne */
     .voice-row {
       display: flex;
-      align-items: center;
-      gap: .75rem;
-      padding: 3px 0;
-      border-bottom: 1px solid #1e293b;
+      flex-direction: column;
+      gap: 3px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
     }
-    .voice-row .note  { color: var(--success); width: 2.5rem; font-weight: bold; }
-    .voice-row .name  { color: var(--text); width: 4rem; }
-    .voice-row .dna   { flex: 1; letter-spacing: .05em; }
-    .dna-edit {
-      flex: 1;
-      background: transparent;
+    .vr-controls {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      flex-wrap: nowrap;
+    }
+    .vr-controls .note   { color: var(--accent); width: 2.4rem; font-weight: bold; font-size: 12px; flex-shrink: 0; }
+    .vr-controls .name   { color: var(--text); font-size: 11px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vr-controls .tag    { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    .vr-controls .tag.cc     { color: var(--muted); }
+    .vr-controls .tag.babka  { color: var(--accent); opacity: .7; }
+    .vr-pattern { width: 100%; }
+
+    /* DNA/Babka display coloré — click pour éditer */
+    .dna-view {
+      display: block;
+      cursor: pointer;
+      padding: 2px 4px;
       border: 1px solid transparent;
+      border-radius: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: 12px;
+      letter-spacing: .08em;
+      min-height: 18px;
+      line-height: 1.4;
+    }
+    .dna-view:hover { border-color: var(--border); background: rgba(var(--ar),var(--ag),var(--ab),0.05); }
+
+    /* Input d'édition — affiché au click sur dna-view */
+    input[type=text].dna-edit {
+      display: block;
+      width: 100%;
+      background: rgba(var(--ar),var(--ag),var(--ab),0.08);
+      border: 1px solid var(--accent);
       color: var(--text);
       font-family: inherit;
-      font-size: 13px;
-      letter-spacing: .05em;
-      padding: 1px 3px;
+      font-size: 12px;
+      letter-spacing: .06em;
+      padding: 2px 4px;
       border-radius: 3px;
-      min-width: 0;
+      cursor: text;
+      outline: none;
     }
-    .dna-edit:hover { border-color: var(--border); }
-    .dna-edit:focus { border-color: var(--primary); background: var(--surface); outline: none; color: var(--text); }
     .voice-row .tag   { font-size: 11px; color: var(--primary); }
     .voice-row .tag.cc { color: var(--warn); }
 
-    /* DNA colors */
-    .dx { color: var(--dx); font-weight: bold; }
-    .dd { color: var(--dd); }
-    .dq { color: var(--dq); font-weight: bold; }
-    .dr { color: var(--dr); font-weight: bold; }
-    .db { color: var(--db); font-weight: bold; }
-    /* Babka structural chars */
-    .dbk  { color: #e879f9; font-weight: bold; }   /* [ ] subdivision */
-    .dalt { color: #fb7185; font-weight: bold; }   /* < > alternance  */
-    .deuc { color: #34d399; font-weight: bold; }   /* ( ) euclidean   */
+    /* DNA colors — opacité différentielle, tous en accent mono */
+    .dx { color: var(--accent); font-weight: bold; }
+    .dd { color: var(--accent); opacity: .38; }
+    .dq { color: var(--accent); opacity: .78; font-weight: bold; }
+    .dr { color: var(--accent); font-weight: bold; }
+    .db { color: var(--accent); opacity: .55; font-weight: bold; }
+    /* Babka structural chars — italique pour distinction visuelle */
+    .dbk  { color: var(--accent); font-weight: bold; font-style: italic; }  /* [ ] subdivision */
+    .dalt { color: var(--accent); font-weight: bold; font-style: italic; }  /* < > alternance  */
+    .deuc { color: var(--accent); font-weight: bold; font-style: italic; }  /* ( ) euclidean   */
 
     .voice-hint { color: var(--muted); font-size: 12px; padding: .5rem 0; }
 
     /* Editable MIDI note */
-    .note-input {
-      width: 3.6rem !important;
+    input[type=number].note-input {
+      width: 3.6rem;
       background: transparent;
       border: 1px solid transparent;
-      color: var(--success);
+      color: var(--accent);
       font-family: inherit;
       font-size: 13px;
       font-weight: bold;
       padding: 0 2px;
       border-radius: 3px;
+      cursor: text;
     }
-    .note-input:hover { border-color: var(--border); }
-    .note-input:focus { border-color: var(--primary); background: var(--surface); outline: none; }
+    input[type=number].note-input:hover { border-color: var(--border); }
+    input[type=number].note-input:focus { border-color: var(--accent); background: rgba(var(--ar),var(--ag),var(--ab),0.06); outline: none; }
     .note-name { font-size: 11px; color: var(--muted); min-width: 2.2rem; }
     .vd-ch { color: var(--warn); font-size: 11px; font-weight: bold; width: 3.6rem; }
 
@@ -191,7 +261,7 @@
       line-height: 1.4;
     }
     .btn-thin:hover  { color: var(--text); border-color: var(--muted); }
-    .btn-thin.active { color: var(--warn); border-color: var(--warn); background: #1a1012; }
+    .btn-thin.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 
     /* D.I.M legend (inline dans bottom-bar) */
     .dim-item { color: var(--muted); display: flex; align-items: center; gap: .25rem; font-size: 11px; }
@@ -208,10 +278,36 @@
     /* Piano-roll panel (right side of #main) */
     #pianoroll-panel {
       flex: 1;
-      overflow-x: auto;
-      overflow-y: auto;
-      padding: .5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
       min-width: 0;
+    }
+    .pr-controls {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .25rem .6rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .pr-zoom-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: monospace;
+      font-size: 15px;
+      width: 22px; height: 22px;
+      cursor: pointer; padding: 0;
+      line-height: 1; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pr-zoom-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .pr-zoom-label { font-size: 10px; color: var(--muted); letter-spacing: .05em; min-width: 2rem; }
+    #pianoroll {
+      flex: 1;
+      overflow: auto;
+      padding: .5rem 1rem;
     }
 
     /* Top bar */
@@ -376,7 +472,7 @@
     .log-entry {
       font-size: 12px;
       padding: 2px 0;
-      border-bottom: 1px solid #1e293b;
+      border-bottom: 1px solid var(--border);
       display: flex;
       gap: .75rem;
       align-items: center;
@@ -391,7 +487,7 @@
     .log-err  { color: #f87171; }
     /* MIDI log */
     .ml { font-size: 11px; font-family: 'Courier New', monospace; padding: 1px 0;
-          border-bottom: 1px solid #1a2535; display: flex; gap: .6rem; align-items: baseline; }
+          border-bottom: 1px solid var(--border); display: flex; gap: .6rem; align-items: baseline; }
     .ml-step { color: var(--primary); min-width: 3.2rem; }
     .ml-ch   { color: var(--muted); min-width: 2.8rem; }
     .ml-note { color: var(--success); min-width: 2rem; }
@@ -482,9 +578,9 @@
     }
     .browser-item {
       font-size: 12px; padding: 5px 10px; cursor: pointer;
-      border-bottom: 1px solid #1e293b; display: flex; align-items: center; gap: .4rem;
+      border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .4rem;
     }
-    .browser-item:hover { background: #1e293b; color: var(--primary); }
+    .browser-item:hover { background: var(--accent-dim); color: var(--primary); }
     .browser-item.up    { color: var(--muted); }
     .browser-empty      { font-size: 11px; color: var(--muted); padding: 8px 10px; }
 
@@ -503,7 +599,14 @@
 
 <header>
   <h1>BANG · Dark Umbrae Sequencer</h1>
-  <span style="color:var(--muted);font-size:12px">v{{ app_version }}</span>
+  <div id="theme-switcher">
+    <button class="th-btn active" data-theme="amber"     onclick="setTheme('amber')"     title="Amber">AMB</button>
+    <button class="th-btn"        data-theme="green"     onclick="setTheme('green')"     title="Green">GRN</button>
+    <button class="th-btn"        data-theme="red"       onclick="setTheme('red')"       title="Red">RED</button>
+    <button class="th-btn"        data-theme="turquoise" onclick="setTheme('turquoise')" title="Turquoise">TRQ</button>
+    <button class="th-btn"        data-theme="white"     onclick="setTheme('white')"     title="White">WHT</button>
+    <span id="ver">v{{ app_version }}</span>
+  </div>
 </header>
 
 <!-- TOP BAR : params + generate + actions -->
@@ -647,6 +750,11 @@
 
   <!-- Pianoroll (droite, flex: 1) -->
   <div id="pianoroll-panel">
+    <div class="pr-controls">
+      <button class="pr-zoom-btn" onclick="prZoom(-1)" title="Zoom −">−</button>
+      <button class="pr-zoom-btn" onclick="prZoom(+1)" title="Zoom +">+</button>
+      <span id="pr-zoom-label" class="pr-zoom-label">×1</span>
+    </div>
     <div id="pianoroll">
       <p style="color:var(--muted);font-size:11px">Appuyez sur ⚡ Générer pour voir le piano roll</p>
     </div>
@@ -1206,6 +1314,82 @@ function closeArchive() {
 document.getElementById('archive-modal').addEventListener('click', function(e) {
   if (e.target === this) closeArchive();
 });
+
+// ---------------------------------------------------------------------------
+// Pianoroll zoom
+// ---------------------------------------------------------------------------
+const _PR_ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3];
+let _prZoomIdx = 2;
+
+function prZoom(delta) {
+  _prZoomIdx = Math.max(0, Math.min(_PR_ZOOM_STEPS.length - 1, _prZoomIdx + delta));
+  _applyPrZoom();
+}
+function _applyPrZoom() {
+  const scale = _PR_ZOOM_STEPS[_prZoomIdx];
+  const pr = document.getElementById('pianoroll');
+  if (pr) pr.style.zoom = scale;
+  const lbl = document.getElementById('pr-zoom-label');
+  if (lbl) lbl.textContent = '×' + scale;
+}
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  if (e.detail && e.detail.target && e.detail.target.id === 'pianoroll') _applyPrZoom();
+});
+
+// ---------------------------------------------------------------------------
+// Voice pattern — click-to-edit + live preview pianoroll
+// ---------------------------------------------------------------------------
+function bangStartEdit(view) {
+  view.style.display = 'none';
+  const inp = view.nextElementSibling;
+  inp.style.display = 'block';
+  inp.focus();
+  inp.select();
+}
+
+function bangCancelEdit(inp) {
+  inp.style.display = 'none';
+  const view = inp.previousElementSibling;
+  if (view) view.style.display = 'block';
+}
+
+let _bangPreviewTimer = null;
+async function bangPreviewPr(inp, idx) {
+  clearTimeout(_bangPreviewTimer);
+  _bangPreviewTimer = setTimeout(async () => {
+    const val = inp.value.trim();
+    if (!val) return;
+    const fd = new FormData();
+    fd.append('idx', idx);
+    fd.append('pattern', val);
+    try {
+      const r = await fetch('/voice/preview', {method: 'POST', body: fd});
+      const html = await r.text();
+      if (html) { document.getElementById('pianoroll').innerHTML = html; _applyPrZoom(); }
+    } catch(e) {}
+  }, 350);
+}
+
+// ---------------------------------------------------------------------------
+// Thème TUI — persistance localStorage
+// ---------------------------------------------------------------------------
+function setTheme(theme) {
+  const html = document.documentElement;
+  if (theme === 'amber') {
+    html.removeAttribute('data-theme');
+  } else {
+    html.setAttribute('data-theme', theme);
+  }
+  localStorage.setItem('bang-theme', theme);
+  document.querySelectorAll('.th-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === theme);
+  });
+}
+
+(function() {
+  const saved = localStorage.getItem('bang-theme') || 'amber';
+  setTheme(saved);
+})();
 </script>
 </body>
 </html>

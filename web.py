@@ -319,7 +319,7 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
         if vtype == "babka":
             bsteps  = _babka.parse(dna, cycle=0)
             tot_dur = sum(s.duration for s in bsteps) or 1.0
-            cells   = [{"trigger": False, "opacity": 0.0, "ratchet": 1} for _ in range(steps)]
+            cells   = [{"trigger": False, "opacity": 0.0, "ratchet": 1, "atom": "-"} for _ in range(steps)]
             pos = 0.0
             for s in bsteps:
                 if s.trigger:
@@ -329,7 +329,8 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
                         if cell < steps:
                             opacity = round(0.35 + s.prob * 0.65, 2)
                             if not cells[cell]["trigger"] or cells[cell]["opacity"] < opacity:
-                                cells[cell] = {"trigger": True, "opacity": opacity, "ratchet": s.ratchet}
+                                atom = _atom_label(s.prob, s.ratchet, getattr(s, "jitter", 0))
+                                cells[cell] = {"trigger": True, "opacity": opacity, "ratchet": s.ratchet, "atom": atom}
                         cyc_pos += tot_dur
                 pos += s.duration
             name = _NOTE_NAMES.get(note, f"n{note}")
@@ -346,10 +347,13 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             trigger = bool(step[0] > 0)
             prob    = float(step[2])
             ratchet = int(step[3])
+            jitter  = int(step[4])
+            atom    = _atom_label(prob, ratchet, jitter) if trigger else "-"
             cells.append({
                 "trigger": trigger,
                 "opacity": round(0.35 + prob * 0.65, 2) if trigger else 0.0,
                 "ratchet": ratchet,
+                "atom":    atom,
             })
         boundaries = [j * dna_len for j in range(1, steps // dna_len + 1) if j * dna_len < steps]
         if vtype.startswith("vd"):
@@ -378,7 +382,7 @@ def _thin_cells(cells: list, factor: int) -> list:
     for cell in cells:
         if cell["trigger"]:
             keep = (trig_idx % factor == 0)
-            result.append(cell if keep else {**cell, "trigger": False, "opacity": 0.0})
+            result.append(cell if keep else {**cell, "trigger": False, "opacity": 0.0, "atom": "-"})
             trig_idx += 1
         else:
             result.append(cell)
@@ -402,7 +406,7 @@ def _apply_poly_to_rows(rows: list, max_poly: int) -> list:
                   if step < len(r["cells"]) and r["cells"][step]["trigger"]]
         for ri in active[max_poly:]:
             c = rows[ri]["cells"][step]
-            rows[ri]["cells"][step] = {**c, "trigger": False, "opacity": 0.0}
+            rows[ri]["cells"][step] = {**c, "trigger": False, "opacity": 0.0, "atom": "-"}
     return rows
 
 
@@ -1176,6 +1180,17 @@ async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()
     pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
     oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/voice/preview", response_class=HTMLResponse)
+async def voice_preview(idx: Annotated[int, Form()], pattern: Annotated[str, Form()]):
+    pattern = pattern.strip()
+    if not pattern or not _state["last_p"] or not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, _, vtype = _state["voices"][idx]
+    _state["voices"][idx] = (note, pattern, vtype)
+    _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+    return HTMLResponse(_build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None))
 
 
 @app.post("/voice/pattern", response_class=HTMLResponse)

@@ -5,56 +5,71 @@
 <title>BANG! — Documentation v{{ app_version }}</title>
 <style>
   :root {
-    --bg: #0f172a; --surface: #1e293b; --border: #334155;
-    --text: #e2e8f0; --muted: #64748b;
-    --primary: #38bdf8; --success: #4ade80; --warn: #fbbf24;
-    --dx: #4ade80; --dd: #475569; --dq: #fbbf24;
-    --dr: #f97316; --db: #94a3b8;
-    --babka: #e879f9; --alt: #fb7185; --euc: #34d399;
+    --bg: #030303; --surface: #0d0d0d; --border: #2a2000;
+    --text: #ffaa00; --muted: rgba(255,170,0,0.45);
+    --accent: #ffaa00; --dim: rgba(255,170,0,0.18);
+    --green: #4ade80; --warn: #fbbf24; --red: #f87171;
+    --babka: #c084fc; --alt: #fb7185; --euc: #34d399;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace;
-         font-size: 13px; line-height: 1.6; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
-  h1 { font-size: 1.4rem; color: var(--primary); margin-bottom: .25rem; }
-  h2 { font-size: 1rem; color: var(--primary); margin: 2rem 0 .75rem;
-       border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+         font-size: 13px; line-height: 1.65; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.5rem; color: var(--accent); margin-bottom: .25rem; letter-spacing: .06em; }
+  h2 { font-size: .95rem; color: var(--accent); margin: 2.25rem 0 .75rem;
+       border-bottom: 1px solid var(--border); padding-bottom: .3rem; letter-spacing: .08em;
+       text-transform: uppercase; }
   h3 { font-size: .85rem; color: var(--warn); margin: 1.25rem 0 .5rem; }
-  p  { color: var(--text); margin-bottom: .75rem; }
-  a  { color: var(--primary); text-decoration: none; }
+  p  { color: rgba(255,170,0,.75); margin-bottom: .75rem; }
+  a  { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   .subtitle { color: var(--muted); font-size: 11px; margin-bottom: 2rem; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 1.25rem; }
   th { background: var(--surface); color: var(--muted); font-weight: normal;
        text-align: left; padding: .35rem .6rem; border: 1px solid var(--border); font-size: 11px; }
-  td { padding: .3rem .6rem; border: 1px solid var(--border); vertical-align: top; }
-  tr:nth-child(even) td { background: #0f1929; }
-  code { background: var(--surface); color: var(--primary); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
-  pre  { background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
-         padding: .75rem 1rem; overflow-x: auto; margin-bottom: 1rem; }
-  pre code { background: none; padding: 0; }
-  .sym-x  { color: var(--dx);   font-weight: bold; }
-  .sym-d  { color: var(--dd); }
-  .sym-q  { color: var(--dq);   font-weight: bold; }
-  .sym-r  { color: var(--dr);   font-weight: bold; }
-  .sym-b  { color: var(--db);   font-weight: bold; }
-  .sym-bk { color: var(--babka); font-weight: bold; }
-  .sym-al { color: var(--alt);   font-weight: bold; }
-  .sym-eu { color: var(--euc);   font-weight: bold; }
-  .example { color: var(--euc); }
-  .note { background: #1e293b; border-left: 3px solid var(--warn);
+  td { padding: .3rem .6rem; border: 1px solid var(--border); vertical-align: top;
+       color: rgba(255,170,0,.75); }
+  td:first-child { color: var(--accent); }
+  tr:nth-child(even) td { background: #070700; }
+  code { background: var(--surface); color: var(--accent); padding: 1px 5px; border-radius: 2px; font-size: 12px; border: 1px solid var(--border); }
+  pre  { background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+         padding: .75rem 1rem; overflow-x: auto; margin-bottom: 1rem; color: rgba(255,170,0,.75); }
+  pre code { background: none; padding: 0; border: none; color: inherit; }
+  .sym-x  { color: var(--accent); font-weight: bold; }
+  .sym-d  { color: var(--muted); }
+  .sym-q  { color: var(--warn); font-weight: bold; }
+  .sym-r  { color: #fb923c; font-weight: bold; }
+  .sym-b  { color: rgba(255,170,0,.55); font-weight: bold; }
+  .sym-bk { color: var(--babka); font-weight: bold; font-style: italic; }
+  .sym-al { color: var(--alt);   font-weight: bold; font-style: italic; }
+  .sym-eu { color: var(--euc);   font-weight: bold; font-style: italic; }
+  .kv  { color: var(--muted); }
+  .kv b{ color: var(--accent); }
+  .note { background: var(--surface); border-left: 3px solid var(--warn);
           padding: .5rem .75rem; margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
+  .note-red { border-left-color: var(--red); }
   .btn-row { display: flex; gap: .5rem; margin: 1.5rem 0; flex-wrap: wrap; }
-  button, .btn { background: var(--surface); color: var(--text); border: 1px solid var(--border);
-                 border-radius: 4px; padding: .3rem .8rem; font-family: inherit; font-size: 12px;
+  button, .btn { background: var(--surface); color: var(--accent); border: 1px solid var(--border);
+                 border-radius: 3px; padding: .3rem .8rem; font-family: inherit; font-size: 12px;
                  cursor: pointer; text-decoration: none; display: inline-block; }
-  button:hover, .btn:hover { border-color: var(--primary); color: var(--primary); }
+  button:hover, .btn:hover { border-color: var(--accent); background: var(--dim); }
   .back { margin-bottom: 1.5rem; font-size: 12px; }
+  .tag-babka { background: rgba(192,132,252,.15); color: var(--babka); border: 1px solid rgba(192,132,252,.3);
+               padding: 0 4px; border-radius: 2px; font-size: 11px; }
+  .tag-api   { background: var(--dim); color: var(--accent); border: 1px solid var(--border);
+               padding: 0 5px; border-radius: 2px; font-size: 11px; }
+  .method-get  { color: var(--green); font-weight: bold; }
+  .method-post { color: var(--warn); font-weight: bold; }
+  .method-del  { color: var(--red); font-weight: bold; }
+  .endpoint-path { color: var(--accent); }
+  .toc { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin-bottom: 2rem; }
+  .toc a { font-size: 12px; color: var(--muted); }
+  .toc a:hover { color: var(--accent); }
 
   @media print {
     body { background: #fff; color: #000; max-width: 100%; }
     :root { --bg: #fff; --surface: #f5f5f5; --border: #ccc; --text: #000;
-            --muted: #666; --primary: #0369a1; --success: #16a34a; --warn: #ca8a04;
-            --dx: #16a34a; --dd: #6b7280; --dq: #ca8a04; --dr: #ea580c; --db: #64748b;
+            --muted: #666; --accent: #b45309; --dim: #fef3c7;
+            --green: #16a34a; --warn: #ca8a04; --red: #dc2626;
             --babka: #a21caf; --alt: #be123c; --euc: #065f46; }
     .btn-row, .back { display: none; }
     h2 { page-break-before: auto; }
@@ -65,7 +80,7 @@
 
 <div class="back"><a href="/">← Retour à BANG!</a></div>
 
-<h1>BANG! — Documentation</h1>
+<h1>BANG!</h1>
 <p class="subtitle">v{{ app_version }} · Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis</p>
 
 <div class="btn-row">
@@ -74,8 +89,258 @@
   <a class="btn" href="/">← Interface</a>
 </div>
 
-<h2>Syntaxe DNA</h2>
-<p>Les atomes DNA sont les briques de base de tout pattern BANG!. Ils s'enchaînent directement, sans séparateur.</p>
+<nav class="toc">
+  <a href="#tui">TUI</a>
+  <a href="#cli">CLI</a>
+  <a href="#api">API</a>
+  <a href="#dna">Syntaxe DNA</a>
+  <a href="#babka">Syntaxe Babka</a>
+  <a href="#modes">Modes</a>
+  <a href="#params">Paramètres</a>
+  <a href="#session">Session</a>
+  <a href="#engine">BangEngine</a>
+</nav>
+
+<!-- ─── TUI ──────────────────────────────────────────────────────────────── -->
+<h2 id="tui">Interface TUI</h2>
+<p>BANG! présente une interface web TUI monochrome — terminal esthétique, thème couleur unique, fond quasi-noir.</p>
+
+<h3>Layout</h3>
+<table>
+  <tr><th>Zone</th><th>Description</th></tr>
+  <tr><td>Header</td><td>Sélecteur de thème (AMB/GRN/RED/TRQ/WHT) + version</td></tr>
+  <tr><td>Panneau gauche</td><td>Formulaire de génération : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, météo</td></tr>
+  <tr><td>Panneau central</td><td>Voix générées — note MIDI, DNA coloré, boutons thin, tags Markov/Babka/CC</td></tr>
+  <tr><td>Panneau droit</td><td>Pianoroll SVG + contrôles de zoom</td></tr>
+  <tr><td>Log</td><td>Historique des exports (timestamp, fichier, seed, BPM, mode, météo)</td></tr>
+</table>
+
+<h3>Thèmes couleur</h3>
+<p>Le bouton de thème change la couleur d'accent de toute l'interface. Le choix est mémorisé dans <code>localStorage</code>.</p>
+<table>
+  <tr><th>Bouton</th><th>Nom</th><th>Couleur accent</th></tr>
+  <tr><td>AMB</td><td>Amber</td><td>rgb(255, 170, 0) — défaut</td></tr>
+  <tr><td>GRN</td><td>Green</td><td>rgb(0, 255, 65)</td></tr>
+  <tr><td>RED</td><td>Red</td><td>rgb(255, 34, 0)</td></tr>
+  <tr><td>TRQ</td><td>Turquoise</td><td>rgb(0, 220, 200)</td></tr>
+  <tr><td>WHT</td><td>White</td><td>rgb(200, 200, 200)</td></tr>
+</table>
+<div class="note">L'implémentation repose sur des variables CSS RGB (<code>--ar/--ag/--ab</code>) permettant de composer des variantes alpha (<code>rgba(var(--ar),var(--ag),var(--ab),0.45)</code>) sans duplication de code.</div>
+
+<h3>Panneau Voix</h3>
+<p>Chaque voix affiche sur deux lignes :</p>
+<ul style="color:var(--muted);padding-left:1.25rem;margin-bottom:.75rem">
+  <li><b>Ligne 1</b> — note MIDI (éditable), nom, boutons thin (×1 / ÷2 / ÷4), tag de type</li>
+  <li><b>Ligne 2</b> — DNA coloré cliquable · clic → champ d'édition · Escape → annuler · Enter → valider</li>
+</ul>
+<p>La modification d'un pattern met à jour le pianoroll en temps réel (via <code>/voice/preview</code> + debounce 350 ms) sans perdre le focus.</p>
+
+<h3>Pianoroll</h3>
+<p>SVG généré côté serveur. Chaque cellule affiche l'atome correspondant (<span class="sym-x">x</span> <span class="sym-d">−</span> <span class="sym-q">?</span> <span class="sym-r">↺</span> <span class="sym-b">░</span>). Les P-locks Volca Drum apparaissent sous le piano principal.</p>
+<p>Zoom : boutons <code>−</code> / <code>+</code> → 6 niveaux : ×0.5 · ×0.75 · ×1 · ×1.5 · ×2 · ×3</p>
+
+<!-- ─── CLI ──────────────────────────────────────────────────────────────── -->
+<h2 id="cli">CLI</h2>
+
+<h3>Lancement</h3>
+<pre><code># Port par défaut 7777
+python web.py
+
+# Port personnalisé
+BANG_PORT=8888 python web.py
+
+# Via systemd (production)
+systemctl start bang
+systemctl status bang</code></pre>
+
+<h3>Variables d'environnement</h3>
+<table>
+  <tr><th>Variable</th><th>Défaut</th><th>Description</th></tr>
+  <tr><td><code>BANG_PORT</code></td><td>7777</td><td>Port d'écoute uvicorn</td></tr>
+</table>
+
+<h3>Dossier exports</h3>
+<pre><code>bang-proto/exports/          # MIDI exportés
+bang-proto/exports/archive/  # Favoris archivés</code></pre>
+
+<h3>Dépendances</h3>
+<pre><code>uv sync                # ou: pip install -r requirements.txt
+# FastAPI · uvicorn · Jinja2 · mido · requests</code></pre>
+
+<!-- ─── API ──────────────────────────────────────────────────────────────── -->
+<h2 id="api">API HTTP</h2>
+<p>Toutes les réponses HTMX retournent du HTML. Les endpoints JSON retournent <code>application/json</code>.</p>
+
+<h3>Génération &amp; export</h3>
+<table>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/</code></td>
+    <td>Interface principale — rendu complet de <code>index.html</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/generate</code></td>
+    <td>Génère de nouvelles voix + pianoroll. Retourne HTML (voix + OOB pianoroll). Paramètres form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/export</code></td>
+    <td>Génère + écrit le fichier MIDI. Retourne une entrée de log HTML. Paramètre supplémentaire : <code>dest_dir</code> (dossier destination, défaut = <code>exports/</code>)</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/export/song</code></td>
+    <td>Génère une song complète en plusieurs fichiers (structure intro/couplet/climax/outro). Retourne log HTML.</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/weather</code></td>
+    <td>Rafraîchit la météo Scaër. Retourne HTML du widget météo.</td>
+  </tr>
+</table>
+
+<h3>Pattern &amp; voix</h3>
+<table>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/pattern</code></td>
+    <td>Retourne JSON de l'état courant : BPM, steps, step_ms, voices[] avec events (step, velocity, prob, ratchet, atom, plocks)</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/voice/preview</code></td>
+    <td>Met à jour un pattern en mémoire + retourne HTML pianoroll uniquement (pas de rechargement voix → pas de perte de focus). Params : <code>idx, pattern</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/voice/pattern</code></td>
+    <td>Valide un pattern modifié → met à jour voix + pianoroll (OOB swap). Params : <code>idx, pattern</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/voice/thin</code></td>
+    <td>Applique un thinning sur une voix (×1/÷2/÷4). Params : <code>name, factor</code>. Retourne HTML voix + OOB pianoroll.</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/notes</code></td>
+    <td>Applique un remap de notes MIDI. Form : <code>remap_{name}=&lt;note 0-127&gt;</code> pour chaque voix. Retourne HTML voix + OOB pianoroll.</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/poly</code></td>
+    <td>Définit le max de voix simultanées. Param : <code>max_poly</code> (0 = infini). Retourne HTML pianoroll.</td>
+  </tr>
+</table>
+
+<h3>Presets</h3>
+<table>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/presets</code></td>
+    <td>Liste presets built-in et custom. Retourne <code>{"builtin": [...], "custom": [...], "current": "..."}</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/preset/apply</code></td>
+    <td>Applique un preset (remap note). Param : <code>name</code>. Retourne HTML voix + OOB pianoroll.</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/preset/save</code></td>
+    <td>Sauvegarde le remap courant comme preset. Param : <code>name</code>. Retourne <code>{"ok": true, "name": "..."}</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-del">DELETE</span></td>
+    <td><code class="endpoint-path">/preset/{name}</code></td>
+    <td>Supprime un preset custom.</td>
+  </tr>
+</table>
+
+<h3>Session &amp; fichiers</h3>
+<table>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/session/export</code></td>
+    <td>Télécharge l'état complet en JSON (<code>bang-session-YYYYMMDD-HHMMSS.json</code>)</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/session/import</code></td>
+    <td>Charge une session JSON (multipart file upload). Redirige vers <code>/</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/download/{filename}</code></td>
+    <td>Télécharge un fichier MIDI depuis <code>exports/</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/archive</code></td>
+    <td>Page archive — liste les fichiers MIDI favoris.</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/song/favorite/{tag}</code></td>
+    <td>Marque un fichier comme favori (copie dans <code>exports/archive/</code>).</td>
+  </tr>
+  <tr>
+    <td><span class="method-post">POST</span></td>
+    <td><code class="endpoint-path">/song/regen/{tag}</code></td>
+    <td>Re-génère un fichier à partir de son tag.</td>
+  </tr>
+</table>
+
+<h3>Utilitaires</h3>
+<table>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/browse?path=...</code></td>
+    <td>Navigateur de dossiers (file picker). Retourne <code>{"path", "parent", "dirs": [...]}</code></td>
+  </tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/next-filename?mode=&amp;dest_dir=</code></td>
+    <td>Propose le prochain nom de fichier auto-incrémenté (<code>gen-mode-NNN.mid</code>).</td>
+  </tr>
+  <tr>
+    <td><span class="method-get">GET</span></td>
+    <td><code class="endpoint-path">/doc</code></td>
+    <td>Cette page.</td>
+  </tr>
+</table>
+
+<h3>Exemple — requête JSON pattern</h3>
+<pre><code>curl http://bang.lan:7777/pattern | jq '.voices[0].events[:4]'
+
+# Réponse :
+{
+  "ok": true,
+  "bpm": 120,
+  "steps": 16,
+  "step_ms": 125.0,
+  "voices": [
+    {
+      "note": 36, "name": "bd", "channel": 9,
+      "type": "babka",
+      "events": [
+        {"step": 0,   "dur": 1.0, "velocity": 105, "prob": 1.0, "ratchet": 1, "atom": "x"},
+        {"step": 4.0, "dur": 1.0, "velocity": 90,  "prob": 0.5, "ratchet": 1, "atom": "?"}
+      ],
+      "plocks": []
+    }
+  ]
+}</code></pre>
+
+<!-- ─── DNA ──────────────────────────────────────────────────────────────── -->
+<h2 id="dna">Syntaxe DNA</h2>
+<p>Les atomes DNA sont les briques de base. Ils s'enchaînent sans séparateur.</p>
 
 <table>
   <tr><th>Symbole</th><th>Nom</th><th>Trigger</th><th>Velocity</th><th>Prob</th><th>Ratchet</th><th>Jitter</th></tr>
@@ -86,78 +351,92 @@
   <tr><td><span class="sym-b">░</span></td><td>Ghost</td><td>oui</td><td>85</td><td>100%</td><td>×1</td><td>±25ms</td></tr>
 </table>
 
-<h3>Exemples DNA</h3>
+<h3>Exemples</h3>
 <pre><code>x---x---       → kick sur 1 et 3
 x-x-x-x-       → hi-hat double-croche
 ?-?-?-?-       → pattern 50% aléatoire
 x-░-x-░-      → ghost notes sur les temps faibles
 ↺---x---      → ratchet sur le 1</code></pre>
 
-<h2>Syntaxe Babka ⚗</h2>
-<p>Extension de DNA avec la mini-notation Strudel. Tout pattern DNA reste valide. Les opérateurs structurels s'ajoutent par-dessus.</p>
+<h3>CSS classes DNA (rendu coloré)</h3>
+<table>
+  <tr><th>Classe</th><th>Atomes</th><th>Rendu</th></tr>
+  <tr><td><code>.dx</code></td><td>x</td><td>accent, bold</td></tr>
+  <tr><td><code>.dd</code></td><td>-</td><td>accent dim (opacity .38)</td></tr>
+  <tr><td><code>.dq</code></td><td>?</td><td>accent semi (opacity .78), bold</td></tr>
+  <tr><td><code>.dr</code></td><td>↺</td><td>accent, bold</td></tr>
+  <tr><td><code>.db</code></td><td>░</td><td>accent (opacity .55), bold</td></tr>
+  <tr><td><code>.dbk</code></td><td>[ ]</td><td>accent, bold, italic</td></tr>
+  <tr><td><code>.dalt</code></td><td>&lt; &gt;</td><td>accent, bold, italic</td></tr>
+  <tr><td><code>.deuc</code></td><td>( )</td><td>accent, bold, italic</td></tr>
+</table>
+
+<!-- ─── BABKA ────────────────────────────────────────────────────────────── -->
+<h2 id="babka">Syntaxe Babka <span class="tag-babka">⚗</span></h2>
+<p>Extension de DNA inspirée de Strudel/TidalCycles. Tout pattern DNA reste valide dans Babka.</p>
 
 <table>
   <tr><th>Opérateur</th><th>Syntaxe</th><th>Comportement</th></tr>
   <tr>
     <td><span class="sym-bk">[ ]</span></td>
     <td><code>[a b c]</code></td>
-    <td>Subdivision — n atomes partagent 1 step. Durées divisées équitablement.</td>
+    <td>Subdivision — n atomes partagent 1 step (durées divisées équitablement)</td>
   </tr>
   <tr>
     <td><span class="sym-al">&lt; &gt;</span></td>
     <td><code>&lt;a b c&gt;</code></td>
-    <td>Alternance — sélectionne une alternative par cycle (séparées par espaces).</td>
+    <td>Alternance — sélectionne une alternative par cycle (alternatives séparées par espaces)</td>
   </tr>
   <tr>
     <td><span class="sym-eu">( )</span></td>
     <td><code>x(n,k)</code></td>
-    <td>Euclidien inline — distribue n triggers sur k steps (algorithme de Bresenham).</td>
+    <td>Euclidien inline — distribue n triggers sur k steps (algorithme de Bresenham)</td>
   </tr>
   <tr>
-    <td><span class="sym-bk">[ ]</span> + <span class="sym-eu">( )</span></td>
+    <td><span class="sym-bk">[</span><span class="sym-eu">x(n,k)</span><span class="sym-bk">]</span></td>
     <td><code>[x(n,k)]</code></td>
-    <td>Euclidien overlay — k steps euclidiens compressés dans 1 step.</td>
+    <td>Euclidien overlay — k steps euclidiens compressés dans 1 step</td>
   </tr>
 </table>
 
 <h3>Subdivision <code class="sym-bk">[a b c]</code></h3>
-<pre><code>[x x]           → 2 hits dans 1 step (16e → 32e)
-[x x x]         → triolet dans 1 step
-x-[x x]-        → step 1: hit · step 2: silence · step 3: 2 hits · step 4: silence
-[x x]-[x x x]-  → combinaison subdivisions</code></pre>
-<div class="note">La durée totale du groupe reste 1 step, quelle que soit la profondeur d'imbrication.</div>
+<pre><code>[x x]            → 2 hits dans 1 step (16e → 32e)
+[x x x]          → triolet dans 1 step
+x-[x x]-         → hit · silence · 2 hits subdivisés · silence
+[x x]-[x x x]-   → combinaison</code></pre>
+<div class="note">La durée totale du groupe reste 1 step quelle que soit la profondeur d'imbrication.</div>
 
 <h3>Alternance <code class="sym-al">&lt;a b c&gt;</code></h3>
-<pre><code>&lt;x- -x&gt;         → cycle 0: x- | cycle 1: -x | cycle 2: x- ...
-&lt;x---x--- x-[x-]x--&gt;   → alternance de patterns complexes
-&lt;x ↺ ?&gt;         → alterne hit / ratchet / prob sur chaque cycle</code></pre>
-<div class="note">Les alternatives sont séparées par des espaces au niveau 0. Les imbrications <code>&lt;&gt;</code> ou <code>[]</code> internes sont correctement gérées.</div>
+<pre><code>&lt;x- -x&gt;                      → cycle 0: x-  |  cycle 1: -x  |  ...
+&lt;x---x--- x-[x-]x--&gt;         → alternance de patterns complexes
+&lt;x ↺ ?&gt;                     → alterne hit / ratchet / prob par cycle</code></pre>
+<div class="note">Alternatives séparées par espaces au niveau 0. Les imbrications <code>[]</code> ou <code>&lt;&gt;</code> internes sont correctement gérées.</div>
 
 <h3>Euclidien inline <code class="sym-eu">x(n,k)</code></h3>
-<pre><code>x(3,8)          → 3 hits sur 8 steps : x--x--x-
-x(5,8)          → 5 hits sur 8 steps : x-xx-xx-
-?(2,8)          → 2 hits probables sur 8 steps
-↺(2,8)         → 2 ratchets sur 8 steps</code></pre>
-<div class="note">Tout atome DNA supporte le suffixe euclidien. Les k steps sont générés à durée 1.0 (inline = séquence plate).</div>
+<pre><code>x(3,8)   → 3 hits sur 8 steps : x--x--x-
+x(5,8)   → 5 hits sur 8 steps : x-xx-xx-
+?(2,8)   → 2 hits probables sur 8 steps
+↺(2,8)  → 2 ratchets sur 8 steps</code></pre>
+<div class="note">Tout atome DNA supporte le suffixe euclidien. Les k steps sont générés à durée 1.0 (séquence plate).</div>
 
 <h3>Euclidien overlay <code class="sym-bk">[</code><code class="sym-eu">x(n,k)</code><code class="sym-bk">]</code></h3>
-<pre><code>[x(3,4)]        → 3 hits sur 4 steps, compressés dans 1 step
-[x(3,8)]        → 3 hits sur 8 steps dans 1 step (durées = 0.125 chacune)</code></pre>
-<div class="note">L'overlay <code>[x(n,k)]</code> diffère de l'inline <code>x(n,k)</code> : les k steps sont normalisés pour tenir dans 1 step de base.</div>
+<pre><code>[x(3,4)]  → 3 hits sur 4 steps, compressés dans 1 step
+[x(3,8)]  → 3 hits sur 8 steps dans 1 step (durées = 0.125 chacune)</code></pre>
+<div class="note"><code>[x(n,k)]</code> overlay ≠ <code>x(n,k)</code> inline : les k steps sont normalisés pour tenir dans 1 step de base.</div>
 
 <h3>Combinaisons</h3>
-<pre><code>x-[x x]-?              → hit · silence · 2 hits subdivisés · prob
-&lt;x---x--- x-[x-]x--&gt;  → alternance de patterns avec subdivision
-&lt;[x x]- x--&gt;           → subdivision dans une alternance
-↺-[x ?]-░(2,4)        → ratchet · silence · prob/hit subdiivisés · 2 ghosts sur 4</code></pre>
+<pre><code>x-[x x]-?                   → hit · silence · 2 hits · prob
+&lt;x---x--- x-[x-]x--&gt;        → alternance avec subdivision
+&lt;[x x]- x--&gt;                → subdivision dans alternance
+↺-[x ?]-░(2,4)             → ratchet · silence · prob+hit · 2 ghosts euclidiens</code></pre>
 
-<h2>Modes de génération</h2>
-
+<!-- ─── MODES ──────────────────────────────────────────────────────────────── -->
+<h2 id="modes">Modes de génération</h2>
 <table>
-  <tr><th>Mode</th><th>Description</th><th>Usage</th></tr>
-  <tr><td>Morph</td><td>DNA morphé + mutation selon le chaos</td><td>Évolution organique d'un pattern existant</td></tr>
+  <tr><th>Mode</th><th>Description</th><th>Usage type</th></tr>
+  <tr><td>Morph</td><td>DNA morphé + mutation selon chaos</td><td>Évolution organique d'un pattern existant</td></tr>
   <tr><td>Random</td><td>Aléatoire pur</td><td>Exploration, point de départ</td></tr>
-  <tr><td>Weather</td><td>Densité/texture selon météo Scaër (température, vent)</td><td>Ambient génératif</td></tr>
+  <tr><td>Weather</td><td>Densité/texture selon météo Scaër (temp, vent)</td><td>Ambient génératif lié aux données météo</td></tr>
   <tr><td>Markov</td><td>Ligne mélodique via chaîne de Markov + CC drone</td><td>Mélodies sombres, Dark Umbrae</td></tr>
   <tr><td>Phase 2</td><td>Markov + CC drone + polyrythmie (2 patterns kick)</td><td>Textures complexes en évolution</td></tr>
   <tr><td>Noise ◼</td><td>8 voix, cycles asymétriques, haute entropie</td><td>Percussion industrielle dense</td></tr>
@@ -166,8 +445,8 @@ x(5,8)          → 5 hits sur 8 steps : x-xx-xx-
   <tr><td>Volca Drum ★</td><td>6 parts canaux 1–6, P-locks CC par step</td><td>Korg Volca Drum natif</td></tr>
 </table>
 
-<h2>Paramètres</h2>
-
+<!-- ─── PARAMS ────────────────────────────────────────────────────────────── -->
+<h2 id="params">Paramètres</h2>
 <table>
   <tr><th>Paramètre</th><th>Plage</th><th>Effet</th></tr>
   <tr><td>BPM</td><td>40–300</td><td>Tempo en battements par minute</td></tr>
@@ -181,8 +460,7 @@ x(5,8)          → 5 hits sur 8 steps : x-xx-xx-
   <tr><td>Poly</td><td>0 = ∞</td><td>Nombre max de voix simultanées par step</td></tr>
 </table>
 
-<h2>Opérateurs de voix</h2>
-
+<h3>Opérateurs de voix (Thin)</h3>
 <table>
   <tr><th>Bouton</th><th>Effet</th></tr>
   <tr><td>×1</td><td>Pattern complet</td></tr>
@@ -190,41 +468,60 @@ x(5,8)          → 5 hits sur 8 steps : x-xx-xx-
   <tr><td>÷4</td><td>Garde 1 trigger sur 4 (quarter-time)</td></tr>
 </table>
 
-<h2>BangEngine API</h2>
-<pre><code>from bang_engine import BangEngine, dark_chain
-import babka
-
-e = BangEngine(bpm=120, ticks_per_step=120,
-               vel_floor=20, vel_ceiling=110, vel_curve=0.7)
-
-e.add_voice(36, "x---x---")              # voix DNA simple
-e.add_voice(42, ["x-x-", "x--x"])       # polyrythmie (liste de patterns)
-e.add_markov_voice(dark_chain(), "x-?-") # mélodie Markov
-e.add_babka_voice(38, "x(3,8)")         # voix Babka euclidienne
-e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")  # alternance + subdivision
-e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
-
-e.export_midi(num_steps=64, filename="out.mid")</code></pre>
-
-<h2>Format Session (.json)</h2>
-<p>Une session BANG! sauvegarde l'état complet pour reproduction exacte :</p>
+<!-- ─── SESSION ───────────────────────────────────────────────────────────── -->
+<h2 id="session">Format Session (.json)</h2>
+<p>Sauvegarde l'état complet pour reproduction exacte. Exporté via <code>GET /session/export</code>, importé via <code>POST /session/import</code>.</p>
 <pre><code>{
   "bang_version": "0.3.0",
   "timestamp": "2026-05-23T10:00:00",
-  "seed": "abc123",
+  "seed": "abc123def456",
   "params": {
     "mode": "babka", "bpm": 120, "steps": 16,
     "chaos": 0.3, "gravity": 0.7, "cc_depth": 0.5,
-    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0
+    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0,
+    "out": "gen-babka-001.mid", "temporal": ""
   },
   "voices": [
-    {"note": 36, "pattern": "x---x---", "type": "babka"},
-    {"note": 38, "pattern": "x(3,8)",   "type": "babka"}
+    {"note": 36, "pattern": "x---x---",  "type": "dna"},
+    {"note": 38, "pattern": "x(3,8)",    "type": "babka"},
+    {"note": 42, "pattern": "&lt;x-x- -x-x&gt;", "type": "babka"}
   ],
-  "voice_thin": {},
-  "note_remap": {},
+  "voice_thin": {"hh": 2},
+  "note_remap": {"bd": 36, "sd": 38},
   "max_poly": 0
 }</code></pre>
+
+<h3>Champs <code>voices[].type</code></h3>
+<table>
+  <tr><th>Type</th><th>Description</th></tr>
+  <tr><td><code>dna</code></td><td>Pattern DNA pur (atomes x − ? ↺ ░)</td></tr>
+  <tr><td><code>babka</code></td><td>Pattern Babka (superset DNA)</td></tr>
+  <tr><td><code>markov</code></td><td>Voix Markov — note générée à chaque step</td></tr>
+  <tr><td><code>cc</code></td><td>Drone CC MIDI (pas de note, contrôleur continu)</td></tr>
+  <tr><td><code>vdN</code></td><td>Volca Drum canal N (0-5) → MIDI channel N+1</td></tr>
+</table>
+
+<!-- ─── ENGINE ────────────────────────────────────────────────────────────── -->
+<h2 id="engine">BangEngine — API Python</h2>
+<pre><code>from bang_engine import BangEngine, dark_chain
+import babka
+
+e = BangEngine(
+    bpm=120,
+    ticks_per_step=120,
+    vel_floor=20,
+    vel_ceiling=110,
+    vel_curve=0.7,
+)
+
+e.add_voice(36, "x---x---")                       # DNA simple
+e.add_voice(42, ["x-x-", "x--x"])                 # polyrythmie (liste)
+e.add_markov_voice(dark_chain(), "x-?-")           # mélodie Markov
+e.add_babka_voice(38, "x(3,8)")                    # euclidien
+e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")       # alternance + subdivision
+e.add_cc_drone(control=74, breakpoints=[20,100,20])
+
+e.export_midi(num_steps=64, filename="out.mid")</code></pre>
 
 <div class="btn-row" style="margin-top:2rem">
   <button onclick="downloadMd()">⬇ Télécharger .md</button>
@@ -237,6 +534,53 @@ function downloadMd() {
   const md = `# BANG! — Documentation v{{ app_version }}
 
 Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis
+
+## TUI
+
+Interface web monochrome TUI. 5 thèmes : AMB (amber) · GRN (green) · RED (red) · TRQ (turquoise) · WHT (white).
+Mémorisation via localStorage.
+
+Variables CSS : \`--ar/--ag/--ab\` (canaux RGB) → \`--accent\` + variantes alpha.
+
+### Layout
+
+| Zone | Description |
+|------|-------------|
+| Header | Sélecteur thème + version |
+| Panneau gauche | Formulaire génération |
+| Panneau central | Voix — DNA coloré cliquable pour édition |
+| Panneau droit | Pianoroll SVG + zoom (×0.5 à ×3) |
+| Log | Historique exports |
+
+## CLI
+
+\`\`\`bash
+python web.py               # port 7777
+BANG_PORT=8888 python web.py
+systemctl start bang        # service systemd
+\`\`\`
+
+## API
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET  | / | Interface principale |
+| POST | /generate | Génère voix + pianoroll (form: mode, chaos, bpm, steps, ...) |
+| POST | /export | Génère + écrit MIDI |
+| POST | /export/song | Song complète multi-fichiers |
+| GET  | /pattern | JSON état courant (bpm, steps, voices, events) |
+| POST | /voice/preview | Preview pianoroll sans rechargement voix (idx, pattern) |
+| POST | /voice/pattern | Valide pattern édité (idx, pattern) |
+| POST | /voice/thin | Thinning (name, factor: 1/2/4) |
+| POST | /notes | Remap notes MIDI |
+| POST | /poly | Max polyphonie |
+| GET  | /session/export | Télécharge session JSON |
+| POST | /session/import | Charge session JSON |
+| GET  | /presets | Liste presets |
+| POST | /preset/apply | Applique preset |
+| POST | /preset/save | Sauvegarde preset courant |
+| DELETE | /preset/{name} | Supprime preset |
+| GET  | /download/{filename} | Télécharge MIDI |
 
 ## Syntaxe DNA
 
@@ -252,49 +596,63 @@ Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis
 
 | Opérateur | Syntaxe | Comportement |
 |-----------|---------|-------------|
-| \`[ ]\` | \`[a b c]\` | Subdivision — n atomes dans 1 step |
+| \`[ ]\` | \`[a b c]\` | Subdivision dans 1 step |
 | \`< >\` | \`<a b c>\` | Alternance cycle par cycle |
-| \`( )\` | \`x(n,k)\` | Euclidien inline — n triggers sur k steps |
-| \`[( )]\` | \`[x(n,k)]\` | Euclidien overlay — compressé dans 1 step |
-
-### Exemples
+| \`( )\` | \`x(n,k)\` | Euclidien inline |
+| \`[( )]\` | \`[x(n,k)]\` | Euclidien overlay dans 1 step |
 
 \`\`\`
-x---x---          DNA pur — kick sur 1 et 3
+x---x---           DNA pur
 [x x]-x-[x x]-x-  subdivisions
-x(3,8)            3 hits euclidiens sur 8 steps
-<x-x- ?-?->       alternance deux patterns
-↺(2,8)           2 ratchets euclidiens
-<[x x]- x-->      subdivision dans alternance
+x(3,8)             euclidien
+<x-x- ?-?->        alternance
 \`\`\`
 
-## Modes de génération
+## Modes
 
 | Mode | Description |
 |------|-------------|
 | Morph | DNA morphé + mutation selon chaos |
 | Random | Aléatoire pur |
 | Weather | Densité selon météo Scaër |
-| Markov | Ligne mélodique via chaîne de Markov |
-| Phase 2 | Markov + CC drone + polyrythmie |
-| Noise ◼ | 8 voix cycles asymétriques, haute entropie |
+| Markov | Mélodie via chaîne de Markov |
+| Phase 2 | Markov + CC + polyrythmie |
+| Noise ◼ | 8 voix, haute entropie |
 | Ambient ◌ | 3 voix ultra-sparse |
-| Babka ⚗ | Syntaxe Babka — 3 niveaux selon chaos |
-| Volca Drum ★ | 6 parts sur canaux 1–6, P-locks CC |
+| Babka ⚗ | Syntaxe Babka |
+| Volca Drum ★ | 6 parts MIDI canal 1–6, P-locks |
 
 ## Paramètres
 
 | Paramètre | Plage | Effet |
 |-----------|-------|-------|
 | BPM | 40–300 | Tempo |
-| Steps | 4–128 | Longueur du pattern |
-| Chaos | 0–1 | Intensité des mutations |
+| Steps | 4–128 | Longueur pattern |
+| Chaos | 0–1 | Intensité mutations |
 | Gravity | 0–1 | Gravité Markov |
 | CC Depth | 0–1 | Amplitude drone CC |
 | VEL MIN | 0–126 | Plancher velocity |
 | VEL MAX | 1–127 | Plafond velocity |
 | DYNAMICS | 0.1–4.0 | <1 compresse · 1 linéaire · >1 expand |
 | Poly | 0=∞ | Max voix simultanées |
+
+## Format Session
+
+\`\`\`json
+{
+  "bang_version": "0.3.0",
+  "timestamp": "2026-05-23T10:00:00",
+  "seed": "abc123",
+  "params": { "mode": "babka", "bpm": 120, "steps": 16, "chaos": 0.3 },
+  "voices": [
+    {"note": 36, "pattern": "x---x---", "type": "dna"},
+    {"note": 38, "pattern": "x(3,8)",   "type": "babka"}
+  ],
+  "voice_thin": {},
+  "note_remap": {},
+  "max_poly": 0
+}
+\`\`\`
 `;
   const blob = new Blob([md], {type: 'text/markdown'});
   const a = document.createElement('a');
