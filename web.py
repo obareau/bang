@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+APP_VERSION = "0.3.0"
+
 import io
 import json
 import os
@@ -307,22 +309,21 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             continue
 
         if vtype == "babka":
-            bsteps   = _babka.parse(dna, cycle=0)
-            tot_dur  = sum(s.duration for s in bsteps) or 1.0
-            cells    = []
-            for i in range(steps):
-                frac = (i / steps) * tot_dur
-                acc  = 0.0
-                hit  = bsteps[-1] if bsteps else None
-                for s in bsteps:
-                    if acc + s.duration > frac:
-                        hit = s
-                        break
-                    acc += s.duration
-                if hit and hit.trigger:
-                    cells.append({"trigger": True,  "opacity": round(0.35 + hit.prob * 0.65, 2), "ratchet": hit.ratchet})
-                else:
-                    cells.append({"trigger": False, "opacity": 0.0, "ratchet": 1})
+            bsteps  = _babka.parse(dna, cycle=0)
+            tot_dur = sum(s.duration for s in bsteps) or 1.0
+            cells   = [{"trigger": False, "opacity": 0.0, "ratchet": 1} for _ in range(steps)]
+            pos = 0.0
+            for s in bsteps:
+                if s.trigger:
+                    cyc_pos = pos
+                    while cyc_pos < steps:
+                        cell = int(cyc_pos)  # floor — identique au player JS
+                        if cell < steps:
+                            opacity = round(0.35 + s.prob * 0.65, 2)
+                            if not cells[cell]["trigger"] or cells[cell]["opacity"] < opacity:
+                                cells[cell] = {"trigger": True, "opacity": opacity, "ratchet": s.ratchet}
+                        cyc_pos += tot_dur
+                pos += s.duration
             name = _NOTE_NAMES.get(note, f"n{note}")
             cells = _thin_cells(cells, _state["voice_thin"].get(name + " ⚗", 1))
             rows.append({"name": name + " ⚗", "cells": cells, "dna_len": int(tot_dur),
@@ -657,6 +658,7 @@ async def index(request: Request):
         log=_state["log"][-20:],
         weather=_state["weather"],
         last_seed=_state["last_seed"],
+        app_version=APP_VERSION,
     )
 
 

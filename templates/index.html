@@ -436,7 +436,7 @@
 
 <header>
   <h1>BANG · Dark Umbrae Sequencer</h1>
-  <span style="color:var(--muted);font-size:12px">http://100.64.201.127:7777</span>
+  <span style="color:var(--muted);font-size:12px">v{{ app_version }}</span>
 </header>
 
 <div id="weather-bar">
@@ -695,7 +695,7 @@ document.addEventListener('keydown', function(e) {
 const LOOKAHEAD_S  = 0.1;    // fenêtre de scheduling (secondes)
 const SCHEDULE_MS  = 25;     // intervalle du scheduler (ms)
 const PR_LEFT_MARGIN = 48;   // doit correspondre à lm dans _pianoroll.html
-const PR_CELL_W      = 8;    // doit correspondre à cw dans _pianoroll.html
+const PR_CELL_W      = 10;   // doit correspondre à cw dans _pianoroll.html
 
 let _midi = null, _midiOut = null;
 let _playing = false, _audioCtx = null;
