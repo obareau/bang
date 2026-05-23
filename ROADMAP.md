@@ -58,9 +58,9 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ## Ordre suggéré
 
-1. 🟢 Seed cliquable — 30min, QoL immédiat
-2. 🟢 Multi-canal Markov — 1h, débloque le routing DAW
-3. 🟡 P-locks dans le `.mid` — 3h, cohérence critique hardware
+1. ✅ Seed cliquable — 30min, QoL immédiat
+2. ✅ Multi-canal Markov — 1h, débloque le routing DAW
+3. ✅ P-locks dans le `.mid` — 3h, cohérence critique hardware
 4. 🟡 Lock de voix — 3h, workflow fondamental
 5. 🟡 Export multi-piste — 3h, grosse amélioration DAW
 6. 🟢 Undo — 1h, filet de sécurité

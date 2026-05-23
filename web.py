@@ -358,6 +358,9 @@ _state: dict = {
     "plocks":          [],  # p-locks par voix (volca_drum uniquement)
     "locked_voices":   set(),  # indices de voix verrouillées
     "history":         deque(maxlen=5),  # ring buffer (voices, plocks, last_p)
+    "slot_a":          None,  # snapshot A/B pour comparaison
+    "slot_b":          None,
+    "ab_current":      None,  # "a" | "b" | None
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "voice_density":   {},  # voice_name -> float (0.0–1.0, défaut 1.0)
     "max_poly":        0,   # 0 = illimité
@@ -907,6 +910,38 @@ def _read_form(
     }
 
 
+def _build_ab_html() -> str:
+    """Génère le bloc #ab-controls pour le toolbar (store + load A/B)."""
+    sa  = _state["slot_a"]  is not None
+    sb  = _state["slot_b"]  is not None
+    cur = _state.get("ab_current")
+
+    def _store(slot: str) -> str:
+        lbl = slot.upper()
+        return (f'<button class="btn-ab btn-ab-store" '
+                f'hx-post="/ab/store" hx-vals=\'{{"slot":"{slot}"}}\' '
+                f'hx-target="#ab-controls" hx-swap="outerHTML" '
+                f'title="Stocker dans {lbl}">▸{lbl}</button>')
+
+    def _load(slot: str) -> str:
+        filled  = sa if slot == "a" else sb
+        active  = cur == slot
+        lbl     = slot.upper()
+        icon    = "●" if filled else "○"
+        cls     = "btn-ab" + (" btn-ab-active" if active else "") + (" btn-ab-empty" if not filled else "")
+        dis     = "" if filled else " disabled"
+        return (f'<button class="{cls}"{dis} '
+                f'hx-post="/ab/load" hx-vals=\'{{"slot":"{slot}"}}\' '
+                f'hx-target="#voices" hx-swap="innerHTML" '
+                f'title="Charger {lbl}">{lbl}{icon}</button>')
+
+    return (f'<div id="ab-controls" class="tb-group" style="display:flex;gap:2px">'
+            f'{_store("a")}{_store("b")}'
+            f'<span style="color:var(--border);padding:0 2px">|</span>'
+            f'{_load("a")}{_load("b")}'
+            f'</div>')
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -952,7 +987,8 @@ async def generate(
     if _state["voices"] and _state["last_p"]:
         _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(_state["last_p"])))
 
-    _state["last_p"] = p
+    _state["last_p"]     = p
+    _state["ab_current"] = None  # nouvelle génération = hors slot A/B
     voices = _apply_note_remap(_apply_locks(_build_voices(p)))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
@@ -1546,6 +1582,35 @@ async def undo():
     pr_html = _build_pr_html(voices, last_p["steps"], plocks or None)
     oob     = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/ab/store", response_class=HTMLResponse)
+async def ab_store(slot: Annotated[str, Form()] = "a"):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse(_build_ab_html())
+    snapshot = (_state["voices"][:], list(_state["plocks"]), dict(_state["last_p"]))
+    if slot == "b":
+        _state["slot_b"] = snapshot
+    else:
+        _state["slot_a"] = snapshot
+    return HTMLResponse(_build_ab_html())
+
+
+@app.post("/ab/load", response_class=HTMLResponse)
+async def ab_load(slot: Annotated[str, Form()] = "a"):
+    snap = _state["slot_b"] if slot == "b" else _state["slot_a"]
+    if snap is None:
+        return HTMLResponse("")
+    voices, plocks, last_p = snap
+    _state["voices"]     = voices
+    _state["plocks"]     = plocks
+    _state["last_p"]     = last_p
+    _state["engine"]     = _assemble_engine(last_p, voices)
+    _state["ab_current"] = slot
+    pr_html = _build_pr_html(voices, last_p["steps"], plocks or None)
+    oob_pr  = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    oob_ab  = f'<div id="ab-controls" hx-swap-oob="outerHTML:#ab-controls">{_build_ab_html()}</div>'
+    return HTMLResponse(_build_voices_html(voices) + oob_pr + oob_ab)
 
 
 @app.post("/lock_voice", response_class=HTMLResponse)

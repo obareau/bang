@@ -406,6 +406,12 @@
     #tb-actions .btn-gen  { height: 26px; font-size: 12px; padding: 0 12px; }
     #tb-actions .btn-undo { color: var(--muted); opacity: .7; }
     #tb-actions .btn-undo:hover { opacity: 1; color: var(--text); }
+    .btn-ab { font-size: 10px; padding: 1px 6px; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+    .btn-ab:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+    .btn-ab-active { color: var(--accent) !important; border-color: var(--accent) !important; background: var(--accent-dim) !important; }
+    .btn-ab-store  { color: var(--primary); border-color: var(--primary); opacity: .75; }
+    .btn-ab-store:hover { opacity: 1; }
+    .btn-ab-empty  { opacity: .35; cursor: not-allowed; }
 
     /* Bottom bar */
     #bottom-bar {
@@ -783,6 +789,14 @@
             hx-target="#voices"
             hx-swap="innerHTML"
             title="Annuler la dernière génération">↩ Undo</button>
+
+    <div id="ab-controls" class="tb-group" style="display:flex;gap:2px">
+      <button class="btn-ab btn-ab-store" hx-post="/ab/store" hx-vals='{"slot":"a"}' hx-target="#ab-controls" hx-swap="outerHTML" title="Stocker dans A">▸A</button>
+      <button class="btn-ab btn-ab-store" hx-post="/ab/store" hx-vals='{"slot":"b"}' hx-target="#ab-controls" hx-swap="outerHTML" title="Stocker dans B">▸B</button>
+      <span style="color:var(--border);padding:0 2px">|</span>
+      <button class="btn-ab btn-ab-empty" disabled hx-post="/ab/load" hx-vals='{"slot":"a"}' hx-target="#voices" hx-swap="innerHTML" title="Charger A">A○</button>
+      <button class="btn-ab btn-ab-empty" disabled hx-post="/ab/load" hx-vals='{"slot":"b"}' hx-target="#voices" hx-swap="innerHTML" title="Charger B">B○</button>
+    </div>
 
     <button class="btn-exp" onclick="openExportModal()">↯ Export <kbd>E</kbd></button>
 
