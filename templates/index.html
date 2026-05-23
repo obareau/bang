@@ -170,6 +170,7 @@
     .vr-controls .tag.cc     { color: var(--muted); }
     .vr-controls .tag.babka  { color: var(--accent); opacity: .7; }
     .vr-controls .tag.bl     { color: #a78bfa; opacity: .85; }
+    .vr-controls .tag.vk     { color: #f97316; opacity: .85; }
     .vr-pattern { width: 100%; }
 
     /* DNA/Babka display coloré — click pour éditer */
@@ -623,6 +624,7 @@
         <option value="markov">Markov</option>
         <option value="phase2">Phase 2</option>
         <option value="bassline">Bassline ♩</option>
+        <option value="volca_kick">Volca Kick ★</option>
         <option value="volca_drum">Volca Drum ★</option>
         <option value="noise">Noise ◼</option>
         <option value="ambient">Ambient ◌</option>
@@ -1170,7 +1172,7 @@ loadPresets();
 // Steps suggérés selon le mode
 document.querySelector('select[name=mode]').addEventListener('change', function() {
   const stepsInput = document.querySelector('input[name=steps]');
-  if (this.value === 'volca_drum') {
+  if (this.value === 'volca_drum' || this.value === 'volca_kick') {
     stepsInput.value = 16;
     stepsInput.max   = 16;
   } else if (this.value === 'bassline') {

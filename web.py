@@ -90,6 +90,9 @@ DRUM_PRESETS: dict[str, dict[str, int]] = {
         "Kick": 36, "Snare": 38, "HiHat": 42, "Tom": 48,
         "Bass": 43, "A1": 46, "E1": 37, "G1": 41,
     },
+    "Volca Kick": {
+        "VKick": 60,   # C3 — pitch initial du kick (note → hauteur de l'oscillateur)
+    },
 }
 
 
@@ -160,57 +163,81 @@ _VD_PLOCK_PROFILE: list[list[tuple]] = [
 ]
 
 
-def _generate_plocks(voices: list, p: dict) -> list:
-    """Génère des p-locks (valeurs CC par step) pour les parts Volca Drum."""
+# ---------------------------------------------------------------------------
+# Korg Volca Kick — MIDI CC
+# ---------------------------------------------------------------------------
+
+VOLCA_KICK_CC: dict[int, str] = {
+    40: "Pitch",         # hauteur oscillateur
+    44: "Amp Attack",    # attaque amplitude
+    45: "Amp Decay",     # déclin amplitude
+    46: "Drive",         # saturation
+    47: "Fold",          # wavefolder
+    48: "Bit Reduction", # réduction de bits
+    49: "Gate Time",     # durée de gate
+}
+
+# ---------------------------------------------------------------------------
+# Profils P-locks génériques (vk, puis vfm, vmf à venir)
+# ---------------------------------------------------------------------------
+
+_SYNTH_PLOCK_PROFILES: dict[str, list[tuple]] = {
+    "vk": [
+        (40, "Pitch",  "sweep"),    # sweep de pitch — punch caractéristique
+        (45, "Decay",  "sweep"),    # longueur du kick
+        (46, "Drive",  "texture"),  # saturation variable
+        (47, "Fold",   "texture"),  # contenu harmonique
+        (48, "BitRed", "spike"),    # artefacts lo-fi
+    ],
+}
+
+
+def _plock_values(style: str, steps: int, chaos: float, phase: float = 0.0) -> list[int | None]:
+    """Génère une liste de valeurs P-lock (ou None) pour un step selon le style."""
     import math
+    values: list[int | None] = []
+    for step in range(steps):
+        t = step / steps
+        if style == "sweep":
+            base    = int(55 + 50 * math.sin(2 * math.pi * t + phase))
+            jitter  = int(chaos * 28 * (random.random() * 2 - 1))
+            val     = max(0, min(127, base + jitter))
+            density = 0.45 + chaos * 0.3
+        elif style == "texture":
+            base    = int(38 + 52 * abs(math.sin(4 * math.pi * t + phase)))
+            jitter  = int(chaos * 44 * (random.random() * 2 - 1))
+            val     = max(0, min(127, base + jitter))
+            density = 0.4 + chaos * 0.35
+        else:  # spike
+            val     = random.randint(60, 127) if random.random() < chaos * 0.55 else random.randint(0, 35)
+            density = 0.18 + chaos * 0.42
+        values.append(val if random.random() < density else None)
+    return values
+
+
+def _generate_plocks(voices: list, p: dict) -> list:
+    """Génère des p-locks (valeurs CC par step) pour les voix synth (Volca Drum, Volca Kick…)."""
     steps = min(p["steps"], 16)
     chaos = p["chaos"]
-
     result = []
+
     for note, dna, vtype in voices:
-        if not vtype.startswith("vd"):
+        if vtype.startswith("vd"):
+            idx     = int(vtype[2:])
+            profile = _VD_PLOCK_PROFILE[idx % len(_VD_PLOCK_PROFILE)]
+            phase   = idx * 1.4
+        elif vtype in _SYNTH_PLOCK_PROFILES:
+            profile = _SYNTH_PLOCK_PROFILES[vtype]
+            phase   = 0.0
+        else:
             result.append([])
             continue
 
-        idx     = int(vtype[2:])
-        profile = _VD_PLOCK_PROFILE[idx % len(_VD_PLOCK_PROFILE)]
-        plocks  = []
-
-        for cc_num, cc_short, style in profile:
-            values: list[int | None] = []
-            for step in range(steps):
-                t = step / steps
-
-                if style == "sweep":
-                    base    = int(55 + 50 * math.sin(2 * math.pi * t + idx * 1.4))
-                    jitter  = int(chaos * 28 * (random.random() * 2 - 1))
-                    val     = max(0, min(127, base + jitter))
-                    density = 0.45 + chaos * 0.3
-
-                elif style == "texture":
-                    base    = int(38 + 52 * abs(math.sin(4 * math.pi * t + idx)))
-                    jitter  = int(chaos * 44 * (random.random() * 2 - 1))
-                    val     = max(0, min(127, base + jitter))
-                    density = 0.4 + chaos * 0.35
-
-                else:  # spike
-                    # Impulsions rares mais dramatiques
-                    if random.random() < chaos * 0.55:
-                        val = random.randint(60, 127)
-                    else:
-                        val = random.randint(0, 35)
-                    density = 0.18 + chaos * 0.42
-
-                values.append(val if random.random() < density else None)
-
-            plocks.append({
-                "cc":     cc_num,
-                "name":   cc_short,
-                "style":  style,
-                "values": values,
-            })
-
-        result.append(plocks)
+        result.append([
+            {"cc": cc, "name": name, "style": style,
+             "values": _plock_values(style, steps, chaos, phase)}
+            for cc, name, style in profile
+        ])
 
     return result
 
@@ -364,6 +391,9 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             bl_idx = sum(1 for r in rows if r.get("vtype") == "bl")
             color  = "#a78bfa"
             name   = "Bass ♩" if bl_idx == 0 else f"Bass {bl_idx + 1} ♩"
+        elif vtype == "vk":
+            color = "#f97316"   # orange — kick synthétique
+            name  = "VKick"
         else:
             color = _NOTE_COLOR.get(note, "#94a3b8")
             name  = _NOTE_NAMES.get(note, f"n{note}")
@@ -573,6 +603,17 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             voices.append((0, f"CC5 portamento ↗{port_peak}", "cc"))
         return voices
 
+    if mode == "volca_kick":
+        _VK_BASES = [
+            ("x---x---x---x---", "x---?---x---?---"),  # 4-on-the-floor
+            ("x-?-x---x-?-x---", "?---x---?---x---"),  # syncopé
+            ("x---x-?-x---x-?-", "x---?-x-x---?-x-"),  # avec swing
+        ]
+        pair = _VK_BASES[int(chaos * len(_VK_BASES)) % len(_VK_BASES)]
+        dna  = morph_dna(pair[0], pair[1], mutation_rate=chaos * 0.35)
+        dna  = mutate_dna(dna, intensity=chaos * 0.25)
+        return [(60, dna, "vk")]  # C3 — pitch initial
+
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
         # Note indifférente (on envoie 60/C3) — seul le canal compte
@@ -606,6 +647,8 @@ def _voice_label(note: int, vtype: str) -> str:
         return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     if vtype == "bl":
         return "Bass ♩"
+    if vtype == "vk":
+        return "VKick"
     return _NOTE_NAMES.get(note, f"n{note}")
 
 
@@ -614,7 +657,9 @@ def _apply_note_remap(voices: list) -> list:
     if not remap:
         return voices
     return [
-        (n if (vtype.startswith("vd") or vtype == "bl") else remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
+        (n if (vtype.startswith("vd") or vtype == "bl") else
+         remap.get("VKick", n) if vtype == "vk" else
+         remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
         for n, dna, vtype in voices
     ]
 
@@ -639,6 +684,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_babka_voice(note, dna)
         elif vtype.startswith("vd"):
             engine.add_voice(note, dna, channel=int(vtype[2:]))
+        elif vtype == "vk":
+            engine.add_voice(note, dna, channel=0)  # MIDI ch1
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna)
         elif vtype == "bl":
@@ -680,7 +727,7 @@ def _read_form(
     vel_curve:   float = 1.0,
 ) -> dict:
     _steps = max(1, int(steps))
-    if mode == "volca_drum":
+    if mode in ("volca_drum", "volca_kick"):
         _steps = min(_steps, 16)
     elif mode == "bassline" and _steps > 128:
         _steps = 128
@@ -738,7 +785,7 @@ async def generate(
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
-    plocks = _generate_plocks(voices, p) if p["mode"] == "volca_drum" else []
+    plocks = _generate_plocks(voices, p) if p["mode"] in ("volca_drum", "volca_kick") else []
     _state["plocks"] = plocks
 
     pr_html = _build_pr_html(voices, p["steps"], plocks)
@@ -1187,8 +1234,11 @@ async def get_pattern():
             channel = int(vtype[2:])
             name    = _VD_PART_NAMES[channel]
         elif vtype == "bl":
-            channel = 0   # MIDI ch1 — bass sur canal mélodique
+            channel = 0
             name    = "Bass ♩"
+        elif vtype == "vk":
+            channel = 0   # MIDI ch1 — Volca Kick
+            name    = "VKick"
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")
