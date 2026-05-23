@@ -970,6 +970,8 @@ async def export(
         voices = _apply_note_remap(_build_voices(p))
         _state["voices"] = voices
         _state["engine"] = _assemble_engine(p, voices)
+        if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak"):
+            _state["plocks"] = _generate_plocks(voices, p)
 
     target_dir = Path(dest_dir).expanduser() if dest_dir.strip() else EXPORT_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -985,6 +987,7 @@ async def export(
             temporal_jitter=p["temporal"],
             seed=p["seed"] or None,
             swing=p["swing"],
+            plocks=_state.get("plocks") or None,
         )
         seed        = (_state["engine"].last_seed or "")[:16]
         _state["last_seed"] = _state["engine"].last_seed

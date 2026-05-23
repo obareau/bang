@@ -442,6 +442,7 @@ class BangEngine:
         weather: dict | None = None,
         temporal_jitter: bool = False,
         swing: float = 0.0,
+        plocks: list | None = None,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -459,8 +460,9 @@ class BangEngine:
         events: list[tuple] = []
 
         # --- Voix note (drum + markov + babka) ---
-        for voice in self.voices:
-            channel = voice.get("channel", 0)
+        for vi, voice in enumerate(self.voices):
+            channel     = voice.get("channel", 0)
+            voice_plocks = plocks[vi] if plocks and vi < len(plocks) else []
 
             # --- Babka ---
             if voice["type"] == "babka":
@@ -530,6 +532,12 @@ class BangEngine:
                         t_on = actual_start + r * r_dur
                         events.append((t_on,         1, 'note_on',  channel, note, out_vel))
                         events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+
+                # P-locks : CC step-par-step, independants du trigger
+                for pl in voice_plocks:
+                    vals = pl.get("values", [])
+                    if i < len(vals) and vals[i] is not None:
+                        events.append((i * self.ticks_per_step, 0, 'control_change', channel, pl["cc"], vals[i]))
 
                 # Avance dans le pattern courant, passe au suivant après un cycle complet
                 step_in_pattern += 1
