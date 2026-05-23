@@ -141,7 +141,7 @@
   <a href="#dna">Syntaxe DNA</a>
   <a href="#babka">Syntaxe Babka</a>
   <a href="#syntaxes">Exemples concrets</a>
-  <a href="#osc">OSC Output</a>
+  <a href="#osc">OSC Bidirectionnel</a>
   <a href="#api">API HTTP</a>
   <a href="#session">Session</a>
   <a href="#engine">BangEngine</a>
@@ -554,18 +554,35 @@ x(3,8)-░(2,8)
 </table>
 
 <!-- ─── OSC ──────────────────────────────────────────────────────────────── -->
-<h2 id="osc">OSC Output</h2>
-<p>BANG émet des messages OSC en UDP en temps réel, synchronisés au BPM du pattern courant. Activer via <code>OSC ○</code> dans le toolbar → modal config → Start.</p>
+<h2 id="osc">OSC Bidirectionnel</h2>
+<p>BANG envoie et reçoit des messages OSC en UDP. Activer via <code>OSC ○</code> dans le toolbar → modal config → Start. Les deux serveurs (TX et RX) démarrent simultanément.</p>
 
-<h3>Format des messages</h3>
+<h3>Messages sortants (↑ TX)</h3>
 <table>
   <tr><th>Message</th><th>Arguments</th><th>Description</th></tr>
   <tr><td><code>/bang/clock</code></td><td><code>[step, total_steps]</code></td><td>Émis à chaque step du pattern</td></tr>
   <tr><td><code>/bang/{NomVoix}</code></td><td><code>[step, velocity, note]</code></td><td>Par trigger, par voix qui sonne ce step</td></tr>
 </table>
-<p><code>NomVoix</code> = label de la voix (<code>Kick</code>, <code>Snare</code>, <code>HH</code>, <code>Markov</code>, <code>KSP Lead</code>…). Défaut : <code>127.0.0.1:57120</code>.</p>
+<p><code>NomVoix</code> = label de la voix (<code>Kick</code>, <code>Snare</code>, <code>HH</code>, <code>Markov</code>, <code>KSP Lead</code>…). Défaut TX : <code>127.0.0.1:57120</code>.</p>
 
-<h3>SuperCollider</h3>
+<h3>Messages entrants (↓ RX)</h3>
+<p>BANG écoute sur <code>0.0.0.0:57121</code> (configurable). Envoyez ces messages depuis SC, Max, TouchDesigner, Python…</p>
+<table>
+  <tr><th>Message</th><th>Arguments</th><th>Effet</th></tr>
+  <tr><td><code>/bang/param/bpm</code></td><td><code>int</code> (40–240)</td><td>Change le BPM immédiatement</td></tr>
+  <tr><td><code>/bang/param/chaos</code></td><td><code>float</code> (0–1)</td><td>Change le chaos (utilisé à la prochaine génération)</td></tr>
+  <tr><td><code>/bang/param/gravity</code></td><td><code>float</code> (0–1)</td><td>Change la gravité Markov</td></tr>
+  <tr><td><code>/bang/param/swing</code></td><td><code>float</code> (0–1)</td><td>Change le swing</td></tr>
+  <tr><td><code>/bang/param/microtiming</code></td><td><code>float</code> (0–1)</td><td>Change le micro-timing</td></tr>
+  <tr><td><code>/bang/param/steps</code></td><td><code>int</code> (8–256)</td><td>Change la longueur du pattern</td></tr>
+  <tr><td><code>/bang/param/cc_depth</code></td><td><code>float</code> (0–1)</td><td>Change la profondeur CC (p-locks)</td></tr>
+  <tr><td><code>/bang/generate</code></td><td>—</td><td>Regénère le pattern complet (params courants, locks respectés)</td></tr>
+  <tr><td><code>/bang/vary</code></td><td>—</td><td>Mutation légère — même algo que ∿ Varier</td></tr>
+  <tr><td><code>/bang/density/Kick</code></td><td><code>float</code> (0–1)</td><td>Densité de la voix nommée</td></tr>
+  <tr><td><code>/bang/lock/0</code></td><td><code>int</code> (0 ou 1)</td><td>Verrouille (1) / déverrouille (0) la voix par index</td></tr>
+</table>
+
+<h3>SuperCollider — Recevoir depuis BANG (TX)</h3>
 <pre><code>// Écouter le clock global
 OSCdef(\bangClock, { |msg|
     var step = msg[1], total = msg[2];
@@ -584,6 +601,29 @@ OSCdef(\bangMarkov, { |msg|
     var vel = msg[2], note = msg[3];
     Synth(\blip, [\freq, note.midicps, \amp, vel / 127]);
 }, '/bang/Markov');</code></pre>
+
+<h3>SuperCollider — Envoyer vers BANG (RX)</h3>
+<pre><code>// Créer un client UDP pointant vers BANG
+~bang = NetAddr("127.0.0.1", 57121);
+
+// Changer le BPM
+~bang.sendMsg('/bang/param/bpm', 140);
+
+// Changer chaos + gravity
+~bang.sendMsg('/bang/param/chaos', 0.7);
+~bang.sendMsg('/bang/param/gravity', 0.9);
+
+// Déclencher une variation
+~bang.sendMsg('/bang/vary');
+
+// Regénérer le pattern complet
+~bang.sendMsg('/bang/generate');
+
+// Densité de la voix Kick à 50%
+~bang.sendMsg('/bang/density/Kick', 0.5);
+
+// Verrouiller la voix 0 (index)
+~bang.sendMsg('/bang/lock/0', 1);</code></pre>
 
 <h3>Max/MSP</h3>
 <pre><code>// Objet principal

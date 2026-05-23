@@ -1,12 +1,12 @@
 # BANG! — Roadmap
 
-> État : v0.5.1 · Mis à jour : 2026-05-23
+> État : v0.5.5 · Mis à jour : 2026-05-23
 
 Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Acquis (v0.1 → v0.5.4)
+## Acquis (v0.1 → v0.5.5)
 
 - Entropie multi-sources (temporelle, cryptographique, météo Scaër)
 - Markov, Babka, P-locks, presets hardware (Volca Drum/Kick/FM, MicroFreak)
@@ -28,6 +28,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 - **Euclidien par voix** — bouton `E` par voix, input `k` hits → applique E(n,k) sur la voix ✅
 - **Variation automatique** — bouton `∿ Varier` + raccourci `V`, mutate légère (0.12) sans regénération ✅
 - **Micro-timing global** — slider MICRO 0–100% : offset aléatoire ±12% step par trigger, export MIDI + player JS ✅
+- **OSC bidirectionnel** — récepteur UDP (`0.0.0.0:57121`), 10 commandes OSC entrantes (param, generate, vary, density, lock) ✅
 
 ---
 
@@ -46,7 +47,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 | Item | Effort | Notes |
 |------|--------|-------|
 | **Ableton Live Clip** | 🟡 3h | Export `.als` ou MIDI drag-to-clip avec markers. |
-| **OSC bidirectionnel** | 🟡 3h | Recevoir OSC (changement de params, trigger force) en plus d'émettre. |
+| **OSC bidirectionnel** | ✅ | Recevoir OSC (changement de params, trigger force) en plus d'émettre. |
 | **Export audio preview** | 🔴 6h | Rendu audio via FluidSynth ou simple sine waves pour pré-écoute sans MIDI hardware. |
 
 ### Infrastructure
@@ -58,9 +59,9 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Ordre suggéré (suite v0.5.4)
+## Ordre suggéré (suite v0.5.5)
 
-1. 🟡 OSC bidirectionnel — intégration écosystème complète
-4. 🟡 OSC bidirectionnel — intégration écosystème complète
-5. 🔴 Polymetry — nouveau territoire rythmique
-6. 🔴 MIDI input — franchissement de seuil majeur
+1. 🔴 Polymetry — longueurs de pattern indépendantes par voix
+2. 🔴 MIDI input (learn) — franchissement de seuil majeur
+3. 🟡 Ableton Live Clip — export .als ou drag-to-clip
+4. 🔴 Export audio preview — FluidSynth / sine waves

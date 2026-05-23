@@ -413,6 +413,9 @@ _state: dict = {
     "osc_host":        "127.0.0.1",
     "osc_port":        57120,
     "osc_thread":      None,  # threading.Thread
+    "osc_rx_port":     57121,
+    "osc_rx_thread":   None,
+    "osc_rx_server":   None,
     "max_poly":        0,   # 0 = illimité
 }
 
@@ -1028,6 +1031,148 @@ def _build_ab_html() -> str:
 # OSC clock — thread serveur
 # ---------------------------------------------------------------------------
 
+def _sync_vary() -> None:
+    """Mutation légère du pattern courant (appelable depuis le thread OSC)."""
+    if not _state["voices"] or not _state["last_p"]:
+        return
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    locked    = _state.get("locked_voices", set())
+    new_voices = []
+    for idx, (note, dna, vtype) in enumerate(_state["voices"]):
+        if idx in locked or vtype in ("cc", "babka"):
+            new_voices.append((note, dna, vtype))
+        else:
+            new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
+    _state["voices"] = new_voices
+    _state["engine"] = _assemble_engine(_state["last_p"], new_voices)
+
+
+def _sync_generate() -> None:
+    """Regénération complète avec les params courants (appelable depuis le thread OSC)."""
+    p = _state.get("last_p")
+    if not p:
+        return
+    if _state["voices"]:
+        _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(p)))
+    voices = _apply_note_remap(_apply_locks(_build_voices(p)))
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(p, voices)
+    if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak"):
+        _state["plocks"] = _generate_plocks(voices, p)
+
+
+_PARAM_CLAMPS: dict[str, tuple] = {
+    "bpm":         (40,   240,  int),
+    "chaos":       (0.0,  1.0,  float),
+    "gravity":     (0.0,  1.0,  float),
+    "swing":       (0.0,  1.0,  float),
+    "microtiming": (0.0,  1.0,  float),
+    "steps":       (8,    256,  int),
+    "cc_depth":    (0.0,  1.0,  float),
+}
+
+
+def _osc_handle_param(address: str, *args) -> None:
+    if not args or not _state.get("last_p"):
+        return
+    parts = address.strip("/").split("/")   # ["bang","param","bpm"]
+    if len(parts) < 3:
+        return
+    name = parts[2]
+    if name not in _PARAM_CLAMPS:
+        return
+    lo, hi, cast = _PARAM_CLAMPS[name]
+    try:
+        val = cast(max(lo, min(hi, cast(args[0]))))
+    except (TypeError, ValueError):
+        return
+    _state["last_p"][name] = val
+    _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"] or [])
+
+
+def _osc_handle_generate(address: str, *args) -> None:
+    _sync_generate()
+
+
+def _osc_handle_vary(address: str, *args) -> None:
+    _sync_vary()
+
+
+def _osc_handle_density(address: str, *args) -> None:
+    if not args:
+        return
+    parts = address.strip("/").split("/")   # ["bang","density","Kick"]
+    if len(parts) < 3:
+        return
+    name = parts[2]
+    try:
+        val = max(0.0, min(1.0, float(args[0])))
+    except (TypeError, ValueError):
+        return
+    _state["voice_density"][name] = val
+
+
+def _osc_handle_lock(address: str, *args) -> None:
+    parts = address.strip("/").split("/")   # ["bang","lock","2"]
+    if len(parts) < 3:
+        return
+    try:
+        idx = int(parts[2])
+        lock = bool(int(args[0])) if args else True
+    except (TypeError, ValueError):
+        return
+    locked = _state.get("locked_voices", set())
+    if lock:
+        locked.add(idx)
+    else:
+        locked.discard(idx)
+
+
+def _osc_rx_start(port: int) -> None:
+    try:
+        from pythonosc.dispatcher import Dispatcher
+        from pythonosc.osc_server import ThreadingOSCUDPServer
+    except ImportError:
+        print("OSC RX: python-osc non installé.")
+        return
+
+    prev = _state.get("osc_rx_server")
+    if prev:
+        try:
+            prev.shutdown()
+        except Exception:
+            pass
+
+    disp = Dispatcher()
+    disp.map("/bang/param/*",   _osc_handle_param)
+    disp.map("/bang/generate",  _osc_handle_generate)
+    disp.map("/bang/vary",      _osc_handle_vary)
+    disp.map("/bang/density/*", _osc_handle_density)
+    disp.map("/bang/lock/*",    _osc_handle_lock)
+
+    try:
+        server = ThreadingOSCUDPServer(("0.0.0.0", port), disp)
+    except OSError as e:
+        print(f"OSC RX: impossible de lier le port {port} — {e}")
+        return
+
+    _state["osc_rx_server"] = server
+    t = threading.Thread(target=server.serve_forever, daemon=True, name="osc-rx")
+    t.start()
+    _state["osc_rx_thread"] = t
+
+
+def _osc_rx_stop() -> None:
+    server = _state.get("osc_rx_server")
+    if server:
+        try:
+            server.shutdown()
+        except Exception:
+            pass
+    _state["osc_rx_server"] = None
+    _state["osc_rx_thread"] = None
+
+
 def _osc_clock_loop() -> None:
     """Thread background : émet les triggers OSC au BPM du pattern courant."""
     try:
@@ -1117,6 +1262,7 @@ def _osc_start() -> None:
     t = threading.Thread(target=_osc_clock_loop, daemon=True, name="osc-clock")
     t.start()
     _state["osc_thread"] = t
+    _osc_rx_start(_state.get("osc_rx_port", 57121))
 
 
 def _osc_stop() -> None:
@@ -1125,6 +1271,7 @@ def _osc_stop() -> None:
     if t and t.is_alive():
         t.join(timeout=1.0)
     _state["osc_thread"] = None
+    _osc_rx_stop()
 
 
 # ---------------------------------------------------------------------------
@@ -1144,6 +1291,7 @@ async def index(request: Request):
         app_version=APP_VERSION,
         osc_host=_state.get("osc_host", "127.0.0.1"),
         osc_port=_state.get("osc_port", 57120),
+        osc_rx_port=_state.get("osc_rx_port", 57121),
     )
 
 
@@ -1882,20 +2030,26 @@ async def osc_toggle():
 
 
 @app.post("/osc/config", response_class=HTMLResponse)
-async def osc_config(host: Annotated[str, Form()] = "127.0.0.1",
-                     port: Annotated[int, Form()] = 57120):
-    _state["osc_host"] = host.strip() or "127.0.0.1"
-    _state["osc_port"] = max(1, min(65535, port))
+async def osc_config(host:    Annotated[str, Form()] = "127.0.0.1",
+                     port:    Annotated[int, Form()] = 57120,
+                     rx_port: Annotated[int, Form()] = 57121):
+    _state["osc_host"]    = host.strip() or "127.0.0.1"
+    _state["osc_port"]    = max(1, min(65535, port))
+    _state["osc_rx_port"] = max(1, min(65535, rx_port))
+    if _state.get("osc_enabled"):
+        _osc_rx_stop()
+        _osc_rx_start(_state["osc_rx_port"])
     return HTMLResponse(_build_osc_btn())
 
 
 def _build_osc_btn() -> str:
-    enabled = _state.get("osc_enabled", False)
-    host    = _state.get("osc_host", "127.0.0.1")
-    port    = _state.get("osc_port", 57120)
-    cls     = "btn-osc active" if enabled else "btn-osc"
-    label   = f"OSC ●" if enabled else "OSC ○"
-    tip     = f"OSC → {host}:{port} (cliquer pour {'arrêter' if enabled else 'démarrer'})"
+    enabled  = _state.get("osc_enabled", False)
+    host     = _state.get("osc_host", "127.0.0.1")
+    port     = _state.get("osc_port", 57120)
+    rx_port  = _state.get("osc_rx_port", 57121)
+    cls      = "btn-osc active" if enabled else "btn-osc"
+    label    = "OSC ●" if enabled else "OSC ○"
+    tip      = f"OSC ↑{host}:{port} ↓:{rx_port} ({'actif' if enabled else 'inactif'})"
     return (f'<span id="osc-btn">'
             f'<button class="{cls}" hx-post="/osc/toggle" hx-target="#osc-btn" hx-swap="outerHTML" title="{tip}">{label}</button>'
             f'</span>')

@@ -1,5 +1,20 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.5.5] — 2026-05-23
+
+### OSC bidirectionnel
+
+- **Récepteur OSC** — serveur UDP sur port d'écoute dédié (défaut `0.0.0.0:57121`), démarré en même temps que l'émetteur. Commandes acceptées en entrée :
+  - `/bang/param/bpm <int>` (40–240), `/bang/param/chaos <float>`, `/bang/param/gravity <float>`, `/bang/param/swing <float>`, `/bang/param/microtiming <float>`, `/bang/param/steps <int>`, `/bang/param/cc_depth <float>`
+  - `/bang/generate` — regénération complète avec les params courants
+  - `/bang/vary` — variation légère (même algo que le bouton ∿ Varier)
+  - `/bang/density/<NomVoix> <float 0–1>` — densité d'une voix
+  - `/bang/lock/<idx> <0|1>` — verrouiller / déverrouiller une voix par index
+- **PORT ↓ dans le modal OSC** — nouveau champ `PORT ↓` (rx) aux côtés du `PORT ↑` (tx). Configurable à chaud : le serveur rx est relancé sans interrompre l'émetteur.
+- **Tooltip mis à jour** — affiche `↑host:port ↓:rx_port` pour distinguer les deux directions.
+
+---
+
 ## [0.5.4] — 2026-05-23
 
 ### Timing & groove

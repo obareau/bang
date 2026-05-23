@@ -1043,23 +1043,43 @@
 
 <!-- OSC Modal -->
 <div id="osc-modal" onclick="if(event.target===this)closeOscModal()">
-  <div class="modal-box" style="max-width:340px">
-    <h3 style="margin:0 0 .8rem">OSC Output</h3>
-    <p style="color:var(--muted);font-size:12px;margin:0 0 .8rem">
-      Envoie les triggers en UDP/OSC au BPM courant.<br>
-      Adresses : <code>/bang/clock [step, steps]</code><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<code>/bang/{NomVoix} [step, vel, note]</code>
+  <div class="modal-box" style="max-width:400px">
+    <h3 style="margin:0 0 .5rem">OSC Bidirectionnel</h3>
+
+    <p style="color:var(--muted);font-size:11px;margin:0 0 .6rem;line-height:1.5">
+      <strong style="color:var(--text)">↑ OUTPUT</strong> — triggers au BPM courant<br>
+      &nbsp;<code>/bang/clock [step, steps]</code><br>
+      &nbsp;<code>/bang/{NomVoix} [step, vel, note]</code>
     </p>
-    <div style="display:flex;gap:.5rem;margin-bottom:.8rem">
+    <p style="color:var(--muted);font-size:11px;margin:0 0 .8rem;line-height:1.5">
+      <strong style="color:var(--text)">↓ INPUT</strong> — commandes reçues<br>
+      &nbsp;<code>/bang/param/bpm 120</code><br>
+      &nbsp;<code>/bang/param/chaos 0.5</code>&nbsp;&nbsp;<code>/bang/param/gravity 0.7</code><br>
+      &nbsp;<code>/bang/param/swing 0.3</code>&nbsp;&nbsp;<code>/bang/param/microtiming 0.8</code><br>
+      &nbsp;<code>/bang/generate</code>&nbsp;&nbsp;<code>/bang/vary</code><br>
+      &nbsp;<code>/bang/density/Kick 0.8</code>&nbsp;&nbsp;<code>/bang/lock/0 1</code>
+    </p>
+
+    <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
       <div style="flex:1">
-        <label style="font-size:11px">HOST</label>
-        <input type="text" id="osc-host" value="127.0.0.1" style="width:100%;box-sizing:border-box">
+        <label style="font-size:11px">HOST DEST.</label>
+        <input type="text" id="osc-host" value="{{ osc_host }}" style="width:100%;box-sizing:border-box">
       </div>
-      <div style="width:70px">
-        <label style="font-size:11px">PORT</label>
-        <input type="number" id="osc-port" value="57120" min="1" max="65535" style="width:100%;box-sizing:border-box">
+      <div style="width:75px">
+        <label style="font-size:11px">PORT ↑</label>
+        <input type="number" id="osc-port" value="{{ osc_port }}" min="1" max="65535" style="width:100%;box-sizing:border-box">
       </div>
     </div>
+    <div style="display:flex;gap:.5rem;margin-bottom:.8rem">
+      <div style="flex:1">
+        <label style="font-size:11px;color:var(--muted)">Écoute sur 0.0.0.0</label>
+      </div>
+      <div style="width:75px">
+        <label style="font-size:11px">PORT ↓</label>
+        <input type="number" id="osc-rx-port" value="{{ osc_rx_port }}" min="1" max="65535" style="width:100%;box-sizing:border-box">
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeOscModal()">Fermer</button>
       <span id="osc-btn-modal">
@@ -1663,19 +1683,17 @@ function _syncOscBtn() {
 }
 
 async function oscApplyAndToggle() {
-  const host = document.getElementById('osc-host').value.trim() || '127.0.0.1';
-  const port = parseInt(document.getElementById('osc-port').value) || 57120;
+  const host   = document.getElementById('osc-host').value.trim() || '127.0.0.1';
+  const port   = parseInt(document.getElementById('osc-port').value) || 57120;
+  const rxPort = parseInt(document.getElementById('osc-rx-port').value) || 57121;
 
-  // Config first
   await fetch('/osc/config', {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: `host=${encodeURIComponent(host)}&port=${port}`,
+    body: `host=${encodeURIComponent(host)}&port=${port}&rx_port=${rxPort}`,
   });
-  // Then toggle
   const resp = await fetch('/osc/toggle', { method: 'POST' });
   const html = await resp.text();
-  // Parse enabled state from returned HTML
   _oscEnabled = html.includes('OSC ●');
   _updateOscModalBtn();
   _syncOscBtn();
