@@ -10,6 +10,8 @@ import os
 import random
 import re
 import secrets
+import threading
+import time
 import zipfile
 from collections import defaultdict, deque
 from datetime import datetime
@@ -364,6 +366,10 @@ _state: dict = {
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "voice_density":   {},  # voice_name -> float (0.0–1.0, défaut 1.0)
     "voice_chords":    {},  # voice_name -> chord_type str (défaut "mono")
+    "osc_enabled":     False,
+    "osc_host":        "127.0.0.1",
+    "osc_port":        57120,
+    "osc_thread":      None,  # threading.Thread
     "max_poly":        0,   # 0 = illimité
 }
 
@@ -945,6 +951,109 @@ def _build_ab_html() -> str:
 
 
 # ---------------------------------------------------------------------------
+# OSC clock — thread serveur
+# ---------------------------------------------------------------------------
+
+def _osc_clock_loop() -> None:
+    """Thread background : émet les triggers OSC au BPM du pattern courant."""
+    try:
+        from pythonosc.udp_client import SimpleUDPClient
+    except ImportError:
+        print("OSC: python-osc non installé. Faites : uv add python-osc")
+        _state["osc_enabled"] = False
+        return
+
+    client: SimpleUDPClient | None = None
+    last_addr = (None, None)
+    step = 0
+    markov_notes: dict[str, list[int]] = {}
+
+    while _state.get("osc_enabled"):
+        p      = _state.get("last_p")
+        voices = _state.get("voices") or []
+
+        if not p or not voices:
+            time.sleep(0.05)
+            continue
+
+        bpm      = p["bpm"]
+        n_steps  = p["steps"]
+        step_dur = 60.0 / (bpm * 4)   # durée 1 step (double-croche)
+
+        host = _state.get("osc_host", "127.0.0.1")
+        port = _state.get("osc_port", 57120)
+        if (host, port) != last_addr:
+            client    = SimpleUDPClient(host, int(port))
+            last_addr = (host, port)
+
+        t0 = time.perf_counter()
+
+        # Régénération des notes Markov au début de chaque cycle
+        if step == 0:
+            markov_notes = {}
+            engine = _state.get("engine")
+            if engine:
+                mk_idx = 0   # index dans engine.voices (skip CC)
+                for note, dna, vtype in voices:
+                    if vtype == "cc":
+                        continue
+                    if vtype in ("markov", "bl") and mk_idx < len(engine.voices):
+                        ev = engine.voices[mk_idx]
+                        if ev.get("type") == "markov":
+                            name = _voice_label(note, vtype)
+                            markov_notes[name] = ev["chain"].generate(n_steps)
+                    mk_idx += 1
+
+        # /bang/clock step total_steps
+        try:
+            assert client is not None
+            client.send_message("/bang/clock", [step, n_steps])
+
+            for note, dna, vtype in voices:
+                if vtype == "cc" or note == 0:
+                    continue
+                name    = _voice_label(note, vtype)
+                density = _state["voice_density"].get(name, 1.0)
+
+                if vtype == "babka":
+                    continue  # timing Babka incompatible avec un clock step-par-step
+
+                compiled = compile_dna(dna)
+                row      = compiled[step % len(compiled)]
+                trig, vel, prob, ratch, jit = row
+
+                if trig and random.random() < prob * density:
+                    osc_note = markov_notes.get(name, [note] * n_steps)[step] if vtype in ("markov", "bl") else note
+                    client.send_message(f"/bang/{name}", [step, int(vel), int(osc_note)])
+        except Exception:
+            pass   # perte réseau → on continue
+
+        step = (step + 1) % n_steps
+
+        elapsed   = time.perf_counter() - t0
+        remaining = step_dur - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
+
+def _osc_start() -> None:
+    if _state.get("osc_thread") and _state["osc_thread"].is_alive():
+        return
+    _state["osc_enabled"] = True
+    t = threading.Thread(target=_osc_clock_loop, daemon=True, name="osc-clock")
+    t.start()
+    _state["osc_thread"] = t
+
+
+def _osc_stop() -> None:
+    _state["osc_enabled"] = False
+    t = _state.get("osc_thread")
+    if t and t.is_alive():
+        t.join(timeout=1.0)
+    _state["osc_thread"] = None
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -959,6 +1068,8 @@ async def index(request: Request):
         last_seed=_state["last_seed"],
         last_p=_state["last_p"],
         app_version=APP_VERSION,
+        osc_host=_state.get("osc_host", "127.0.0.1"),
+        osc_port=_state.get("osc_port", 57120),
     )
 
 
@@ -1628,6 +1739,35 @@ async def ab_load(slot: Annotated[str, Form()] = "a"):
     oob_pr  = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     oob_ab  = f'<div id="ab-controls" hx-swap-oob="outerHTML:#ab-controls">{_build_ab_html()}</div>'
     return HTMLResponse(_build_voices_html(voices) + oob_pr + oob_ab)
+
+
+@app.post("/osc/toggle", response_class=HTMLResponse)
+async def osc_toggle():
+    if _state.get("osc_enabled"):
+        _osc_stop()
+    else:
+        _osc_start()
+    return HTMLResponse(_build_osc_btn())
+
+
+@app.post("/osc/config", response_class=HTMLResponse)
+async def osc_config(host: Annotated[str, Form()] = "127.0.0.1",
+                     port: Annotated[int, Form()] = 57120):
+    _state["osc_host"] = host.strip() or "127.0.0.1"
+    _state["osc_port"] = max(1, min(65535, port))
+    return HTMLResponse(_build_osc_btn())
+
+
+def _build_osc_btn() -> str:
+    enabled = _state.get("osc_enabled", False)
+    host    = _state.get("osc_host", "127.0.0.1")
+    port    = _state.get("osc_port", 57120)
+    cls     = "btn-osc active" if enabled else "btn-osc"
+    label   = f"OSC ●" if enabled else "OSC ○"
+    tip     = f"OSC → {host}:{port} (cliquer pour {'arrêter' if enabled else 'démarrer'})"
+    return (f'<span id="osc-btn">'
+            f'<button class="{cls}" hx-post="/osc/toggle" hx-target="#osc-btn" hx-swap="outerHTML" title="{tip}">{label}</button>'
+            f'</span>')
 
 
 @app.post("/lock_voice", response_class=HTMLResponse)
