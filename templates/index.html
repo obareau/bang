@@ -118,6 +118,20 @@
     .voice-row .note  { color: var(--success); width: 2.5rem; font-weight: bold; }
     .voice-row .name  { color: var(--text); width: 4rem; }
     .voice-row .dna   { flex: 1; letter-spacing: .05em; }
+    .dna-edit {
+      flex: 1;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      letter-spacing: .05em;
+      padding: 1px 3px;
+      border-radius: 3px;
+      min-width: 0;
+    }
+    .dna-edit:hover { border-color: var(--border); }
+    .dna-edit:focus { border-color: var(--primary); background: var(--surface); outline: none; color: var(--text); }
     .voice-row .tag   { font-size: 11px; color: var(--primary); }
     .voice-row .tag.cc { color: var(--warn); }
 

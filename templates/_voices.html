@@ -1,6 +1,7 @@
 {% if voices %}
 <form id="voice-notes">
-  {% for note, dna, vtype, name in voices %}
+  {% for note, dna, raw, vtype, name in voices %}
+  {% set idx = loop.index0 %}
   {% set thin = voice_thin[name] if name in voice_thin else 1 %}
   <div class="voice-row">
     {% if vtype.startswith('vd') %}
@@ -13,7 +14,15 @@
       <span class="note">—</span>
     {% endif %}
     <span class="name">{{ name }}</span>
-    <span class="dna">{{ dna | safe }}</span>
+    <input class="dna-edit" type="text" value="{{ raw }}"
+           name="pattern"
+           hx-post="/voice/pattern"
+           hx-vals='{"idx": {{ idx }}}'
+           hx-include="this"
+           hx-target="#voices"
+           hx-swap="innerHTML"
+           hx-trigger="change, keydown[key=='Enter'] delay:100ms"
+           title="Pattern — Enter ou blur pour valider">
     {% if vtype != "cc" %}
     <div class="thin-btns">
       {% for f, label in [(1, "×1"), (2, "÷2"), (4, "÷4")] %}

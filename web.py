@@ -421,7 +421,7 @@ def _build_pr_html(voices: list, steps: int, plocks: list | None = None) -> str:
 
 def _build_voices_html(voices: list) -> str:
     return jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in voices],
+        voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in voices],
         voice_thin=_state["voice_thin"],
     )
 
@@ -1163,6 +1163,23 @@ async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()
     pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
     oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/voice/pattern", response_class=HTMLResponse)
+async def voice_pattern(idx: Annotated[int, Form()], pattern: Annotated[str, Form()]):
+    pattern = pattern.strip()
+    if pattern and 0 <= idx < len(_state["voices"]):
+        note, _, vtype = _state["voices"][idx]
+        _state["voices"][idx] = (note, pattern, vtype)
+        if _state["last_p"]:
+            _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+    voices = _state["voices"]
+    if _state["last_p"]:
+        pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+        oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    else:
+        oob = ""
+    return HTMLResponse(_build_voices_html(voices) + oob)
 
 
 @app.post("/poly", response_class=HTMLResponse)
