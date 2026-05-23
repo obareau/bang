@@ -31,6 +31,7 @@ from bang_engine import (
     weather_dna,
 )
 from cli import _markov_from_gravity
+import babka as _babka
 
 # ---------------------------------------------------------------------------
 # Config
@@ -304,6 +305,30 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
+
+        if vtype == "babka":
+            bsteps   = _babka.parse(dna, cycle=0)
+            tot_dur  = sum(s.duration for s in bsteps) or 1.0
+            cells    = []
+            for i in range(steps):
+                frac = (i / steps) * tot_dur
+                acc  = 0.0
+                hit  = bsteps[-1] if bsteps else None
+                for s in bsteps:
+                    if acc + s.duration > frac:
+                        hit = s
+                        break
+                    acc += s.duration
+                if hit and hit.trigger:
+                    cells.append({"trigger": True,  "opacity": round(0.35 + hit.prob * 0.65, 2), "ratchet": hit.ratchet})
+                else:
+                    cells.append({"trigger": False, "opacity": 0.0, "ratchet": 1})
+            name = _NOTE_NAMES.get(note, f"n{note}")
+            cells = _thin_cells(cells, _state["voice_thin"].get(name + " ⚗", 1))
+            rows.append({"name": name + " ⚗", "cells": cells, "dna_len": int(tot_dur),
+                         "color": "#e879f9", "boundaries": [], "plocks": []})
+            continue
+
         compiled = compile_dna(dna)
         dna_len  = len(compiled)
         cells    = []
@@ -401,7 +426,11 @@ def _build_voices_html(voices: list) -> str:
     )
 
 
-_DNA_CLASS = {"x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db"}
+_DNA_CLASS = {
+    "x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db",
+    "[": "dbk", "]": "dbk", "<": "dalt", ">": "dalt",
+    "(": "deuc", ")": "deuc",
+}
 
 
 def dna_html(dna: str, max_len: int = 24) -> str:
@@ -480,6 +509,30 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             for note in [36, 24, 33]
         ]
 
+    if mode == "babka":
+        if chaos < 0.4:
+            return [
+                (36, "x---x---",            "babka"),
+                (38, "x(3,8)",              "babka"),
+                (42, "[x x]-x-[x x]-x-",   "babka"),
+                (24, "?-░-",               "babka"),
+            ]
+        elif chaos < 0.7:
+            return [
+                (36, "<x---x--- x-[x-]x-->",     "babka"),
+                (38, "?(3,8)",                    "babka"),
+                (42, "<[x x]-x- x-[x x]->",      "babka"),
+                (24, "↺(2,8)",                   "babka"),
+            ]
+        else:
+            n_snare = min(7, max(2, int(chaos * 8)))
+            return [
+                (36, "<x-[x x]- [x x]-->",             "babka"),
+                (38, f"?({n_snare},8)",                 "babka"),
+                (42, "<[x x x]-x- x-[x x]->",          "babka"),
+                (24, "<↺(2,8) ░(3,8)>",               "babka"),
+            ]
+
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
         # Note indifférente (on envoie 60/C3) — seul le canal compte
@@ -509,6 +562,8 @@ _VD_PART_COLORS = ["#38bdf8", "#4ade80", "#fb923c", "#facc15", "#c084fc", "#67e8
 def _voice_label(note: int, vtype: str) -> str:
     if vtype.startswith("vd"):
         return _VD_PART_NAMES[int(vtype[2:])]
+    if vtype == "babka":
+        return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     return _NOTE_NAMES.get(note, f"n{note}")
 
 
@@ -532,6 +587,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
+        elif vtype == "babka":
+            engine.add_babka_voice(note, dna)
         elif vtype.startswith("vd"):
             engine.add_voice(note, dna, channel=int(vtype[2:]))
         elif vtype == "markov":
@@ -1000,6 +1057,35 @@ async def get_pattern():
     for note, dna, vtype in _state["voices"]:
         if vtype == "cc" or note == 0:
             continue
+
+        if vtype == "babka":
+            events  = []
+            cursor  = 0.0
+            cyc     = 0
+            while cursor < steps:
+                bsteps = _babka.parse(dna, cycle=cyc)
+                if not bsteps:
+                    break
+                for s in bsteps:
+                    if cursor >= steps:
+                        break
+                    if s.trigger:
+                        events.append({
+                            "step":     round(cursor, 4),
+                            "dur":      round(s.duration, 4),
+                            "velocity": s.velocity,
+                            "prob":     round(s.prob, 2),
+                            "ratchet":  s.ratchet,
+                        })
+                    cursor += s.duration
+                cyc += 1
+            name = _NOTE_NAMES.get(note, f"n{note}")
+            voices_data.append({
+                "note": note, "name": name + " ⚗", "channel": 9,
+                "type": vtype, "events": events, "plocks": [],
+            })
+            continue
+
         compiled = compile_dna(dna)
         dna_len  = len(compiled)
         events   = []

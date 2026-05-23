@@ -127,6 +127,10 @@
     .dq { color: var(--dq); font-weight: bold; }
     .dr { color: var(--dr); font-weight: bold; }
     .db { color: var(--db); font-weight: bold; }
+    /* Babka structural chars */
+    .dbk  { color: #e879f9; font-weight: bold; }   /* [ ] subdivision */
+    .dalt { color: #fb7185; font-weight: bold; }   /* < > alternance  */
+    .deuc { color: #34d399; font-weight: bold; }   /* ( ) euclidean   */
 
     .voice-hint { color: var(--muted); font-size: 12px; padding: .5rem 0; }
 
@@ -465,6 +469,7 @@
           <option value="volca_drum">Volca Drum ★</option>
           <option value="noise">Noise ◼</option>
           <option value="ambient">Ambient ◌</option>
+          <option value="babka">Babka ⚗</option>
         </select>
       </div>
 
@@ -782,20 +787,23 @@ function _scheduleStep(step, timeS) {
     }
 
     for (const e of v.events) {
-      if (e.step !== step) continue;
+      if (Math.floor(e.step) !== step) continue;
       if (Math.random() > e.prob) continue;
 
-      const vel = e.velocity;
+      const vel     = e.velocity;
+      const subOff  = (e.step - Math.floor(e.step)) * stepDurMs;  // sub-step offset ms
+      const durMs   = (e.dur ?? 1) * stepDurMs;
+      const t0ms    = noteOnMs + subOff;
       if (e.ratchet > 1) {
-        const rd = stepDurMs / e.ratchet;
+        const rd = durMs / e.ratchet;
         for (let r = 0; r < e.ratchet; r++) {
-          const t0 = noteOnMs + r * rd;
+          const t0 = t0ms + r * rd;
           _midiOut.send([0x90 | v.channel, v.note, vel], t0);
           _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
         }
       } else {
-        _midiOut.send([0x90 | v.channel, v.note, vel], noteOnMs);
-        _midiOut.send([0x80 | v.channel, v.note, 0],   noteOnMs + stepDurMs * 0.8);
+        _midiOut.send([0x90 | v.channel, v.note, vel], t0ms);
+        _midiOut.send([0x80 | v.channel, v.note, 0],   t0ms + durMs * 0.8);
       }
     }
   }
