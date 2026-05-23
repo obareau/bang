@@ -1804,6 +1804,25 @@ async def voice_pattern(idx: Annotated[int, Form()], pattern: Annotated[str, For
     return HTMLResponse(_build_voices_html(voices) + oob)
 
 
+@app.post("/vary", response_class=HTMLResponse)
+async def vary():
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    locked = _state.get("locked_voices", set())
+    new_voices = []
+    for idx, (note, dna, vtype) in enumerate(_state["voices"]):
+        if idx in locked or vtype in ("cc", "babka"):
+            new_voices.append((note, dna, vtype))
+        else:
+            new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
+    _state["voices"] = new_voices
+    _state["engine"] = _assemble_engine(_state["last_p"], new_voices)
+    pr_html = _build_pr_html(new_voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    return HTMLResponse(_build_voices_html(new_voices) + oob)
+
+
 @app.post("/undo", response_class=HTMLResponse)
 async def undo():
     if not _state["history"]:

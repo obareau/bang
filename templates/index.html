@@ -457,6 +457,8 @@
     #tb-actions .btn-gen  { height: 26px; font-size: 12px; padding: 0 12px; }
     #tb-actions .btn-undo { color: var(--muted); opacity: .7; }
     #tb-actions .btn-undo:hover { opacity: 1; color: var(--text); }
+    #tb-actions .btn-vary { color: var(--success); opacity: .75; }
+    #tb-actions .btn-vary:hover { opacity: 1; }
     .btn-ab { font-size: 10px; padding: 1px 6px; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
     .btn-ab:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
     .btn-ab-active { color: var(--accent) !important; border-color: var(--accent) !important; background: var(--accent-dim) !important; }
@@ -844,6 +846,12 @@
             hx-swap="innerHTML"
             title="Annuler la dernière génération">↩ Undo</button>
 
+    <button class="btn-vary"
+            hx-post="/vary"
+            hx-target="#voices"
+            hx-swap="innerHTML"
+            title="Muter légèrement le pattern courant sans tout régénérer (∿ V)">∿ Varier</button>
+
     <div id="ab-controls" class="tb-group" style="display:flex;gap:2px">
       <button class="btn-ab btn-ab-store" hx-post="/ab/store" hx-vals='{"slot":"a"}' hx-target="#ab-controls" hx-swap="outerHTML" title="Stocker dans A">▸A</button>
       <button class="btn-ab btn-ab-store" hx-post="/ab/store" hx-vals='{"slot":"b"}' hx-target="#ab-controls" hx-swap="outerHTML" title="Stocker dans B">▸B</button>
@@ -1085,6 +1093,7 @@ document.addEventListener('keydown', function(e) {
   // Bloquer seulement dans les champs texte libres (on peut taper w/g/e dedans)
   if (tag === 'SELECT' || (tag === 'INPUT' && type === 'text')) return;
   if (e.key === 'g' || e.key === 'G') document.querySelector('.btn-gen').click();
+  if (e.key === 'v' || e.key === 'V') document.querySelector('.btn-vary').click();
   if (e.key === 'e' || e.key === 'E') openExportModal();
   if (e.key === 'w' || e.key === 'W') document.querySelector('.btn-met').click();
   if (e.key === 'Escape')             closeExportModal();

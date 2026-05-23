@@ -1,5 +1,13 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.5.3] — 2026-05-23
+
+### Séquençage & génération
+
+- **Variation automatique** — bouton `∿ Varier` dans le toolbar (raccourci `V`) : mute légèrement le pattern courant (intensité 0.12, algo Bresenham) sans tout régénérer. Seules les voix non verrouillées et non-Babka/CC sont affectées. Push automatique dans le ring buffer Undo avant mutation.
+
+---
+
 ## [0.5.2] — 2026-05-23
 
 ### Séquençage & génération
