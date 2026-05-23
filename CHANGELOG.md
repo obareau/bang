@@ -1,5 +1,13 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.5.4] — 2026-05-23
+
+### Timing & groove
+
+- **Micro-timing global** — slider `MICRO` (0–100%) dans le toolbar. À 100% : on-grid strict (comportement précédent). À 0% : offset aléatoire ±12% du step appliqué à chaque trigger. Appliqué à l'export MIDI **et** au player JS. Voix Babka incluses. Combinable avec swing et vel_humanize.
+
+---
+
 ## [0.5.3] — 2026-05-23
 
 ### Séquençage & génération

@@ -6,7 +6,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Acquis (v0.1 → v0.5.3)
+## Acquis (v0.1 → v0.5.4)
 
 - Entropie multi-sources (temporelle, cryptographique, météo Scaër)
 - Markov, Babka, P-locks, presets hardware (Volca Drum/Kick/FM, MicroFreak)
@@ -27,6 +27,7 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 - **Mode Keystep Pro ♜** — 4 pistes Markov ch1-4 + drums ✅
 - **Euclidien par voix** — bouton `E` par voix, input `k` hits → applique E(n,k) sur la voix ✅
 - **Variation automatique** — bouton `∿ Varier` + raccourci `V`, mutate légère (0.12) sans regénération ✅
+- **Micro-timing global** — slider MICRO 0–100% : offset aléatoire ±12% step par trigger, export MIDI + player JS ✅
 
 ---
 
@@ -57,9 +58,9 @@ Légende effort : 🟢 < 1h · 🟡 2–4h · 🔴 5h+
 
 ---
 
-## Ordre suggéré (suite v0.5.3)
+## Ordre suggéré (suite v0.5.4)
 
-1. 🟡 Micro-timing global — finition musicale
+1. 🟡 OSC bidirectionnel — intégration écosystème complète
 4. 🟡 OSC bidirectionnel — intégration écosystème complète
 5. 🔴 Polymetry — nouveau territoire rythmique
 6. 🔴 MIDI input — franchissement de seuil majeur

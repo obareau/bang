@@ -460,6 +460,7 @@ class BangEngine:
         vel_humanize: int = 0,
         densities: list[float] | None = None,
         voice_chords: list[str] | None = None,
+        microtiming: float = 1.0,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -501,7 +502,9 @@ class BangEngine:
                             if temporal_jitter and s.jitter > 0:
                                 micro     = _time.time_ns() % 1000
                                 base_jit += int((micro / 1000 - 0.5) * s.jitter * 0.5)
-                            actual_start = max(0, int(cursor_tick + base_jit))
+                            _max_mj   = round(self.ticks_per_step * 0.12)
+                            micro_jit = int(random.uniform(-_max_mj, _max_mj) * (1.0 - microtiming))
+                            actual_start = max(0, int(cursor_tick + base_jit + micro_jit))
                             r_div    = int(max(1, s.ratchet))
                             r_dur    = max(1, int(dur_ticks) // r_div)
                             raw_vel  = s.velocity + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
@@ -542,7 +545,9 @@ class BangEngine:
                     if temporal_jitter and jit > 0:
                         micro    = _time.time_ns() % 1000
                         base_jit += int((micro / 1000 - 0.5) * jit * 0.5)
-                    actual_start = max(0, abs_start + base_jit)
+                    _max_mj   = round(self.ticks_per_step * 0.12)
+                    micro_jit = int(random.uniform(-_max_mj, _max_mj) * (1.0 - microtiming))
+                    actual_start = max(0, abs_start + base_jit + micro_jit)
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 

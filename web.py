@@ -961,6 +961,7 @@ def _read_form(
     swing:          float = 0.0,
     markov_channel: int   = 9,
     vel_humanize:   int   = 0,
+    microtiming:    float = 1.0,
 ) -> dict:
     _steps = max(1, int(steps))
     if mode in ("volca_drum", "volca_kick", "volca_fm"):
@@ -987,6 +988,7 @@ def _read_form(
         "swing":          max(0.0, min(1.0, float(swing))),
         "markov_channel": max(0, min(15, int(markov_channel))),
         "vel_humanize":   max(0, min(40, int(vel_humanize))),
+        "microtiming":    max(0.0, min(1.0, float(microtiming))),
     }
 
 
@@ -1165,9 +1167,10 @@ async def generate(
     swing:          Annotated[float, Form()] = 0.0,
     markov_channel: Annotated[int,   Form()] = 9,
     vel_humanize:   Annotated[int,   Form()] = 0,
+    microtiming:    Annotated[float, Form()] = 1.0,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel, vel_humanize)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel, vel_humanize, microtiming)
     # Snapshot avant génération (pour undo)
     if _state["voices"] and _state["last_p"]:
         _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(_state["last_p"])))
@@ -1207,9 +1210,10 @@ async def export(
     swing:          Annotated[float, Form()] = 0.0,
     markov_channel: Annotated[int,   Form()] = 9,
     vel_humanize:   Annotated[int,   Form()] = 0,
+    microtiming:    Annotated[float, Form()] = 1.0,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel, vel_humanize)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel, vel_humanize, microtiming)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))
@@ -1244,6 +1248,7 @@ async def export(
             vel_humanize=p.get("vel_humanize", 0),
             densities=densities,
             voice_chords=chord_types,
+            microtiming=p.get("microtiming", 1.0),
         )
         seed        = (_state["engine"].last_seed or "")[:16]
         _state["last_seed"] = _state["engine"].last_seed
@@ -1716,6 +1721,7 @@ async def get_pattern():
         "step_ms":      step_ms,
         "swing":        p.get("swing", 0.0),
         "vel_humanize": p.get("vel_humanize", 0),
+        "microtiming":  p.get("microtiming", 1.0),
         "voices":       voices_data,
         "cc_drones":    cc_drones,
     }
