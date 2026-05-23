@@ -11,6 +11,8 @@ import mido
 import numpy as np
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
+import babka as _babka
+
 # BANG DNA syntax: each character encodes [trigger, velocity, prob, ratchet, jitter]
 DNA_SYMBOLS = ['x', '-', '?', '↺', '░']
 
@@ -136,7 +138,10 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
             {
                 "type": v["type"],
                 "note": v.get("note"),
-                "pattern_lengths": [len(p) for p in v["patterns"]],
+                "pattern_lengths": (
+                    [len(v["pattern"])] if v["type"] == "babka"
+                    else [len(p) for p in v["patterns"]]
+                ),
             }
             for v in engine.voices
         ],
@@ -295,6 +300,15 @@ class BangEngine:
         })
         return self
 
+    def add_babka_voice(self, note: int, pattern: str, channel: int = 0) -> "BangEngine":
+        """Voix rythmique avec syntaxe Babka (DNA + mini-notation Strudel).
+
+        pattern : chaîne Babka — ex: "x-[x x]-?(3,8)" ou "<x-x- ?-?->"
+        Supporte subdivision [...], alternance <...> et euclidien x(n,k) / [x(n,k)].
+        """
+        self.voices.append({"type": "babka", "note": note, "pattern": pattern, "channel": channel})
+        return self
+
     def add_cc_drone(
         self,
         control: int = 74,
@@ -336,10 +350,42 @@ class BangEngine:
         # msg_type 'control_change'     → param=control, value=cc_value
         events: list[tuple] = []
 
-        # --- Voix note (drum + markov) ---
+        # --- Voix note (drum + markov + babka) ---
         for voice in self.voices:
+            channel = voice.get("channel", 0)
+
+            # --- Babka ---
+            if voice["type"] == "babka":
+                note         = voice["note"]
+                pat_str      = voice["pattern"]
+                total_ticks  = num_steps * self.ticks_per_step
+                cursor_tick  = 0.0
+                cyc          = 0
+                while cursor_tick < total_ticks:
+                    bsteps = _babka.parse(pat_str, cycle=cyc)
+                    if not bsteps:
+                        break
+                    for s in bsteps:
+                        if cursor_tick >= total_ticks:
+                            break
+                        dur_ticks = s.duration * self.ticks_per_step
+                        if s.trigger and random.random() < s.prob:
+                            base_jit = int(random.uniform(-s.jitter, s.jitter))
+                            if temporal_jitter and s.jitter > 0:
+                                micro     = _time.time_ns() % 1000
+                                base_jit += int((micro / 1000 - 0.5) * s.jitter * 0.5)
+                            actual_start = max(0, int(cursor_tick + base_jit))
+                            r_div = int(max(1, s.ratchet))
+                            r_dur = max(1, int(dur_ticks) // r_div)
+                            for r in range(r_div):
+                                t_on = actual_start + r * r_dur
+                                events.append((t_on,         1, 'note_on',  channel, note, s.velocity))
+                                events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        cursor_tick += dur_ticks
+                    cyc += 1
+                continue
+
             patterns = voice["patterns"]
-            channel  = voice.get("channel", 0)
 
             markov_notes = None
             if voice["type"] == "markov":
