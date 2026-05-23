@@ -354,6 +354,7 @@
     .tb-w-xs  { width: 46px !important; }
     .tb-w-sm  { width: 56px !important; }
     .tb-w-md  { width: 110px !important; }
+    .tb-w-lg  { width: 170px !important; }
     .tb-vel   { display: flex; gap: 2px; }
     .tb-vel input { width: 42px !important; }
     .tb-check { display: flex; align-items: center; gap: .3rem; height: 26px; }
@@ -619,20 +620,11 @@
 
     <div class="tb-group">
       <label>MODE</label>
+      {% set _cur_mode = last_p.mode if last_p else "morph" %}
       <select name="mode" class="tb-w-md" onchange="toggleScaleControls(this.value)">
-        <option value="morph">Morph</option>
-        <option value="random">Random</option>
-        <option value="weather">Weather</option>
-        <option value="markov">Markov</option>
-        <option value="phase2">Phase 2</option>
-        <option value="bassline">Bassline ♩</option>
-        <option value="volca_kick">Volca Kick ★</option>
-        <option value="microfreak">MicroFreak ◈</option>
-        <option value="volca_fm">Volca FM ⚡</option>
-        <option value="volca_drum">Volca Drum ★</option>
-        <option value="noise">Noise ◼</option>
-        <option value="ambient">Ambient ◌</option>
-        <option value="babka">Babka ⚗</option>
+        {% for val, lbl in [("morph","Morph"),("random","Random"),("weather","Weather"),("markov","Markov"),("phase2","Phase 2"),("bassline","Bassline ♩"),("volca_kick","Volca Kick ★"),("microfreak","MicroFreak ◈"),("volca_fm","Volca FM ⚡"),("volca_drum","Volca Drum ★"),("noise","Noise ◼"),("ambient","Ambient ◌"),("babka","Babka ⚗")] %}
+        <option value="{{ val }}"{% if val == _cur_mode %} selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
       </select>
     </div>
 
@@ -685,33 +677,41 @@
     <div class="tb-group scale-ctrl" id="root-group" style="display:none">
       <label>ROOT</label>
       <select name="root" class="tb-w-sm">
-        <option value="A" selected>A</option>
-        <option value="A#">A#</option>
-        <option value="B">B</option>
-        <option value="C">C</option>
-        <option value="C#">C#</option>
-        <option value="D">D</option>
-        <option value="D#">D#</option>
-        <option value="E">E</option>
-        <option value="F">F</option>
-        <option value="F#">F#</option>
-        <option value="G">G</option>
-        <option value="G#">G#</option>
+        {% set _cur_root = last_p.root if last_p else "A" %}
+        {% for r in ["A","A#","B","C","C#","D","D#","E","F","F#","G","G#"] %}
+        <option value="{{ r }}"{% if r == _cur_root %} selected{% endif %}>{{ r }}</option>
+        {% endfor %}
       </select>
     </div>
 
     <div class="tb-group scale-ctrl" id="scale-group" style="display:none">
       <label>SCALE</label>
+      {% set _cur_scale = last_p.scale if last_p else "penta_min" %}
       <select name="scale" class="tb-w-md">
-        <option value="penta_min" selected>Penta Min</option>
-        <option value="penta_maj">Penta Maj</option>
-        <option value="minor">Minor</option>
-        <option value="dorian">Dorian</option>
-        <option value="phrygian">Phrygian</option>
-        <option value="major">Major</option>
-        <option value="mixo">Mixolydian</option>
-        <option value="lydian">Lydian</option>
+        {% for s, lbl in [("penta_min","Penta Min"),("penta_maj","Penta Maj"),("minor","Minor"),("dorian","Dorian"),("phrygian","Phrygian"),("major","Major"),("mixo","Mixolydian"),("lydian","Lydian")] %}
+        <option value="{{ s }}"{% if s == _cur_scale %} selected{% endif %}>{{ lbl }}</option>
+        {% endfor %}
       </select>
+    </div>
+
+    <div class="tb-group">
+      <label>SWING</label>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="range" name="swing" id="swing-range"
+               min="0" max="1" step="0.05"
+               value="{{ last_p.swing if last_p else 0 }}"
+               oninput="document.getElementById('swing-val').textContent=Math.round(this.value*100)+'%'"
+               class="tb-w-md" style="height:18px;cursor:pointer">
+        <span id="swing-val" style="font-size:11px;min-width:28px">{{ ((last_p.swing or 0)*100)|int }}%</span>
+      </div>
+    </div>
+
+    <div class="tb-group">
+      <label>SEED</label>
+      <input id="seed-input" name="seed" type="text" class="tb-w-lg"
+             placeholder="seed (optionnel)"
+             value="{{ last_seed or '' }}"
+             title="Laisser vide pour une seed aléatoire · coller une seed pour reproduire">
     </div>
 
     <div class="tb-group">
@@ -898,6 +898,14 @@ function toggleScaleControls(mode) {
   document.getElementById('scale-group').style.display = show ? '' : 'none';
 }
 
+// Init au chargement : refléter le mode courant
+document.addEventListener('DOMContentLoaded', () => {
+  const modeEl = document.querySelector('select[name="mode"]');
+  if (modeEl) toggleScaleControls(modeEl.value);
+  const swingEl = document.getElementById('swing-range');
+  if (swingEl) document.getElementById('swing-val').textContent = Math.round(swingEl.value * 100) + '%';
+});
+
 document.addEventListener('keydown', function(e) {
   const tag  = e.target.tagName;
   const type = e.target.type || '';
@@ -1032,8 +1040,9 @@ function _scheduleStep(step, timeS) {
   // Nettoyage du Set pour éviter une fuite mémoire
   if (_scheduledSteps.size > _pattern.steps * 4) _scheduledSteps.clear();
 
-  const noteOnMs  = timeS * 1000;
   const stepDurMs = _pattern.step_ms;
+  const swingOff  = (step % 2 === 1) ? (_pattern.swing || 0) * stepDurMs * 0.5 : 0;
+  const noteOnMs  = timeS * 1000 + swingOff;
 
   // Drones CC (bassline, phase2…) — interpolation linéaire entre breakpoints
   for (const drone of (_pattern.cc_drones || [])) {

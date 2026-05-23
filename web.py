@@ -858,6 +858,8 @@ def _read_form(
     vel_curve:   float = 1.0,
     root:        str   = "A",
     scale:       str   = "penta_min",
+    seed:        str   = "",
+    swing:       float = 0.0,
 ) -> dict:
     _steps = max(1, int(steps))
     if mode in ("volca_drum", "volca_kick", "volca_fm"):
@@ -880,6 +882,8 @@ def _read_form(
         "vel_curve":   max(0.1, min(4.0, float(vel_curve))),
         "root":        _root,
         "scale":       _scale,
+        "seed":        str(seed).strip(),
+        "swing":       max(0.0, min(1.0, float(swing))),
     }
 
 
@@ -896,6 +900,7 @@ async def index(request: Request):
         log=_state["log"][-20:],
         weather=_state["weather"],
         last_seed=_state["last_seed"],
+        last_p=_state["last_p"],
         app_version=APP_VERSION,
     )
 
@@ -916,9 +921,11 @@ async def generate(
     vel_curve:   Annotated[float, Form()] = 1.0,
     root:        Annotated[str,   Form()] = "A",
     scale:       Annotated[str,   Form()] = "penta_min",
+    seed:        Annotated[str,   Form()] = "",
+    swing:       Annotated[float, Form()] = 0.0,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing)
     _state["last_p"] = p
     voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
@@ -949,9 +956,11 @@ async def export(
     vel_curve:   Annotated[float, Form()] = 1.0,
     root:        Annotated[str,   Form()] = "A",
     scale:       Annotated[str,   Form()] = "penta_min",
+    seed:        Annotated[str,   Form()] = "",
+    swing:       Annotated[float, Form()] = 0.0,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))
@@ -970,6 +979,8 @@ async def export(
             filename=export_path,
             weather=_state["weather"],
             temporal_jitter=p["temporal"],
+            seed=p["seed"] or None,
+            swing=p["swing"],
         )
         seed        = (_state["engine"].last_seed or "")[:16]
         _state["last_seed"] = _state["engine"].last_seed
@@ -994,7 +1005,14 @@ async def export(
 
     _state["log"].append(entry)
 
-    return render("_log_entry.html", entry=entry)
+    log_html  = jinja.get_template("_log_entry.html").render(entry=entry)
+    last_seed = _state.get("last_seed") or ""
+    seed_oob  = (
+        f'<input id="seed-input" name="seed" type="text" class="tb-w-lg" '
+        f'placeholder="seed (optionnel)" value="{last_seed}" '
+        f'hx-swap-oob="outerHTML:#seed-input">'
+    )
+    return HTMLResponse(log_html + seed_oob)
 
 
 _LETTERS = "abcdefghijklmnopqrstuvwxyz"
@@ -1418,11 +1436,12 @@ async def get_pattern():
     voices_data = _apply_poly_to_events(voices_data, _state["max_poly"])
 
     return {
-        "ok":       True,
-        "bpm":      bpm,
-        "steps":    steps,
-        "step_ms":  step_ms,
-        "voices":   voices_data,
+        "ok":        True,
+        "bpm":       bpm,
+        "steps":     steps,
+        "step_ms":   step_ms,
+        "swing":     p.get("swing", 0.0),
+        "voices":    voices_data,
         "cc_drones": cc_drones,
     }
 

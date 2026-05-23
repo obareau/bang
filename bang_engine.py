@@ -441,6 +441,7 @@ class BangEngine:
         seed: str | None = None,
         weather: dict | None = None,
         temporal_jitter: bool = False,
+        swing: float = 0.0,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -513,7 +514,8 @@ class BangEngine:
                     note = voice["note"]
 
                 if trig == 1 and random.random() < prob:
-                    abs_start = i * self.ticks_per_step
+                    swing_off = int(swing * self.ticks_per_step * 0.5) if i % 2 == 1 else 0
+                    abs_start = i * self.ticks_per_step + swing_off
                     base_jit  = int(random.uniform(-jit, jit))
                     # Entropie temporelle : microsecondes système → décalage supplémentaire
                     if temporal_jitter and jit > 0:
