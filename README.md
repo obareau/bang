@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.5.0**
+> **v0.5.1**
 
 BANG! génère des fichiers `.mid` — c'est tout ce qu'il fait, et c'est tout ce qu'il fera.
 
@@ -13,6 +13,8 @@ Pas de séquenceur temps réel. Pas de timeline. Pas de mixage. BANG produit des
 - Un **générateur de patterns** selon des modes qui correspondent à des usages prédéfinis : batterie algorithmique, ligne de basse Markov, synths dédiés (Volca Drum, Volca Kick, Volca FM, MicroFreak), ambient, noise, babka euclidien
 - Des **presets qui collent au matériel** : notes MIDI et canaux câblés pour Volca Drum (6 canaux split), Volca Kick, Volca FM, MicroFreak, TR-808/909, GM, MPC60, etc.
 - Des **gammes configurables** pour les modes mélodiques (Markov, Phase 2, Bassline) : 12 toniques × 8 modes (pentatonique, mineur, dorian, phrygien, majeur, mixolydien, lydien)
+- Un **swing** réglable (0–100%) — décalage des steps impairs, appliqué à l'export MIDI et au player Web MIDI
+- Une **seed fixe** optionnelle — reproduire exactement un pattern en collant sa seed dans le formulaire
 - Une **fonction Play** intégrée dans l'interface — lecture MIDI du pattern courant dans le navigateur, avec pianoroll synchronisé, sans export
 - Une **fonction Preview** live — toute modification de pattern DNA met à jour le pianoroll en temps réel, avant d'exporter quoi que ce soit
 - Des **P-locks par step** pour les synths hardware (Volca Drum, Volca Kick, Volca FM, MicroFreak) — automation CC générée algorithmiquement
@@ -206,7 +208,7 @@ e.add_markov_voice(bass, "x---x-")                         # basse pentatonique 
 
 e.add_babka_voice(38, "x(3,8)")
 e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
-e.export_midi(num_steps=64, filename="out.mid")
+e.export_midi(num_steps=64, filename="out.mid", swing=0.3, seed="abc123")
 ```
 
 ---

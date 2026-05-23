@@ -287,7 +287,7 @@ Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
 <table>
   <tr><th>Zone</th><th>Description</th></tr>
   <tr><td>Header</td><td>Sélecteur de thème (AMB/GRN/RED/TRQ/WHT) + version</td></tr>
-  <tr><td>Panneau gauche</td><td>Formulaire : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, root, scale (visible sur markov/phase2/bassline), météo</td></tr>
+  <tr><td>Panneau gauche</td><td>Formulaire : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, root, scale (visible sur markov/phase2/bassline), swing, seed, météo</td></tr>
   <tr><td>Panneau central</td><td>Voix — note MIDI éditable, DNA coloré cliquable, boutons thin (×1/÷2/÷4), tags de type</td></tr>
   <tr><td>Panneau droit</td><td>Pianoroll SVG + P-locks + contrôles zoom (×0.5 à ×3)</td></tr>
   <tr><td>Log</td><td>Historique des exports (timestamp, fichier, seed, BPM, mode)</td></tr>
@@ -334,6 +334,8 @@ systemctl start bang        # via systemd</code></pre>
   <tr><td>Poly</td><td>0 = ∞</td><td>Max de voix simultanées par step (filtre les excédents)</td></tr>
   <tr><td>ROOT</td><td>C … B</td><td>Tonique de la chaîne Markov (modes markov / phase2 / bassline uniquement)</td></tr>
   <tr><td>SCALE</td><td>8 gammes</td><td>Mode scalaire de la chaîne Markov — voir section Gammes</td></tr>
+  <tr><td>SWING</td><td>0–100%</td><td>Décalage des steps impairs. 0% = straight · ~33% = groove · 50% = triplet feel. Appliqué à l'export MIDI et au player Web MIDI.</td></tr>
+  <tr><td>SEED</td><td>texte libre</td><td>Seed fixe pour reproduction exacte. Vide = seed aléatoire. Après export, le champ se met à jour avec la seed utilisée.</td></tr>
 </table>
 
 <h3>Thinning de voix (÷2 / ÷4)</h3>
@@ -402,8 +404,8 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
 <table>
   <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
   <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/</code></td><td>Interface principale</td></tr>
-  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/generate</code></td><td>Génère voix + pianoroll. Form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve, root, scale</code></td></tr>
-  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export</code></td><td>Génère + écrit le <code>.mid</code>. Params supplémentaires : <code>dest_dir, root, scale</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/generate</code></td><td>Génère voix + pianoroll. Form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve, root, scale, swing, seed</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export</code></td><td>Génère + écrit le <code>.mid</code>. Params supplémentaires : <code>dest_dir, root, scale, swing, seed</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export/song</code></td><td>Song complète multi-fichiers (intro → couplets → climax → outro)</td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/weather</code></td><td>Rafraîchit la météo Scaër</td></tr>
 </table>
@@ -440,6 +442,7 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
   "bpm": 120,
   "steps": 16,
   "step_ms": 125.0,
+  "swing": 0.3,
   "voices": [
     {
       "note": 36, "name": "VKick", "channel": 0,
@@ -468,7 +471,8 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
     "mode": "bassline", "bpm": 120, "steps": 32,
     "chaos": 0.4, "gravity": 0.7, "cc_depth": 0.5,
     "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0,
-    "root": "D", "scale": "dorian"
+    "root": "D", "scale": "dorian",
+    "swing": 0.3, "seed": ""
   },
   "voices": [
     {"note": 60, "pattern": "x---x-?-x---x---", "type": "vk"}
@@ -514,7 +518,7 @@ e.add_babka_voice(38, "x(3,8)")                     # euclidien
 e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")        # alternance + subdivision
 e.add_cc_drone(control=74, breakpoints=[20,100,20]) # automation filtre
 
-e.export_midi(num_steps=64, filename="out.mid")</code></pre>
+e.export_midi(num_steps=64, filename="out.mid", swing=0.3, seed="abc123")</code></pre>
 
 <div class="btn-row" style="margin-top:2rem">
   <button onclick="window.print()">🖨 Exporter PDF</button>
