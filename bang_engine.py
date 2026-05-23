@@ -155,6 +155,25 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
 
 
 # ---------------------------------------------------------------------------
+# Velocity processing
+# ---------------------------------------------------------------------------
+
+def vel_map(vel: int, floor: int = 0, ceiling: int = 127, curve: float = 1.0) -> int:
+    """Map velocity to [floor, ceiling] with optional dynamics shaping.
+
+    curve < 1 : compression  (brings velocities closer together)
+    curve = 1 : linear       (just rescales to [floor, ceiling])
+    curve > 1 : expansion    (exaggerates dynamic differences)
+    """
+    if ceiling <= floor:
+        return max(1, floor)
+    t = max(0.0, min(1.0, vel / 127.0))
+    if curve != 1.0:
+        t = t ** curve
+    return max(1, int(floor + t * (ceiling - floor)))
+
+
+# ---------------------------------------------------------------------------
 # DNA helpers
 # ---------------------------------------------------------------------------
 
@@ -261,9 +280,19 @@ class BangEngine:
     Chaque export est seedé de façon déterministe et loggé dans bang_sessions.jsonl.
     """
 
-    def __init__(self, bpm: int = 124, ticks_per_step: int = 120):
+    def __init__(
+        self,
+        bpm: int = 124,
+        ticks_per_step: int = 120,
+        vel_floor: int = 0,
+        vel_ceiling: int = 127,
+        vel_curve: float = 1.0,
+    ):
         self.bpm = bpm
         self.ticks_per_step = ticks_per_step
+        self.vel_floor   = vel_floor
+        self.vel_ceiling = vel_ceiling
+        self.vel_curve   = vel_curve
         self.voices: list[dict] = []
         self.cc_tracks: list[dict] = []
         self.last_seed: str | None = None
@@ -375,11 +404,12 @@ class BangEngine:
                                 micro     = _time.time_ns() % 1000
                                 base_jit += int((micro / 1000 - 0.5) * s.jitter * 0.5)
                             actual_start = max(0, int(cursor_tick + base_jit))
-                            r_div = int(max(1, s.ratchet))
-                            r_dur = max(1, int(dur_ticks) // r_div)
+                            r_div    = int(max(1, s.ratchet))
+                            r_dur    = max(1, int(dur_ticks) // r_div)
+                            out_vel  = vel_map(s.velocity, self.vel_floor, self.vel_ceiling, self.vel_curve)
                             for r in range(r_div):
                                 t_on = actual_start + r * r_dur
-                                events.append((t_on,         1, 'note_on',  channel, note, s.velocity))
+                                events.append((t_on,         1, 'note_on',  channel, note, out_vel))
                                 events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
                         cursor_tick += dur_ticks
                     cyc += 1
@@ -415,9 +445,10 @@ class BangEngine:
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 
+                    out_vel = vel_map(int(vel), self.vel_floor, self.vel_ceiling, self.vel_curve)
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
-                        events.append((t_on,         1, 'note_on',  channel, note, int(vel)))
+                        events.append((t_on,         1, 'note_on',  channel, note, out_vel))
                         events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
 
                 # Avance dans le pattern courant, passe au suivant après un cycle complet

@@ -489,6 +489,21 @@
       </div>
 
       <div>
+        <label>VEL MIN <span style="color:var(--muted)">0–126</span></label>
+        <input type="number" name="vel_floor" value="0" min="0" max="126" step="5">
+      </div>
+
+      <div>
+        <label>VEL MAX <span style="color:var(--muted)">1–127</span></label>
+        <input type="number" name="vel_ceiling" value="127" min="1" max="127" step="5">
+      </div>
+
+      <div>
+        <label>DYNAMICS <span style="color:var(--muted)">&lt;1 comp · 1 flat · &gt;1 exp</span></label>
+        <input type="number" name="vel_curve" value="1.0" min="0.1" max="4.0" step="0.1">
+      </div>
+
+      <div>
         <label>GRAVITY MARKOV &nbsp;<span style="color:var(--text)">0.0 – 1.0</span></label>
         <input type="number" name="gravity" value="0.70" min="0" max="1" step="0.05">
       </div>

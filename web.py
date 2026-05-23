@@ -578,7 +578,12 @@ def _apply_note_remap(voices: list) -> list:
 
 
 def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
-    engine      = BangEngine(bpm=p["bpm"])
+    engine      = BangEngine(
+        bpm=p["bpm"],
+        vel_floor=p.get("vel_floor", 0),
+        vel_ceiling=p.get("vel_ceiling", 127),
+        vel_curve=p.get("vel_curve", 1.0),
+    )
     chain       = _markov_from_gravity(p["gravity"])
     cc_peak     = int(20 + p["cc_depth"] * 100)
     breakpoints = [20, cc_peak, cc_peak, int((20 + cc_peak) / 2), 20]
@@ -609,27 +614,33 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
 
 
 def _read_form(
-    mode:      str   = "morph",
-    chaos:     float = 0.30,
-    bpm:       int   = 110,
-    steps:     int   = 64,
-    gravity:   float = 0.70,
-    cc_depth:  float = 0.50,
-    out:       str   = "bang_out.mid",
-    temporal:  str   = "",
+    mode:        str   = "morph",
+    chaos:       float = 0.30,
+    bpm:         int   = 110,
+    steps:       int   = 64,
+    gravity:     float = 0.70,
+    cc_depth:    float = 0.50,
+    out:         str   = "bang_out.mid",
+    temporal:    str   = "",
+    vel_floor:   int   = 0,
+    vel_ceiling: int   = 127,
+    vel_curve:   float = 1.0,
 ) -> dict:
     _steps = max(1, int(steps))
     if mode == "volca_drum":
         _steps = min(_steps, 16)
     return {
-        "mode":     mode,
-        "chaos":    max(0.0, min(1.0, float(chaos))),
-        "bpm":      max(1, int(bpm)),
-        "steps":    _steps,
-        "gravity":  max(0.0, min(1.0, float(gravity))),
-        "cc_depth": max(0.0, min(1.0, float(cc_depth))),
-        "out":      out or "bang_out.mid",
-        "temporal": bool(temporal),
+        "mode":        mode,
+        "chaos":       max(0.0, min(1.0, float(chaos))),
+        "bpm":         max(1, int(bpm)),
+        "steps":       _steps,
+        "gravity":     max(0.0, min(1.0, float(gravity))),
+        "cc_depth":    max(0.0, min(1.0, float(cc_depth))),
+        "out":         out or "bang_out.mid",
+        "temporal":    bool(temporal),
+        "vel_floor":   max(0, min(126, int(vel_floor))),
+        "vel_ceiling": max(1, min(127, int(vel_ceiling))),
+        "vel_curve":   max(0.1, min(4.0, float(vel_curve))),
     }
 
 
@@ -651,17 +662,21 @@ async def index(request: Request):
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate(
-    request:  Request,
-    mode:     Annotated[str,   Form()] = "morph",
-    chaos:    Annotated[float, Form()] = 0.30,
-    bpm:      Annotated[int,   Form()] = 110,
-    steps:    Annotated[int,   Form()] = 64,
-    gravity:  Annotated[float, Form()] = 0.70,
-    cc_depth: Annotated[float, Form()] = 0.50,
-    out:      Annotated[str,   Form()] = "bang_out.mid",
-    temporal: Annotated[str,   Form()] = "",
+    request:     Request,
+    mode:        Annotated[str,   Form()] = "morph",
+    chaos:       Annotated[float, Form()] = 0.30,
+    bpm:         Annotated[int,   Form()] = 110,
+    steps:       Annotated[int,   Form()] = 64,
+    gravity:     Annotated[float, Form()] = 0.70,
+    cc_depth:    Annotated[float, Form()] = 0.50,
+    out:         Annotated[str,   Form()] = "bang_out.mid",
+    temporal:    Annotated[str,   Form()] = "",
+    vel_floor:   Annotated[int,   Form()] = 0,
+    vel_ceiling: Annotated[int,   Form()] = 127,
+    vel_curve:   Annotated[float, Form()] = 1.0,
 ):
-    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
+    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
+                   vel_floor, vel_ceiling, vel_curve)
     _state["last_p"] = p
     voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
@@ -677,18 +692,22 @@ async def generate(
 
 @app.post("/export", response_class=HTMLResponse)
 async def export(
-    request:  Request,
-    mode:     Annotated[str,   Form()] = "morph",
-    chaos:    Annotated[float, Form()] = 0.30,
-    bpm:      Annotated[int,   Form()] = 110,
-    steps:    Annotated[int,   Form()] = 64,
-    gravity:  Annotated[float, Form()] = 0.70,
-    cc_depth: Annotated[float, Form()] = 0.50,
-    out:      Annotated[str,   Form()] = "bang_out.mid",
-    temporal: Annotated[str,   Form()] = "",
-    dest_dir: Annotated[str,   Form()] = "",
+    request:     Request,
+    mode:        Annotated[str,   Form()] = "morph",
+    chaos:       Annotated[float, Form()] = 0.30,
+    bpm:         Annotated[int,   Form()] = 110,
+    steps:       Annotated[int,   Form()] = 64,
+    gravity:     Annotated[float, Form()] = 0.70,
+    cc_depth:    Annotated[float, Form()] = 0.50,
+    out:         Annotated[str,   Form()] = "bang_out.mid",
+    temporal:    Annotated[str,   Form()] = "",
+    dest_dir:    Annotated[str,   Form()] = "",
+    vel_floor:   Annotated[int,   Form()] = 0,
+    vel_ceiling: Annotated[int,   Form()] = 127,
+    vel_curve:   Annotated[float, Form()] = 1.0,
 ):
-    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
+    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
+                   vel_floor, vel_ceiling, vel_curve)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))
@@ -1053,6 +1072,12 @@ async def get_pattern():
     bpm   = p["bpm"]
     step_ms = round(60_000 / (bpm * 4), 3)   # durée d'une double-croche en ms
 
+    vf  = p.get("vel_floor",   0)
+    vc  = p.get("vel_ceiling", 127)
+    vcu = p.get("vel_curve",   1.0)
+
+    from bang_engine import vel_map as _vel_map
+
     voices_data = []
     for note, dna, vtype in _state["voices"]:
         if vtype == "cc" or note == 0:
@@ -1073,7 +1098,7 @@ async def get_pattern():
                         events.append({
                             "step":     round(cursor, 4),
                             "dur":      round(s.duration, 4),
-                            "velocity": s.velocity,
+                            "velocity": _vel_map(s.velocity, vf, vc, vcu),
                             "prob":     round(s.prob, 2),
                             "ratchet":  s.ratchet,
                         })
@@ -1095,7 +1120,7 @@ async def get_pattern():
                 continue
             events.append({
                 "step":     i,
-                "velocity": int(row[1]),
+                "velocity": _vel_map(int(row[1]), vf, vc, vcu),
                 "prob":     round(float(row[2]), 2),
                 "ratchet":  int(row[3]),
             })
