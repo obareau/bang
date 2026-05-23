@@ -455,22 +455,21 @@ class BangEngine:
         self.last_seed = seed
 
         # Tuple: (abs_tick, priority, msg_type, channel, param, value)
-        # msg_type 'note_on'/'note_off' → param=note, value=velocity
-        # msg_type 'control_change'     → param=control, value=cc_value
-        events: list[tuple] = []
+        voice_events: list[list[tuple]] = []
 
         # --- Voix note (drum + markov + babka) ---
         for vi, voice in enumerate(self.voices):
-            channel     = voice.get("channel", 0)
+            channel      = voice.get("channel", 0)
             voice_plocks = plocks[vi] if plocks and vi < len(plocks) else []
+            v_events: list[tuple] = []
 
             # --- Babka ---
             if voice["type"] == "babka":
-                note         = voice["note"]
-                pat_str      = voice["pattern"]
-                total_ticks  = num_steps * self.ticks_per_step
-                cursor_tick  = 0.0
-                cyc          = 0
+                note        = voice["note"]
+                pat_str     = voice["pattern"]
+                total_ticks = num_steps * self.ticks_per_step
+                cursor_tick = 0.0
+                cyc         = 0
                 while cursor_tick < total_ticks:
                     bsteps = _babka.parse(pat_str, cycle=cyc)
                     if not bsteps:
@@ -490,10 +489,11 @@ class BangEngine:
                             out_vel  = vel_map(s.velocity, self.vel_floor, self.vel_ceiling, self.vel_curve)
                             for r in range(r_div):
                                 t_on = actual_start + r * r_dur
-                                events.append((t_on,         1, 'note_on',  channel, note, out_vel))
-                                events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                                v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
+                                v_events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
                         cursor_tick += dur_ticks
                     cyc += 1
+                voice_events.append(v_events)
                 continue
 
             patterns = voice["patterns"]
@@ -530,27 +530,29 @@ class BangEngine:
                     out_vel = vel_map(int(vel), self.vel_floor, self.vel_ceiling, self.vel_curve)
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
-                        events.append((t_on,         1, 'note_on',  channel, note, out_vel))
-                        events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
+                        v_events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
 
-                # P-locks : CC step-par-step, independants du trigger
+                # P-locks : CC step-par-step, indépendants du trigger
                 for pl in voice_plocks:
                     vals = pl.get("values", [])
                     if i < len(vals) and vals[i] is not None:
-                        events.append((i * self.ticks_per_step, 0, 'control_change', channel, pl["cc"], vals[i]))
+                        v_events.append((i * self.ticks_per_step, 0, 'control_change', channel, pl["cc"], vals[i]))
 
-                # Avance dans le pattern courant, passe au suivant après un cycle complet
                 step_in_pattern += 1
                 if step_in_pattern >= len(pattern):
                     step_in_pattern = 0
                     pattern_idx = (pattern_idx + 1) % len(patterns)
 
-        # --- Automation CC ---
+            voice_events.append(v_events)
+
+        # --- Automation CC (drones) ---
+        cc_events: list[list[tuple]] = []
         for cc in self.cc_tracks:
             control = cc["control"]
             channel = cc["channel"]
             bps     = cc["breakpoints"]
-
+            cv: list[tuple] = []
             for i in range(num_steps):
                 if len(bps) == 1:
                     val = bps[0]
@@ -561,24 +563,52 @@ class BangEngine:
                     a    = bps[min(idx,     len(bps) - 1)]
                     b    = bps[min(idx + 1, len(bps) - 1)]
                     val  = int(a * (1 - frac) + b * frac)
-                events.append((i * self.ticks_per_step, 0, 'control_change', channel, control, max(0, min(127, val))))
+                cv.append((i * self.ticks_per_step, 0, 'control_change', channel, control, max(0, min(127, val))))
+            cc_events.append(cv)
 
-        events.sort(key=lambda e: (e[0], e[1]))
+        # --- Assemblage MIDI multi-piste (type 1) ---
+        basename = os.path.splitext(os.path.basename(filename))[0]
+        mid = MidiFile(type=1, ticks_per_beat=480)
 
-        mid   = MidiFile(ticks_per_beat=480)
-        track = MidiTrack()
-        mid.tracks.append(track)
-        track.append(MetaMessage('track_name', name=os.path.splitext(os.path.basename(filename))[0], time=0))
-        track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+        # Track 0 : tempo + métadonnées
+        tempo_track = MidiTrack()
+        mid.tracks.append(tempo_track)
+        tempo_track.append(MetaMessage('track_name', name=basename, time=0))
+        tempo_track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+        tempo_track.append(MetaMessage('set_tempo', tempo=int(60_000_000 / self.bpm), time=0))
 
-        current_tick = 0
-        for abs_tick, _, msg_type, channel, param, value in events:
-            delta = abs_tick - current_tick
-            if msg_type == 'control_change':
-                track.append(Message('control_change', control=param, value=value, channel=channel, time=delta))
+        def _write_track(trk: MidiTrack, evts: list[tuple]) -> None:
+            evts.sort(key=lambda e: (e[0], e[1]))
+            cur = 0
+            for abs_tick, _, msg_type, ch, param, value in evts:
+                delta = abs_tick - cur
+                if msg_type == 'control_change':
+                    trk.append(Message('control_change', control=param, value=value, channel=ch, time=delta))
+                else:
+                    trk.append(Message(msg_type, note=param, velocity=value, channel=ch, time=delta))
+                cur = abs_tick
+
+        # Une track par voix note
+        for vi, (voice, v_events) in enumerate(zip(self.voices, voice_events)):
+            vtype = voice["type"]
+            ch    = voice.get("channel", 0)
+            if vtype == "markov":
+                tname = f"markov-ch{ch + 1}"
+            elif vtype in ("babka", "drum"):
+                tname = f"{vtype}-{voice.get('note', vi)}"
             else:
-                track.append(Message(msg_type, note=param, velocity=value, channel=channel, time=delta))
-            current_tick = abs_tick
+                tname = f"{vtype}-{vi}"
+            trk = MidiTrack()
+            mid.tracks.append(trk)
+            trk.append(MetaMessage('track_name', name=tname, time=0))
+            _write_track(trk, v_events)
+
+        # Une track par drone CC
+        for cc, cv in zip(self.cc_tracks, cc_events):
+            trk = MidiTrack()
+            mid.tracks.append(trk)
+            trk.append(MetaMessage('track_name', name=f"CC{cc['control']}", time=0))
+            _write_track(trk, cv)
 
         mid.save(filename)
         _log_session(filename, seed, self, weather=weather, temporal_jitter=temporal_jitter)
