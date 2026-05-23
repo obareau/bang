@@ -928,6 +928,7 @@ async function _start() {
   if (_audioCtx.state === 'suspended') await _audioCtx.resume();
 
   _startTime = _audioCtx.currentTime + 0.05;
+  _scheduledSteps.clear();
   _playing   = true;
 
   document.getElementById('play-btn').textContent = '■ Stop  ';
@@ -944,7 +945,17 @@ async function _start() {
 function _stop() {
   _playing = false;
   clearTimeout(_schedHandle);
-  if (_midiOut) _midiOut.send([0xB0 | 9, 123, 0]); // All Notes Off ch10
+  if (_midiOut) {
+    // All Notes Off sur tous les canaux utilisés par le pattern courant
+    const channels = new Set([9]); // ch10 toujours
+    if (_pattern) {
+      for (const v of _pattern.voices) channels.add(v.channel);
+    }
+    for (const ch of channels) {
+      _midiOut.send([0xB0 | ch, 123, 0]); // All Notes Off
+      _midiOut.send([0xB0 | ch, 121, 0]); // Reset All Controllers
+    }
+  }
   document.getElementById('play-btn').textContent = '▶ Play ';
   document.getElementById('play-btn').classList.remove('playing');
   document.getElementById('play-status').textContent = '—';
@@ -983,6 +994,17 @@ function _scheduleStep(step, timeS) {
 
   const noteOnMs  = timeS * 1000;
   const stepDurMs = _pattern.step_ms;
+
+  // Drones CC (bassline, phase2…) — interpolation linéaire entre breakpoints
+  for (const drone of (_pattern.cc_drones || [])) {
+    const bps = drone.breakpoints;
+    if (!bps || bps.length === 0) continue;
+    const t   = step / (_pattern.steps - 1 || 1);  // 0→1
+    const seg = t * (bps.length - 1);
+    const lo  = Math.floor(seg), hi = Math.min(lo + 1, bps.length - 1);
+    const val = Math.round(bps[lo] + (bps[hi] - bps[lo]) * (seg - lo));
+    _midiOut.send([0xB0 | drone.channel, drone.control, val], noteOnMs - 1);
+  }
 
   for (const v of _pattern.voices) {
     // P-locks : envoyer les CC avant la note

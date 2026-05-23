@@ -1304,6 +1304,18 @@ async def get_pattern():
     from bang_engine import vel_map as _vel_map
 
     voices_data = []
+    cc_drones   = []
+
+    # Extraire les drones CC (bassline, phase2…) — envoyés séparément par le player
+    engine = _state.get("engine")
+    if engine and hasattr(engine, "cc_tracks"):
+        for drone in engine.cc_tracks:
+            cc_drones.append({
+                "control":     drone.get("control"),
+                "channel":     drone.get("channel", 0),
+                "breakpoints": drone.get("breakpoints", []),
+            })
+
     for note, dna, vtype in _state["voices"]:
         if vtype == "cc" or note == 0:
             continue
@@ -1386,11 +1398,12 @@ async def get_pattern():
     voices_data = _apply_poly_to_events(voices_data, _state["max_poly"])
 
     return {
-        "ok":      True,
-        "bpm":     bpm,
-        "steps":   steps,
-        "step_ms": step_ms,
-        "voices":  voices_data,
+        "ok":       True,
+        "bpm":      bpm,
+        "steps":    steps,
+        "step_ms":  step_ms,
+        "voices":   voices_data,
+        "cc_drones": cc_drones,
     }
 
 
