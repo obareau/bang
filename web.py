@@ -46,6 +46,7 @@ import babka as _babka
 BASE_DIR      = Path(__file__).parent
 EXPORT_DIR       = BASE_DIR / "exports"
 PRESETS_FILE     = BASE_DIR / "bang_presets.json"
+KSP_PRESETS_FILE = BASE_DIR / "bang_ksp_presets.json"
 FAVORITES_FILE   = BASE_DIR / "bang_favorites.json"
 SONG_PARAMS_FILE = BASE_DIR / "bang_song_params.json"
 EXPORT_DIR.mkdir(exist_ok=True)
@@ -317,6 +318,47 @@ def _save_custom_presets(custom: dict) -> None:
     PRESETS_FILE.write_text(json.dumps(custom, indent=2, ensure_ascii=False))
 
 
+# ---------------------------------------------------------------------------
+# KSP presets  (root + scale + gravity + chord par piste)
+# ---------------------------------------------------------------------------
+
+KSP_PRESETS_BUILTIN: dict[str, dict] = {
+    "Dark Penta": {
+        "root": "A", "scale": "penta_min", "gravity": 0.75,
+        "chords": {"KSP Lead": "minor", "KSP Bass": "power", "KSP Chord": "m7", "KSP Arp": "mono"},
+    },
+    "Dorian Jazz": {
+        "root": "D", "scale": "dorian", "gravity": 0.60,
+        "chords": {"KSP Lead": "m7", "KSP Bass": "power", "KSP Chord": "M7", "KSP Arp": "sus2"},
+    },
+    "Phrygian Noise": {
+        "root": "E", "scale": "phrygian", "gravity": 0.85,
+        "chords": {"KSP Lead": "dim", "KSP Bass": "power", "KSP Chord": "minor", "KSP Arp": "mono"},
+    },
+    "Lydian Dream": {
+        "root": "C", "scale": "lydian", "gravity": 0.55,
+        "chords": {"KSP Lead": "M7", "KSP Bass": "mono", "KSP Chord": "sus2", "KSP Arp": "aug"},
+    },
+    "Blues Minor": {
+        "root": "A", "scale": "minor", "gravity": 0.70,
+        "chords": {"KSP Lead": "minor", "KSP Bass": "power", "KSP Chord": "dom7", "KSP Arp": "minor"},
+    },
+}
+
+
+def _load_ksp_presets() -> dict:
+    if KSP_PRESETS_FILE.exists():
+        try:
+            return json.loads(KSP_PRESETS_FILE.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_ksp_presets(custom: dict) -> None:
+    KSP_PRESETS_FILE.write_text(json.dumps(custom, indent=2, ensure_ascii=False))
+
+
 def _load_favorites() -> list[str]:
     if FAVORITES_FILE.exists():
         try: return json.loads(FAVORITES_FILE.read_text())
@@ -356,7 +398,8 @@ _state: dict = {
     "last_p":     None,
     "note_remap":      {},  # voice_name -> midi_note
     "recent_dirs":     [],  # derniers dossiers utilisés (max 5)
-    "current_preset":  "",  # nom du preset actif
+    "current_preset":     "",  # nom du preset actif (drum machine)
+    "current_ksp_preset": "",  # nom du preset KSP actif
     "plocks":          [],  # p-locks par voix (volca_drum uniquement)
     "locked_voices":   set(),  # indices de voix verrouillées
     "history":         deque(maxlen=5),  # ring buffer (voices, plocks, last_p)
@@ -1952,6 +1995,80 @@ async def delete_preset(name: str):
     _save_custom_presets(custom)
     if _state["current_preset"] == name:
         _state["current_preset"] = ""
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# KSP presets
+# ---------------------------------------------------------------------------
+
+@app.get("/ksp/presets")
+async def ksp_presets():
+    custom = _load_ksp_presets()
+    return {
+        "builtin": list(KSP_PRESETS_BUILTIN.keys()),
+        "custom":  list(custom.keys()),
+        "current": _state["current_ksp_preset"],
+    }
+
+
+@app.post("/ksp/preset/save")
+async def ksp_preset_save(name: Annotated[str, Form()]):
+    name = name.strip()
+    if not name:
+        return {"ok": False, "error": "Nom vide"}
+    if name in KSP_PRESETS_BUILTIN:
+        return {"ok": False, "error": "Nom réservé (preset built-in)"}
+    p = _state.get("last_p") or {}
+    chords = {k: v for k, v in _state.get("voice_chords", {}).items() if k.startswith("KSP")}
+    preset = {
+        "root":    p.get("root",    "A"),
+        "scale":   p.get("scale",   "penta_min"),
+        "gravity": p.get("gravity", 0.70),
+        "chords":  chords,
+    }
+    custom = _load_ksp_presets()
+    custom[name] = preset
+    _save_ksp_presets(custom)
+    _state["current_ksp_preset"] = name
+    return {"ok": True, "name": name}
+
+
+@app.post("/ksp/preset/load")
+async def ksp_preset_load(name: Annotated[str, Form()]):
+    all_presets = {**KSP_PRESETS_BUILTIN, **_load_ksp_presets()}
+    if name not in all_presets:
+        return {"ok": False, "error": "Preset introuvable"}
+    preset = all_presets[name]
+    # Mettre à jour voice_chords pour les voix KSP
+    for voice_name, chord in preset.get("chords", {}).items():
+        if chord in _VALID_CHORDS:
+            _state["voice_chords"][voice_name] = chord
+    # Patcher last_p si un pattern est en mémoire
+    if _state["last_p"]:
+        _state["last_p"]["root"]    = preset["root"]
+        _state["last_p"]["scale"]   = preset["scale"]
+        _state["last_p"]["gravity"] = preset["gravity"]
+        _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+    _state["current_ksp_preset"] = name
+    return {
+        "ok":      True,
+        "root":    preset["root"],
+        "scale":   preset["scale"],
+        "gravity": preset["gravity"],
+        "chords":  preset.get("chords", {}),
+    }
+
+
+@app.delete("/ksp/preset/{name}")
+async def ksp_preset_delete(name: str):
+    if name in KSP_PRESETS_BUILTIN:
+        return {"ok": False, "error": "Preset built-in — non supprimable"}
+    custom = _load_ksp_presets()
+    custom.pop(name, None)
+    _save_ksp_presets(custom)
+    if _state["current_ksp_preset"] == name:
+        _state["current_ksp_preset"] = ""
     return {"ok": True}
 
 

@@ -148,6 +148,19 @@
       height: 24px;
     }
     .btn-preset-save:hover { color: var(--success); border-color: var(--success); }
+    .ksp-preset-bar {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      margin-top: .25rem;
+    }
+    .ksp-preset-bar select {
+      width: auto;
+      font-size: 11px;
+      padding: 2px 6px;
+      height: 24px;
+    }
+    .ksp-preset-label { font-size: 11px; color: #c084fc; flex-shrink: 0; }
     .btn-preset-del:hover  { color: #f87171;         border-color: #f87171; }
 
     /* Voice rows — layout colonne */
@@ -890,6 +903,17 @@
         <button class="btn-preset-save" onclick="savePreset()" title="Sauver le mapping actuel">💾</button>
         <button class="btn-preset-del"  onclick="deletePreset()" title="Supprimer le preset custom sélectionné">✕</button>
       </div>
+      <div class="ksp-preset-bar" id="ksp-preset-bar" style="display:none">
+        <span class="ksp-preset-label">♜</span>
+        <select id="ksp-preset-select" title="Preset Keystep Pro">
+          <option value="">— KSP Preset —</option>
+          <optgroup id="ksp-preset-builtin" label="Built-in"></optgroup>
+          <optgroup id="ksp-preset-custom"  label="Custom"></optgroup>
+        </select>
+        <button class="btn-preset-save" onclick="loadKspPreset(document.getElementById('ksp-preset-select').value)" title="Charger le preset KSP">▶</button>
+        <button class="btn-preset-save" onclick="saveKspPreset()" title="Sauvegarder la config KSP actuelle">💾</button>
+        <button class="btn-preset-del"  onclick="deleteKspPreset()" title="Supprimer le preset KSP custom sélectionné">✕</button>
+      </div>
     </div>
     <div id="voices">
       {% include "_voices.html" %}
@@ -1039,9 +1063,12 @@ const _MARKOV_MODES = new Set(['markov', 'phase2', 'keystep_pro']);
 function toggleScaleControls(mode) {
   const showScale  = _SCALE_MODES.has(mode);
   const showMarkov = _MARKOV_MODES.has(mode);
+  const showKsp    = mode === 'keystep_pro';
   document.getElementById('root-group').style.display          = showScale  ? '' : 'none';
   document.getElementById('scale-group').style.display         = showScale  ? '' : 'none';
   document.getElementById('markov-ch-group').style.display     = showMarkov ? '' : 'none';
+  document.getElementById('ksp-preset-bar').style.display      = showKsp   ? '' : 'none';
+  if (showKsp) loadKspPresets();
 }
 
 // Init au chargement : refléter le mode courant
@@ -1400,6 +1427,73 @@ async function deletePreset() {
 
 // Chargement initial
 loadPresets();
+
+// ---------------------------------------------------------------------------
+// KSP Presets
+// ---------------------------------------------------------------------------
+async function loadKspPresets() {
+  const r = await fetch('/ksp/presets');
+  const d = await r.json();
+  const bi = document.getElementById('ksp-preset-builtin');
+  const cu = document.getElementById('ksp-preset-custom');
+  bi.innerHTML = '';
+  cu.innerHTML = '';
+  d.builtin.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; bi.appendChild(o); });
+  d.custom.forEach(n  => { const o = document.createElement('option'); o.value = n; o.textContent = n; cu.appendChild(o); });
+  if (d.current) document.getElementById('ksp-preset-select').value = d.current;
+}
+
+async function loadKspPreset(name) {
+  if (!name) return;
+  const fd = new FormData();
+  fd.append('name', name);
+  const r = await fetch('/ksp/preset/load', {method: 'POST', body: fd});
+  const d = await r.json();
+  if (!d.ok) { alert(d.error || 'Erreur chargement preset KSP'); return; }
+  // Mettre à jour les sélecteurs du formulaire
+  const rootSel  = document.querySelector('select[name="root"]');
+  const scaleSel = document.querySelector('select[name="scale"]');
+  const gravInp  = document.querySelector('input[name="gravity"]');
+  if (rootSel)  rootSel.value  = d.root;
+  if (scaleSel) scaleSel.value = d.scale;
+  if (gravInp)  gravInp.value  = d.gravity;
+  // Mettre à jour les chord selectors dans les voix KSP
+  document.querySelectorAll('.chord-select').forEach(sel => {
+    const nameEl = sel.closest('.vr-controls')?.querySelector('.name');
+    if (!nameEl) return;
+    const vn = nameEl.textContent.trim();
+    if (d.chords && vn in d.chords) sel.value = d.chords[vn];
+  });
+  document.getElementById('ksp-preset-select').value = name;
+}
+
+async function saveKspPreset() {
+  const name = prompt('Nom du preset KSP :', _state_kspPresetCurrent() || '');
+  if (!name) return;
+  const fd = new FormData();
+  fd.append('name', name);
+  const r = await fetch('/ksp/preset/save', {method: 'POST', body: fd});
+  const d = await r.json();
+  if (!d.ok) { alert(d.error || 'Erreur sauvegarde preset KSP'); return; }
+  await loadKspPresets();
+  document.getElementById('ksp-preset-select').value = d.name;
+}
+
+async function deleteKspPreset() {
+  const sel  = document.getElementById('ksp-preset-select');
+  const name = sel.value;
+  const bi   = document.getElementById('ksp-preset-builtin');
+  if (!name || Array.from(bi.options).some(o => o.value === name)) {
+    alert('Sélectionnez un preset KSP custom à supprimer.'); return;
+  }
+  if (!confirm(`Supprimer le preset KSP "${name}" ?`)) return;
+  await fetch('/ksp/preset/' + encodeURIComponent(name), {method: 'DELETE'});
+  await loadKspPresets();
+}
+
+function _state_kspPresetCurrent() {
+  return document.getElementById('ksp-preset-select').value || '';
+}
 
 // ---------------------------------------------------------------------------
 // Steps suggérés selon le mode
