@@ -14,10 +14,10 @@ Pas de séquenceur temps réel. Pas de timeline. Pas de mixage. BANG produit des
 - Des **presets qui collent au matériel** : notes MIDI et canaux câblés pour Volca Drum (6 canaux split), Volca Kick, Volca FM, MicroFreak, TR-808/909, GM, MPC60, etc.
 - Des **gammes configurables** pour les modes mélodiques (Markov, Phase 2, Bassline) : 12 toniques × 8 modes (pentatonique, mineur, dorian, phrygien, majeur, mixolydien, lydien)
 - Un **swing** réglable (0–100%) — décalage des steps impairs, appliqué à l'export MIDI et au player Web MIDI
-- Une **seed fixe** optionnelle — reproduire exactement un pattern en collant sa seed dans le formulaire
+- Une **seed fixe** optionnelle — reproduire exactement un pattern en collant sa seed dans le formulaire. La seed est **cliquable dans le log** : cliquer dessus la copie directement dans le champ.
 - Une **fonction Play** intégrée dans l'interface — lecture MIDI du pattern courant dans le navigateur, avec pianoroll synchronisé, sans export
 - Une **fonction Preview** live — toute modification de pattern DNA met à jour le pianoroll en temps réel, avant d'exporter quoi que ce soit
-- Des **P-locks par step** pour les synths hardware (Volca Drum, Volca Kick, Volca FM, MicroFreak) — automation CC générée algorithmiquement
+- Des **P-locks par step** pour les synths hardware (Volca Drum, Volca Kick, Volca FM, MicroFreak) — automation CC générée algorithmiquement, incluse dans l'export MIDI multi-piste
 
 ## Ce que BANG! n'est pas
 
@@ -50,6 +50,7 @@ Le rendu final se fait dans le DAW. BANG s'occupe uniquement de générer des `.
 | `volca_fm` ⚡ | Korg Volca FM | ≤16 | 3 voix polyphoniques FM + P-locks sur FM1 |
 | `volca_drum` ★ | Korg Volca Drum | ≤16 | 6 parts, 6 canaux MIDI, P-locks par part |
 | `microfreak` ◈ | Arturia MicroFreak | ≤64 | 3 voix paraphoniques + P-locks (Cutoff, Timbre, LFO) |
+| `keystep_pro` ♜ | Arturia Keystep Pro | 16 | 3 voix drums (ch10) + 4 pistes Markov indépendantes (ch1–4) |
 
 ---
 
@@ -104,30 +105,205 @@ BANG_PORT=8888 uv run python web.py
 | `E` | Exporter MIDI |
 | `W` | Rafraîchir météo |
 
+### Toolbar
+
+| Bouton | Description |
+|--------|-------------|
+| `Generate` | Génère un nouveau pattern |
+| `Export` | Exporte le `.mid` courant |
+| `↩` | Undo — restaure l'état précédent (ring buffer 5 snapshots) |
+| `▸A` / `▸B` | Store — sauvegarde l'état courant dans le slot A ou B |
+| `A○` / `B○` | Load — charge le slot A ou B (● = slot rempli) |
+| `OSC ○` | Active/désactive l'émission OSC temps réel |
+
 ### Édition inline
 
 Cliquer sur la représentation DNA d'une voix ouvre un champ d'édition. Le pianoroll se met à jour en temps réel (debounce 350ms). `Enter` valide, `Escape` annule.
 
 ---
 
-## CLI
+## Contrôles par voix
 
-```bash
-uv run bang --mode morph --chaos 0.4 --bpm 120 --steps 64 --out session.mid
-uv run bang --mode weather --weather --temporal
-uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
+Chaque voix dispose de contrôles individuels dans le panneau de gauche.
+
+### Lock 🔒
+
+Verrouille une voix : elle ne sera **pas régénérée** lors des prochains clics sur `Generate`. Indiqué par une bordure colorée sur la ligne de voix. Utile pour fixer le groove et explorer les variations sur les autres voix.
+
+```
+[🔒] → voix figée, survive aux régénérations
+[ 🔓] → voix libre (comportement par défaut)
 ```
 
-| Paramètre | Défaut | Description |
-|-----------|--------|-------------|
-| `--mode` | `morph` | Mode de génération |
-| `--chaos` | `0.30` | Taux de mutation (0.0–1.0) |
-| `--bpm` | `110` | Tempo |
-| `--steps` | `64` | Nombre de pas |
-| `--gravity` | `0.70` | Attraction graves (Markov) |
-| `--seed` | auto | Graine fixe pour reproduire |
-| `--weather` | off | Entropie météo |
-| `--temporal` | off | Jitter nanoseconde (non-reproductible) |
+**Undo** préserve les locks : le ring buffer stocke l'état complet incluant quelles voix étaient verrouillées.
+
+### Densité (0–1)
+
+Slider par voix qui multiplie la probabilité de déclenchement de chaque step. 
+
+- `1.0` = comportement normal (pas de filtrage)
+- `0.5` = moitié des triggers supprimés aléatoirement
+- `0.0` = voix silencieuse
+
+La densité est appliquée au player JS et à l'export MIDI. Elle est persistée dans la session.
+
+### Chord selector (voix Markov / KSP)
+
+Pour les voix de type `markov` et `ksp`, un sélecteur d'accord est disponible. Il transforme chaque note déclenchée en accord en ajoutant des intervalles fixes.
+
+| Type | Intervalles (demi-tons) |
+|------|------------------------|
+| `mono` | — (note seule) |
+| `power` | +7 |
+| `minor` | +3, +7 |
+| `major` | +4, +7 |
+| `sus2` | +2, +7 |
+| `sus4` | +5, +7 |
+| `m7` | +3, +7, +10 |
+| `M7` | +4, +7, +11 |
+| `dom7` | +4, +7, +10 |
+| `dim` | +3, +6 |
+| `aug` | +4, +8 |
+
+Les accords sont appliqués à l'export MIDI **et** au player JS en temps réel.
+
+---
+
+## Undo — Ring buffer
+
+Le bouton `↩` dans le toolbar restaure le snapshot précédent. BANG conserve les **5 derniers états** (voix + p-locks + paramètres). Chaque `Generate` empile un nouveau snapshot.
+
+```
+snapshot[0] ← état courant
+snapshot[1] ← avant dernière génération
+...
+snapshot[4] ← il y a 5 générations
+```
+
+`↩` remonte d'un cran et restaure l'état complet : DNA de toutes les voix, p-locks, paramètres chaos/bpm/swing, locks actifs.
+
+---
+
+## Comparaison A/B
+
+Deux slots indépendants pour comparer des variantes d'un pattern.
+
+```
+▸A   → sauvegarde l'état courant dans le slot A
+▸B   → sauvegarde dans le slot B
+A●   → charge le slot A (● = slot rempli, ○ = vide)
+B●   → charge le slot B
+```
+
+Workflow typique :
+
+1. Générer un pattern qui semble intéressant → `▸A`
+2. Générer une variation → `▸B`
+3. `A●` / `B●` pour écouter et comparer
+4. Exporter le meilleur
+
+Les slots A et B sont inclus dans l'export/import de session JSON.
+
+---
+
+## Multi-canal Markov
+
+Le paramètre `markov_channel` (1–16) route la voix mélodique Markov sur un canal MIDI spécifique. Par défaut : canal 1.
+
+Utile pour router vers un synth externe précis dans le DAW, ou pour séparer basse/mélodie sur des canaux différents.
+
+```bash
+# Via l'interface : sélecteur "MIDI CH" visible en mode markov/phase2/bassline
+# Via l'API Python :
+e.add_markov_voice(chain, "x-?-", channel=4)   # canal 5 (0-indexé)
+```
+
+---
+
+## Mode Keystep Pro ♜
+
+Mode dédié à l'Arturia Keystep Pro. Génère **7 voix** :
+
+| Voix | Canal MIDI | Registre | Description |
+|------|-----------|----------|-------------|
+| Kick | ch10 | C2 | Kick drum |
+| Snare | ch10 | D2 | Snare |
+| HiHat | ch10 | F#2 | Hi-hat |
+| KSP Lead | ch1 | 2 octaves, medium-high | Mélodie principale |
+| KSP Bass | ch2 | 1 octave, grave | Ligne de basse |
+| KSP Chord | ch3 | 2 octaves, medium | Harmonie |
+| KSP Arp | ch4 | 2 octaves, medium-high | Arpège |
+
+Les 4 pistes mélodiques utilisent des chaînes de Markov indépendantes avec des registres différenciés. Chaque piste KSP a son propre **chord selector**.
+
+L'export MIDI produit un fichier **type 1 multi-piste**, directement importable dans le Keystep Pro via MIDI SysEx ou drag-and-drop DAW.
+
+```
+Steps auto-fixés à 16 en mode keystep_pro (cohérence KSP natif)
+```
+
+---
+
+## Export MIDI multi-piste
+
+L'export génère un fichier **MidiFile type 1** : une track par voix + une track tempo.
+
+| Track | Contenu |
+|-------|---------|
+| Track 0 | Tempo (BPM) + seed embedée dans les métadonnées |
+| Track 1..N | Une piste par voix, nommée d'après le type de voix |
+| Track CC | P-locks : automation CC step-par-step par voix concernée |
+
+Les **P-locks** sont inclus dans l'export comme événements CC avant chaque `note_on`. Les DAWs les lisent comme de l'automation de clip.
+
+Les **accords Markov** (chord selector) sont inclus dans l'export : chaque note déclenchée émet les tons de l'accord sur la même track MIDI.
+
+---
+
+## OSC Output
+
+BANG émet des messages OSC en UDP en temps réel, synchronisés au BPM du pattern courant.
+
+### Activer
+
+Cliquer sur `OSC ○` dans le toolbar → modal de configuration (host:port) → `Start`. Le bouton passe à `OSC ●` quand actif.
+
+Défaut : `127.0.0.1:57120` (SuperCollider).
+
+### Format des messages
+
+| Message | Arguments | Description |
+|---------|-----------|-------------|
+| `/bang/clock` | `[step, total_steps]` | Émis à chaque step |
+| `/bang/{NomVoix}` | `[step, velocity, note]` | Par trigger, par voix |
+
+`NomVoix` correspond au label de la voix (`Kick`, `Snare`, `HH`, `Markov`, `KSP Lead`, etc.).
+
+### Exemples d'utilisation
+
+**SuperCollider** :
+
+```supercollider
+OSCdef(\bangClock, { |msg|
+    var step = msg[1], total = msg[2];
+    ("step " ++ step ++ "/" ++ total).postln;
+}, '/bang/clock');
+
+OSCdef(\bangKick, { |msg|
+    var step = msg[1], vel = msg[2], note = msg[3];
+    Synth(\kick, [\amp, vel/127]);
+}, '/bang/Kick');
+```
+
+**Max/MSP** : utiliser un objet `udpreceive 57120` + `route /bang/clock /bang/Kick /bang/Markov`
+
+**TouchDesigner** : OSC In DAT sur port 57120, filtrer par address `/bang/*`
+
+### Comportement
+
+- Les notes Markov sont **régénérées au début de chaque cycle** (step 0) depuis la même chaîne de Markov, donc elles évoluent au fil des cycles.
+- Les voix Babka sont **exclues** de l'OSC (timing fractionnel incompatible avec le tick step-par-step).
+- L'OSC s'arrête automatiquement si on clique `OSC ●` ou si l'interface est fermée.
 
 ---
 
@@ -141,7 +317,15 @@ uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
 | `↺` | Ratchet ×3 |
 | `░` | Ghost — jitter ±25ms |
 
-## Gammes (modes Markov, Phase 2, Bassline)
+## Humanisation velocity
+
+Le paramètre `vel_humanize` (0–40) ajoute un décalage aléatoire ±N à la velocity de chaque note. Appliqué à l'export MIDI et au player JS.
+
+- `0` = velocities exactes (comportement machine)
+- `10` = légère humanisation (recommandé)
+- `40` = variations importantes
+
+## Gammes (modes Markov, Phase 2, Bassline, Keystep Pro)
 
 Sélectionnables depuis l'interface (sélecteurs ROOT + SCALE, visibles uniquement sur les modes mélodiques).
 
@@ -170,6 +354,27 @@ La chaîne de Markov est construite algorithmiquement (distance de degré, gravi
 
 ---
 
+## CLI
+
+```bash
+uv run bang --mode morph --chaos 0.4 --bpm 120 --steps 64 --out session.mid
+uv run bang --mode weather --weather --temporal
+uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
+```
+
+| Paramètre | Défaut | Description |
+|-----------|--------|-------------|
+| `--mode` | `morph` | Mode de génération |
+| `--chaos` | `0.30` | Taux de mutation (0.0–1.0) |
+| `--bpm` | `110` | Tempo |
+| `--steps` | `64` | Nombre de pas |
+| `--gravity` | `0.70` | Attraction graves (Markov) |
+| `--seed` | auto | Graine fixe pour reproduire |
+| `--weather` | off | Entropie météo |
+| `--temporal` | off | Jitter nanoseconde (non-reproductible) |
+
+---
+
 ## API HTTP
 
 | Méthode | Route | Description |
@@ -182,6 +387,14 @@ La chaîne de Markov est construite algorithmiquement (distance de degré, gravi
 | POST | `/voice/preview` | Preview pianoroll sans validation |
 | POST | `/voice/pattern` | Valide pattern édité |
 | POST | `/voice/thin` | Thinning ×1/÷2/÷4 |
+| POST | `/voice/chord` | Change le type d'accord d'une voix Markov/KSP |
+| POST | `/voice/density` | Change la densité (0–1) d'une voix |
+| POST | `/lock_voice` | Verrouille/déverrouille une voix |
+| POST | `/undo` | Restaure le snapshot précédent |
+| POST | `/ab/store` | Sauvegarde l'état dans le slot A ou B |
+| POST | `/ab/load` | Charge le slot A ou B |
+| POST | `/osc/toggle` | Active/désactive l'émission OSC |
+| POST | `/osc/config` | Configure host:port OSC |
 | POST | `/notes` | Remap notes MIDI |
 | GET | `/session/export` | Exporte session JSON |
 | POST | `/session/import` | Charge session JSON |
@@ -201,14 +414,22 @@ e.add_voice(36, "x---x---")
 e.add_voice(42, ["x-x-", "x--x"])                          # polyrythmie
 
 chain = build_markov_chain(root_note=50, intervals=SCALE_INTERVALS["dorian"], num_octaves=2)
-e.add_markov_voice(chain, "x-?-")                          # mélodie Markov D dorian 2 octaves
+e.add_markov_voice(chain, "x-?-", channel=0)               # mélodie Markov D dorian 2 octaves, ch1
 
-bass  = build_markov_chain(root_note=26, intervals=SCALE_INTERVALS["penta_min"], num_octaves=2)
-e.add_markov_voice(bass, "x---x-")                         # basse pentatonique mineure
+bass = build_markov_chain(root_note=26, intervals=SCALE_INTERVALS["penta_min"], num_octaves=2)
+e.add_markov_voice(bass, "x---x-", channel=1)              # basse pentatonique mineure, ch2
 
 e.add_babka_voice(38, "x(3,8)")
 e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
-e.export_midi(num_steps=64, filename="out.mid", swing=0.3, seed="abc123")
+
+# voice_chords : dict nom_voix → type d'accord pour l'export
+e.export_midi(
+    num_steps=64,
+    filename="out.mid",
+    swing=0.3,
+    seed="abc123",
+    voice_chords={"markov-ch1": "minor", "markov-ch2": "power"},
+)
 ```
 
 ---
