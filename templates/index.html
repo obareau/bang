@@ -489,18 +489,12 @@
       </div>
 
       <div>
-        <label>VEL MIN <span style="color:var(--muted)">0–126</span></label>
-        <input type="number" name="vel_floor" value="0" min="0" max="126" step="5">
-      </div>
-
-      <div>
-        <label>VEL MAX <span style="color:var(--muted)">1–127</span></label>
-        <input type="number" name="vel_ceiling" value="127" min="1" max="127" step="5">
-      </div>
-
-      <div>
-        <label>DYNAMICS <span style="color:var(--muted)">&lt;1 comp · 1 flat · &gt;1 exp</span></label>
-        <input type="number" name="vel_curve" value="1.0" min="0.1" max="4.0" step="0.1">
+        <label>VELOCITY <span style="color:var(--muted)">MIN · MAX · DYNAMICS (&lt;1 comp · 1 flat · &gt;1 exp)</span></label>
+        <div style="display:flex;gap:.4rem">
+          <input type="number" name="vel_floor"   value="0"   min="0"   max="126" step="5"  title="VEL MIN" style="width:4rem">
+          <input type="number" name="vel_ceiling" value="127" min="1"   max="127" step="5"  title="VEL MAX" style="width:4rem">
+          <input type="number" name="vel_curve"   value="1.0" min="0.1" max="4.0" step="0.1" title="DYNAMICS" style="width:4rem">
+        </div>
       </div>
 
       <div>
