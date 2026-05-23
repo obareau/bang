@@ -11,6 +11,8 @@ import mido
 import numpy as np
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
+import babka as _babka
+
 # BANG DNA syntax: each character encodes [trigger, velocity, prob, ratchet, jitter]
 DNA_SYMBOLS = ['x', '-', '?', '↺', '░']
 
@@ -136,7 +138,10 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
             {
                 "type": v["type"],
                 "note": v.get("note"),
-                "pattern_lengths": [len(p) for p in v["patterns"]],
+                "pattern_lengths": (
+                    [len(v["pattern"])] if v["type"] == "babka"
+                    else [len(p) for p in v["patterns"]]
+                ),
             }
             for v in engine.voices
         ],
@@ -147,6 +152,25 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
         entry["temporal_jitter"] = True
     with open(_LOG_FILE, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Velocity processing
+# ---------------------------------------------------------------------------
+
+def vel_map(vel: int, floor: int = 0, ceiling: int = 127, curve: float = 1.0) -> int:
+    """Map velocity to [floor, ceiling] with optional dynamics shaping.
+
+    curve < 1 : compression  (brings velocities closer together)
+    curve = 1 : linear       (just rescales to [floor, ceiling])
+    curve > 1 : expansion    (exaggerates dynamic differences)
+    """
+    if ceiling <= floor:
+        return max(1, floor)
+    t = max(0.0, min(1.0, vel / 127.0))
+    if curve != 1.0:
+        t = t ** curve
+    return max(1, int(floor + t * (ceiling - floor)))
 
 
 # ---------------------------------------------------------------------------
@@ -256,9 +280,19 @@ class BangEngine:
     Chaque export est seedé de façon déterministe et loggé dans bang_sessions.jsonl.
     """
 
-    def __init__(self, bpm: int = 124, ticks_per_step: int = 120):
+    def __init__(
+        self,
+        bpm: int = 124,
+        ticks_per_step: int = 120,
+        vel_floor: int = 0,
+        vel_ceiling: int = 127,
+        vel_curve: float = 1.0,
+    ):
         self.bpm = bpm
         self.ticks_per_step = ticks_per_step
+        self.vel_floor   = vel_floor
+        self.vel_ceiling = vel_ceiling
+        self.vel_curve   = vel_curve
         self.voices: list[dict] = []
         self.cc_tracks: list[dict] = []
         self.last_seed: str | None = None
@@ -293,6 +327,15 @@ class BangEngine:
             "velocity": velocity,
             "channel": channel,
         })
+        return self
+
+    def add_babka_voice(self, note: int, pattern: str, channel: int = 0) -> "BangEngine":
+        """Voix rythmique avec syntaxe Babka (DNA + mini-notation Strudel).
+
+        pattern : chaîne Babka — ex: "x-[x x]-?(3,8)" ou "<x-x- ?-?->"
+        Supporte subdivision [...], alternance <...> et euclidien x(n,k) / [x(n,k)].
+        """
+        self.voices.append({"type": "babka", "note": note, "pattern": pattern, "channel": channel})
         return self
 
     def add_cc_drone(
@@ -336,10 +379,43 @@ class BangEngine:
         # msg_type 'control_change'     → param=control, value=cc_value
         events: list[tuple] = []
 
-        # --- Voix note (drum + markov) ---
+        # --- Voix note (drum + markov + babka) ---
         for voice in self.voices:
+            channel = voice.get("channel", 0)
+
+            # --- Babka ---
+            if voice["type"] == "babka":
+                note         = voice["note"]
+                pat_str      = voice["pattern"]
+                total_ticks  = num_steps * self.ticks_per_step
+                cursor_tick  = 0.0
+                cyc          = 0
+                while cursor_tick < total_ticks:
+                    bsteps = _babka.parse(pat_str, cycle=cyc)
+                    if not bsteps:
+                        break
+                    for s in bsteps:
+                        if cursor_tick >= total_ticks:
+                            break
+                        dur_ticks = s.duration * self.ticks_per_step
+                        if s.trigger and random.random() < s.prob:
+                            base_jit = int(random.uniform(-s.jitter, s.jitter))
+                            if temporal_jitter and s.jitter > 0:
+                                micro     = _time.time_ns() % 1000
+                                base_jit += int((micro / 1000 - 0.5) * s.jitter * 0.5)
+                            actual_start = max(0, int(cursor_tick + base_jit))
+                            r_div    = int(max(1, s.ratchet))
+                            r_dur    = max(1, int(dur_ticks) // r_div)
+                            out_vel  = vel_map(s.velocity, self.vel_floor, self.vel_ceiling, self.vel_curve)
+                            for r in range(r_div):
+                                t_on = actual_start + r * r_dur
+                                events.append((t_on,         1, 'note_on',  channel, note, out_vel))
+                                events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        cursor_tick += dur_ticks
+                    cyc += 1
+                continue
+
             patterns = voice["patterns"]
-            channel  = voice.get("channel", 0)
 
             markov_notes = None
             if voice["type"] == "markov":
@@ -369,9 +445,10 @@ class BangEngine:
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 
+                    out_vel = vel_map(int(vel), self.vel_floor, self.vel_ceiling, self.vel_curve)
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
-                        events.append((t_on,         1, 'note_on',  channel, note, int(vel)))
+                        events.append((t_on,         1, 'note_on',  channel, note, out_vel))
                         events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
 
                 # Avance dans le pattern courant, passe au suivant après un cycle complet

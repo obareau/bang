@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+APP_VERSION = "0.3.0"
+
 import io
 import json
 import os
@@ -15,7 +17,7 @@ from pathlib import Path
 from typing import Annotated
 
 import uvicorn
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -31,6 +33,7 @@ from bang_engine import (
     weather_dna,
 )
 from cli import _markov_from_gravity
+import babka as _babka
 
 # ---------------------------------------------------------------------------
 # Config
@@ -277,6 +280,14 @@ _state: dict = {
 _CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 
+def _atom_label(prob: float, ratchet: int, jitter: int) -> str:
+    """Reverse-map d'un BabkaStep/DNA row vers le symbole atom source."""
+    if ratchet >= 3: return '↺'
+    if jitter >= 20: return '░'
+    if prob < 1.0:   return '?'
+    return 'x'
+
+
 def midi_note_name(n: int) -> str:
     """Convention Roland/GM : C-2=0, C1=36 (Kick GM), Middle C=C3=60."""
     return f"{_CHROMATIC[n % 12]}{n // 12 - 2}"
@@ -304,6 +315,30 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
+
+        if vtype == "babka":
+            bsteps  = _babka.parse(dna, cycle=0)
+            tot_dur = sum(s.duration for s in bsteps) or 1.0
+            cells   = [{"trigger": False, "opacity": 0.0, "ratchet": 1, "atom": "-"} for _ in range(steps)]
+            pos = 0.0
+            for s in bsteps:
+                if s.trigger:
+                    cyc_pos = pos
+                    while cyc_pos < steps:
+                        cell = int(cyc_pos)  # floor — identique au player JS
+                        if cell < steps:
+                            opacity = round(0.35 + s.prob * 0.65, 2)
+                            if not cells[cell]["trigger"] or cells[cell]["opacity"] < opacity:
+                                atom = _atom_label(s.prob, s.ratchet, getattr(s, "jitter", 0))
+                                cells[cell] = {"trigger": True, "opacity": opacity, "ratchet": s.ratchet, "atom": atom}
+                        cyc_pos += tot_dur
+                pos += s.duration
+            name = _NOTE_NAMES.get(note, f"n{note}")
+            cells = _thin_cells(cells, _state["voice_thin"].get(name + " ⚗", 1))
+            rows.append({"name": name + " ⚗", "cells": cells, "dna_len": int(tot_dur),
+                         "color": "#e879f9", "boundaries": [], "plocks": []})
+            continue
+
         compiled = compile_dna(dna)
         dna_len  = len(compiled)
         cells    = []
@@ -312,10 +347,13 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             trigger = bool(step[0] > 0)
             prob    = float(step[2])
             ratchet = int(step[3])
+            jitter  = int(step[4])
+            atom    = _atom_label(prob, ratchet, jitter) if trigger else "-"
             cells.append({
                 "trigger": trigger,
                 "opacity": round(0.35 + prob * 0.65, 2) if trigger else 0.0,
                 "ratchet": ratchet,
+                "atom":    atom,
             })
         boundaries = [j * dna_len for j in range(1, steps // dna_len + 1) if j * dna_len < steps]
         if vtype.startswith("vd"):
@@ -344,7 +382,7 @@ def _thin_cells(cells: list, factor: int) -> list:
     for cell in cells:
         if cell["trigger"]:
             keep = (trig_idx % factor == 0)
-            result.append(cell if keep else {**cell, "trigger": False, "opacity": 0.0})
+            result.append(cell if keep else {**cell, "trigger": False, "opacity": 0.0, "atom": "-"})
             trig_idx += 1
         else:
             result.append(cell)
@@ -368,7 +406,7 @@ def _apply_poly_to_rows(rows: list, max_poly: int) -> list:
                   if step < len(r["cells"]) and r["cells"][step]["trigger"]]
         for ri in active[max_poly:]:
             c = rows[ri]["cells"][step]
-            rows[ri]["cells"][step] = {**c, "trigger": False, "opacity": 0.0}
+            rows[ri]["cells"][step] = {**c, "trigger": False, "opacity": 0.0, "atom": "-"}
     return rows
 
 
@@ -396,12 +434,16 @@ def _build_pr_html(voices: list, steps: int, plocks: list | None = None) -> str:
 
 def _build_voices_html(voices: list) -> str:
     return jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in voices],
+        voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in voices],
         voice_thin=_state["voice_thin"],
     )
 
 
-_DNA_CLASS = {"x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db"}
+_DNA_CLASS = {
+    "x": "dx", "-": "dd", "?": "dq", "↺": "dr", "░": "db",
+    "[": "dbk", "]": "dbk", "<": "dalt", ">": "dalt",
+    "(": "deuc", ")": "deuc",
+}
 
 
 def dna_html(dna: str, max_len: int = 24) -> str:
@@ -480,6 +522,30 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             for note in [36, 24, 33]
         ]
 
+    if mode == "babka":
+        if chaos < 0.4:
+            return [
+                (36, "x---x---",            "babka"),
+                (38, "x(3,8)",              "babka"),
+                (42, "[x x]-x-[x x]-x-",   "babka"),
+                (24, "?-░-",               "babka"),
+            ]
+        elif chaos < 0.7:
+            return [
+                (36, "<x---x--- x-[x-]x-->",     "babka"),
+                (38, "?(3,8)",                    "babka"),
+                (42, "<[x x]-x- x-[x x]->",      "babka"),
+                (24, "↺(2,8)",                   "babka"),
+            ]
+        else:
+            n_snare = min(7, max(2, int(chaos * 8)))
+            return [
+                (36, "<x-[x x]- [x x]-->",             "babka"),
+                (38, f"?({n_snare},8)",                 "babka"),
+                (42, "<[x x x]-x- x-[x x]->",          "babka"),
+                (24, "<↺(2,8) ░(3,8)>",               "babka"),
+            ]
+
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
         # Note indifférente (on envoie 60/C3) — seul le canal compte
@@ -509,6 +575,8 @@ _VD_PART_COLORS = ["#38bdf8", "#4ade80", "#fb923c", "#facc15", "#c084fc", "#67e8
 def _voice_label(note: int, vtype: str) -> str:
     if vtype.startswith("vd"):
         return _VD_PART_NAMES[int(vtype[2:])]
+    if vtype == "babka":
+        return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     return _NOTE_NAMES.get(note, f"n{note}")
 
 
@@ -523,7 +591,12 @@ def _apply_note_remap(voices: list) -> list:
 
 
 def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
-    engine      = BangEngine(bpm=p["bpm"])
+    engine      = BangEngine(
+        bpm=p["bpm"],
+        vel_floor=p.get("vel_floor", 0),
+        vel_ceiling=p.get("vel_ceiling", 127),
+        vel_curve=p.get("vel_curve", 1.0),
+    )
     chain       = _markov_from_gravity(p["gravity"])
     cc_peak     = int(20 + p["cc_depth"] * 100)
     breakpoints = [20, cc_peak, cc_peak, int((20 + cc_peak) / 2), 20]
@@ -532,6 +605,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
+        elif vtype == "babka":
+            engine.add_babka_voice(note, dna)
         elif vtype.startswith("vd"):
             engine.add_voice(note, dna, channel=int(vtype[2:]))
         elif vtype == "markov":
@@ -552,27 +627,33 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
 
 
 def _read_form(
-    mode:      str   = "morph",
-    chaos:     float = 0.30,
-    bpm:       int   = 110,
-    steps:     int   = 64,
-    gravity:   float = 0.70,
-    cc_depth:  float = 0.50,
-    out:       str   = "bang_out.mid",
-    temporal:  str   = "",
+    mode:        str   = "morph",
+    chaos:       float = 0.30,
+    bpm:         int   = 110,
+    steps:       int   = 64,
+    gravity:     float = 0.70,
+    cc_depth:    float = 0.50,
+    out:         str   = "bang_out.mid",
+    temporal:    str   = "",
+    vel_floor:   int   = 0,
+    vel_ceiling: int   = 127,
+    vel_curve:   float = 1.0,
 ) -> dict:
     _steps = max(1, int(steps))
     if mode == "volca_drum":
         _steps = min(_steps, 16)
     return {
-        "mode":     mode,
-        "chaos":    max(0.0, min(1.0, float(chaos))),
-        "bpm":      max(1, int(bpm)),
-        "steps":    _steps,
-        "gravity":  max(0.0, min(1.0, float(gravity))),
-        "cc_depth": max(0.0, min(1.0, float(cc_depth))),
-        "out":      out or "bang_out.mid",
-        "temporal": bool(temporal),
+        "mode":        mode,
+        "chaos":       max(0.0, min(1.0, float(chaos))),
+        "bpm":         max(1, int(bpm)),
+        "steps":       _steps,
+        "gravity":     max(0.0, min(1.0, float(gravity))),
+        "cc_depth":    max(0.0, min(1.0, float(cc_depth))),
+        "out":         out or "bang_out.mid",
+        "temporal":    bool(temporal),
+        "vel_floor":   max(0, min(126, int(vel_floor))),
+        "vel_ceiling": max(1, min(127, int(vel_ceiling))),
+        "vel_curve":   max(0.1, min(4.0, float(vel_curve))),
     }
 
 
@@ -583,28 +664,33 @@ def _read_form(
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return render("index.html",
-        voices=[(n, dna_html(d), t, _voice_label(n, t)) for n, d, t in _state["voices"]],
+        voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in _state["voices"]],
         voice_thin=_state["voice_thin"],
         max_poly=_state["max_poly"],
         log=_state["log"][-20:],
         weather=_state["weather"],
         last_seed=_state["last_seed"],
+        app_version=APP_VERSION,
     )
 
 
 @app.post("/generate", response_class=HTMLResponse)
 async def generate(
-    request:  Request,
-    mode:     Annotated[str,   Form()] = "morph",
-    chaos:    Annotated[float, Form()] = 0.30,
-    bpm:      Annotated[int,   Form()] = 110,
-    steps:    Annotated[int,   Form()] = 64,
-    gravity:  Annotated[float, Form()] = 0.70,
-    cc_depth: Annotated[float, Form()] = 0.50,
-    out:      Annotated[str,   Form()] = "bang_out.mid",
-    temporal: Annotated[str,   Form()] = "",
+    request:     Request,
+    mode:        Annotated[str,   Form()] = "morph",
+    chaos:       Annotated[float, Form()] = 0.30,
+    bpm:         Annotated[int,   Form()] = 110,
+    steps:       Annotated[int,   Form()] = 64,
+    gravity:     Annotated[float, Form()] = 0.70,
+    cc_depth:    Annotated[float, Form()] = 0.50,
+    out:         Annotated[str,   Form()] = "bang_out.mid",
+    temporal:    Annotated[str,   Form()] = "",
+    vel_floor:   Annotated[int,   Form()] = 0,
+    vel_ceiling: Annotated[int,   Form()] = 127,
+    vel_curve:   Annotated[float, Form()] = 1.0,
 ):
-    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
+    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
+                   vel_floor, vel_ceiling, vel_curve)
     _state["last_p"] = p
     voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
@@ -620,18 +706,22 @@ async def generate(
 
 @app.post("/export", response_class=HTMLResponse)
 async def export(
-    request:  Request,
-    mode:     Annotated[str,   Form()] = "morph",
-    chaos:    Annotated[float, Form()] = 0.30,
-    bpm:      Annotated[int,   Form()] = 110,
-    steps:    Annotated[int,   Form()] = 64,
-    gravity:  Annotated[float, Form()] = 0.70,
-    cc_depth: Annotated[float, Form()] = 0.50,
-    out:      Annotated[str,   Form()] = "bang_out.mid",
-    temporal: Annotated[str,   Form()] = "",
-    dest_dir: Annotated[str,   Form()] = "",
+    request:     Request,
+    mode:        Annotated[str,   Form()] = "morph",
+    chaos:       Annotated[float, Form()] = 0.30,
+    bpm:         Annotated[int,   Form()] = 110,
+    steps:       Annotated[int,   Form()] = 64,
+    gravity:     Annotated[float, Form()] = 0.70,
+    cc_depth:    Annotated[float, Form()] = 0.50,
+    out:         Annotated[str,   Form()] = "bang_out.mid",
+    temporal:    Annotated[str,   Form()] = "",
+    dest_dir:    Annotated[str,   Form()] = "",
+    vel_floor:   Annotated[int,   Form()] = 0,
+    vel_ceiling: Annotated[int,   Form()] = 127,
+    vel_curve:   Annotated[float, Form()] = 1.0,
 ):
-    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal)
+    p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
+                   vel_floor, vel_ceiling, vel_curve)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))
@@ -971,7 +1061,8 @@ async def notes_remap(request: Request):
     _state["engine"] = _assemble_engine(_state["last_p"], voices)
 
     voices_html = jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+        voices=[(n, dna_html(d), d, t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
+        voice_thin=_state["voice_thin"],
     )
     pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
     pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
@@ -996,10 +1087,46 @@ async def get_pattern():
     bpm   = p["bpm"]
     step_ms = round(60_000 / (bpm * 4), 3)   # durée d'une double-croche en ms
 
+    vf  = p.get("vel_floor",   0)
+    vc  = p.get("vel_ceiling", 127)
+    vcu = p.get("vel_curve",   1.0)
+
+    from bang_engine import vel_map as _vel_map
+
     voices_data = []
     for note, dna, vtype in _state["voices"]:
         if vtype == "cc" or note == 0:
             continue
+
+        if vtype == "babka":
+            events  = []
+            cursor  = 0.0
+            cyc     = 0
+            while cursor < steps:
+                bsteps = _babka.parse(dna, cycle=cyc)
+                if not bsteps:
+                    break
+                for s in bsteps:
+                    if cursor >= steps:
+                        break
+                    if s.trigger:
+                        events.append({
+                            "step":     round(cursor, 4),
+                            "dur":      round(s.duration, 4),
+                            "velocity": _vel_map(s.velocity, vf, vc, vcu),
+                            "prob":     round(s.prob, 2),
+                            "ratchet":  s.ratchet,
+                            "atom":     _atom_label(s.prob, s.ratchet, s.jitter),
+                        })
+                    cursor += s.duration
+                cyc += 1
+            name = _NOTE_NAMES.get(note, f"n{note}")
+            voices_data.append({
+                "note": note, "name": name + " ⚗", "channel": 9,
+                "type": vtype, "events": events, "plocks": [],
+            })
+            continue
+
         compiled = compile_dna(dna)
         dna_len  = len(compiled)
         events   = []
@@ -1009,9 +1136,10 @@ async def get_pattern():
                 continue
             events.append({
                 "step":     i,
-                "velocity": int(row[1]),
+                "velocity": _vel_map(int(row[1]), vf, vc, vcu),
                 "prob":     round(float(row[2]), 2),
                 "ratchet":  int(row[3]),
+                "atom":     _atom_label(float(row[2]), int(row[3]), int(row[4])),
             })
         if vtype.startswith("vd"):
             channel = int(vtype[2:])
@@ -1054,12 +1182,86 @@ async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()
     return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
 
 
+@app.post("/voice/preview", response_class=HTMLResponse)
+async def voice_preview(idx: Annotated[int, Form()], pattern: Annotated[str, Form()]):
+    pattern = pattern.strip()
+    if not pattern or not _state["last_p"] or not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, _, vtype = _state["voices"][idx]
+    _state["voices"][idx] = (note, pattern, vtype)
+    _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+    return HTMLResponse(_build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None))
+
+
+@app.post("/voice/pattern", response_class=HTMLResponse)
+async def voice_pattern(idx: Annotated[int, Form()], pattern: Annotated[str, Form()]):
+    pattern = pattern.strip()
+    if pattern and 0 <= idx < len(_state["voices"]):
+        note, _, vtype = _state["voices"][idx]
+        _state["voices"][idx] = (note, pattern, vtype)
+        if _state["last_p"]:
+            _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+    voices = _state["voices"]
+    if _state["last_p"]:
+        pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+        oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    else:
+        oob = ""
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
 @app.post("/poly", response_class=HTMLResponse)
 async def set_poly(max_poly: Annotated[int, Form()] = 0):
     _state["max_poly"] = max(0, max_poly)
     if not _state["voices"] or not _state["last_p"]:
         return HTMLResponse("")
     return HTMLResponse(_build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None))
+
+
+@app.get("/doc", response_class=HTMLResponse)
+async def doc_page():
+    return render("doc.html", app_version=APP_VERSION)
+
+
+@app.get("/session/export")
+async def session_export():
+    payload = {
+        "bang_version": APP_VERSION,
+        "timestamp":    datetime.utcnow().isoformat(),
+        "seed":         _state["last_seed"],
+        "params":       _state["last_p"] or {},
+        "voices":       [{"note": n, "pattern": d, "type": t} for n, d, t in _state["voices"]],
+        "voice_thin":   _state["voice_thin"],
+        "note_remap":   _state["note_remap"],
+        "max_poly":     _state["max_poly"],
+    }
+    content = json.dumps(payload, ensure_ascii=False, indent=2)
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="bang-session-{ts}.json"'},
+    )
+
+
+@app.post("/session/import")
+async def session_import(file: UploadFile = File(...)):
+    from fastapi.responses import RedirectResponse
+    try:
+        data = json.loads(await file.read())
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return HTMLResponse("Fichier JSON invalide", status_code=400)
+
+    _state["voices"]       = [(v["note"], v["pattern"], v["type"]) for v in data.get("voices", [])]
+    _state["voice_thin"]   = data.get("voice_thin", {})
+    _state["note_remap"]   = data.get("note_remap", {})
+    _state["max_poly"]     = int(data.get("max_poly", 0))
+    _state["last_seed"]    = data.get("seed", "")
+    if data.get("params"):
+        _state["last_p"]   = data["params"]
+    if _state["last_p"] and _state["voices"]:
+        _state["engine"]   = _assemble_engine(_state["last_p"], _state["voices"])
+    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/presets")
