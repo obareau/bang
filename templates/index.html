@@ -173,6 +173,7 @@
     .vr-controls .tag.vk     { color: #f97316; opacity: .85; }
     .vr-controls .tag.vfm    { color: #60a5fa; opacity: .85; }
     .vr-controls .tag.mf     { color: #e879f9; opacity: .85; }
+    .vr-controls .tag.ksp    { color: #c084fc; opacity: .85; }
     .vr-pattern { width: 100%; }
 
     /* DNA/Babka display coloré — click pour éditer */
@@ -675,7 +676,7 @@
       <label>MODE</label>
       {% set _cur_mode = last_p.mode if last_p else "morph" %}
       <select name="mode" class="tb-w-md" onchange="toggleScaleControls(this.value)">
-        {% for val, lbl in [("morph","Morph"),("random","Random"),("weather","Weather"),("markov","Markov"),("phase2","Phase 2"),("bassline","Bassline ♩"),("volca_kick","Volca Kick ★"),("microfreak","MicroFreak ◈"),("volca_fm","Volca FM ⚡"),("volca_drum","Volca Drum ★"),("noise","Noise ◼"),("ambient","Ambient ◌"),("babka","Babka ⚗")] %}
+        {% for val, lbl in [("morph","Morph"),("random","Random"),("weather","Weather"),("markov","Markov"),("phase2","Phase 2"),("bassline","Bassline ♩"),("keystep_pro","Keystep Pro ♜"),("volca_kick","Volca Kick ★"),("microfreak","MicroFreak ◈"),("volca_fm","Volca FM ⚡"),("volca_drum","Volca Drum ★"),("noise","Noise ◼"),("ambient","Ambient ◌"),("babka","Babka ⚗")] %}
         <option value="{{ val }}"{% if val == _cur_mode %} selected{% endif %}>{{ lbl }}</option>
         {% endfor %}
       </select>
@@ -1006,9 +1007,9 @@ const _CHORD_OFFSETS = {
   "dom7":  [4,7,10], "dim": [3,6], "aug": [4,8],
 };
 
-const _SCALE_MODES = new Set(['markov', 'phase2', 'bassline']);
+const _SCALE_MODES = new Set(['markov', 'phase2', 'bassline', 'keystep_pro']);
 
-const _MARKOV_MODES = new Set(['markov', 'phase2']);
+const _MARKOV_MODES = new Set(['markov', 'phase2', 'keystep_pro']);
 
 function toggleScaleControls(mode) {
   const showScale  = _SCALE_MODES.has(mode);
@@ -1387,6 +1388,9 @@ document.querySelector('select[name=mode]').addEventListener('change', function(
     stepsInput.max   = 128;
   } else if (this.value === 'microfreak') {
     stepsInput.value = 32;
+    stepsInput.max   = 64;
+  } else if (this.value === 'keystep_pro') {
+    stepsInput.value = 16;
     stepsInput.max   = 64;
   } else {
     stepsInput.max = 256;

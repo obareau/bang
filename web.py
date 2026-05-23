@@ -412,6 +412,11 @@ _NOTE_COLOR = {
     40: "#f472b6", 43: "#a3e635",
 }
 
+# Keystep Pro : 4 pistes mélodiques
+_KSP_TRACK_NAMES  = ["Lead", "Bass", "Chord", "Arp"]
+_KSP_TRACK_COLORS = ["#c084fc", "#4ade80", "#60a5fa", "#fb923c"]
+_KSP_OCTAVE_SHIFT = [24, 0, 12, 24]    # décalage en demi-tons par rapport à root_midi
+
 # Notes MIDI customisables par l'utilisateur (remplace _NOTE_NAMES pour les voix)
 _custom_notes: dict[int, int] = {}  # slot_index -> note MIDI
 
@@ -474,6 +479,10 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             idx   = int(vtype[2:])
             color = _MF_PART_COLORS[idx]
             name  = _MF_PART_NAMES[idx]
+        elif vtype.startswith("ksp"):
+            idx   = min(int(vtype[3:]) - 1, 3)
+            color = _KSP_TRACK_COLORS[idx]
+            name  = f"KSP {_KSP_TRACK_NAMES[idx]}"
         elif vtype == "bl":
             bl_idx = sum(1 for r in rows if r.get("vtype") == "bl")
             color  = "#a78bfa"
@@ -773,6 +782,18 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
             voices.append((60, dna, f"vd{i}"))
         return voices
 
+    if mode == "keystep_pro":
+        # 3 voix drums (ch10) + 4 pistes mélodiques Markov (ch1-4)
+        return [
+            (36, mutate_dna("x---x---x---x---", intensity=chaos * 0.3), "drum"),   # Kick
+            (38, mutate_dna("----x-------x---", intensity=chaos * 0.3), "drum"),   # Snare
+            (42, mutate_dna("x-x-x-x-x-x-x-x", intensity=chaos * 0.2), "drum"),   # HH
+            (0,  mutate_dna("x---?-x-?---x---", intensity=chaos * 0.5), "ksp1"),   # Lead  ch1
+            (0,  mutate_dna("x---x-x-x---x---", intensity=chaos * 0.4), "ksp2"),   # Bass  ch2
+            (0,  mutate_dna("?---x---?---x---", intensity=chaos * 0.3), "ksp3"),   # Chord ch3
+            (0,  mutate_dna("x-x---x-x-?---x-", intensity=chaos * 0.5), "ksp4"),  # Arp   ch4
+        ]
+
     return []
 
 
@@ -793,6 +814,8 @@ def _voice_label(note: int, vtype: str) -> str:
         return _VFM_PART_NAMES[int(vtype[3:])]
     if vtype.startswith("mf"):
         return _MF_PART_NAMES[int(vtype[2:])]
+    if vtype.startswith("ksp"):
+        return f"KSP {_KSP_TRACK_NAMES[min(int(vtype[3:]) - 1, 3)]}"
     if vtype == "babka":
         return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     if vtype == "bl":
@@ -807,7 +830,7 @@ def _apply_note_remap(voices: list) -> list:
     if not remap:
         return voices
     return [
-        (n if (vtype.startswith("vd") or vtype == "bl") else
+        (n if (vtype.startswith("vd") or vtype.startswith("ksp") or vtype == "bl") else
          remap.get("VKick", n) if vtype == "vk" else
          remap.get(_VFM_PART_NAMES[int(vtype[3:])], n) if vtype.startswith("vfm") else
          remap.get(_MF_PART_NAMES[int(vtype[2:])], n) if vtype.startswith("mf") else
@@ -846,6 +869,12 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_voice(note, dna, channel=0)  # MIDI ch1 — paraphonique
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna, channel=p.get("markov_channel", 9))
+        elif vtype.startswith("ksp"):
+            ch        = int(vtype[3:]) - 1  # ksp1→0, ksp2→1, ksp3→2, ksp4→3
+            oct_shift = _KSP_OCTAVE_SHIFT[min(ch, 3)]
+            n_octs    = 1 if ch == 1 else 2   # basse sur 1 octave, les autres sur 2
+            ksp_chain = build_markov_chain(root_midi + oct_shift, intervals, num_octaves=n_octs)
+            engine.add_markov_voice(ksp_chain, trigger_dna=dna, channel=ch)
         elif vtype == "bl":
             if bl_chain is None:
                 bl_chain = _bass_chain_from_gravity(p["gravity"], root_note=root_midi, intervals=intervals)
@@ -997,7 +1026,7 @@ def _osc_clock_loop() -> None:
                 for note, dna, vtype in voices:
                     if vtype == "cc":
                         continue
-                    if vtype in ("markov", "bl") and mk_idx < len(engine.voices):
+                    if (vtype in ("markov", "bl") or vtype.startswith("ksp")) and mk_idx < len(engine.voices):
                         ev = engine.voices[mk_idx]
                         if ev.get("type") == "markov":
                             name = _voice_label(note, vtype)
@@ -1010,7 +1039,7 @@ def _osc_clock_loop() -> None:
             client.send_message("/bang/clock", [step, n_steps])
 
             for note, dna, vtype in voices:
-                if vtype == "cc" or note == 0:
+                if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
                     continue
                 name    = _voice_label(note, vtype)
                 density = _state["voice_density"].get(name, 1.0)
@@ -1023,7 +1052,7 @@ def _osc_clock_loop() -> None:
                 trig, vel, prob, ratch, jit = row
 
                 if trig and random.random() < prob * density:
-                    osc_note = markov_notes.get(name, [note] * n_steps)[step] if vtype in ("markov", "bl") else note
+                    osc_note = markov_notes.get(name, [note] * n_steps)[step] if (vtype in ("markov", "bl") or vtype.startswith("ksp")) else note
                     client.send_message(f"/bang/{name}", [step, int(vel), int(osc_note)])
         except Exception:
             pass   # perte réseau → on continue
@@ -1546,7 +1575,7 @@ async def get_pattern():
             })
 
     for note, dna, vtype in _state["voices"]:
-        if vtype == "cc" or note == 0:
+        if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
             continue
 
         if vtype == "babka":
@@ -1610,6 +1639,10 @@ async def get_pattern():
         elif vtype == "markov":
             channel = p.get("markov_channel", 9)
             name    = _NOTE_NAMES.get(note, f"n{note}")
+        elif vtype.startswith("ksp"):
+            ch      = int(vtype[3:]) - 1
+            channel = ch
+            name    = f"KSP {_KSP_TRACK_NAMES[min(ch, 3)]}"
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")

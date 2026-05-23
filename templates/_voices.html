@@ -8,6 +8,8 @@
     <div class="vr-controls">
       {% if vtype.startswith('vd') %}
         <span class="note vd-ch" title="Canal MIDI {{ vtype[2:]|int + 1 }}">ch{{ vtype[2:]|int + 1 }}</span>
+      {% elif vtype.startswith('ksp') %}
+        <span class="note vd-ch" title="Canal MIDI {{ vtype[3:] }}">ch{{ vtype[3:] }}</span>
       {% elif vtype != "cc" and note %}
         <input class="note-input" type="number" name="remap_{{ name }}"
                value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
@@ -56,6 +58,22 @@
         <span class="tag vfm">⚡ VFM</span>
       {% elif vtype.startswith("mf") %}
         <span class="tag mf">◈ MFq</span>
+      {% elif vtype.startswith("ksp") %}
+        <span class="tag ksp">♜ KSP</span>
+        {% set cur_chord = voice_chords[name] if name in voice_chords else "mono" %}
+        <select class="chord-select"
+                hx-post="/voice/chord"
+                hx-vals='{"name": "{{ name }}"}'
+                hx-include="this"
+                hx-target="#voices"
+                hx-swap="innerHTML"
+                hx-trigger="change"
+                name="chord_type"
+                title="Type d'accord">
+          {% for c in ["mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"] %}
+          <option value="{{ c }}"{% if cur_chord == c %} selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
       {% endif %}
       {% if vtype != "cc" %}
       {% set cur_density = voice_density[name] if name in voice_density else 1.0 %}
