@@ -74,12 +74,46 @@
   @media (max-width: 600px) { .what-grid { grid-template-columns: 1fr; } }
 
   @media print {
+    :root {
+      --bg: #fff; --surface: #f0f0f0; --border: #999; --text: #000;
+      --muted: #000; --accent: #000; --dim: #e8e8e8;
+      --green: #000; --warn: #000; --red: #000;
+      --babka: #000; --alt: #000; --euc: #000;
+    }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { background: #fff; color: #000; max-width: 100%; }
-    :root { --bg: #fff; --surface: #f5f5f5; --border: #ccc; --text: #000;
-            --muted: #666; --accent: #b45309; --dim: #fef3c7;
-            --green: #16a34a; --warn: #ca8a04; --red: #dc2626;
-            --babka: #a21caf; --alt: #be123c; --euc: #065f46; }
-    .btn-row, .back { display: none; }
+    /* Forcer tous les textes en noir — les rgba hardcodés ne suivent pas les vars */
+    p, ul, li, td, th, pre, code, .note, .note-red, .note-green,
+    .what-box ul, .subtitle { color: #000 !important; }
+    td:first-child { color: #000 !important; font-weight: bold; }
+    th { background: #e8e8e8 !important; color: #000 !important; }
+    tr:nth-child(even) td { background: #f5f5f5 !important; }
+    code { background: #efefef !important; border-color: #bbb !important;
+           color: #000 !important; }
+    pre  { background: #f5f5f5 !important; border-color: #bbb !important;
+           color: #000 !important; }
+    pre code { background: none !important; }
+    .note, .note-red, .note-green {
+      background: #f0f0f0 !important;
+      border-left-color: #000 !important;
+    }
+    .what-box { border-color: #999 !important; background: #f5f5f5 !important; }
+    .what-box h4 { color: #000 !important; }
+    /* Symboles DNA — différenciés par la graisse uniquement */
+    .sym-x, .sym-d, .sym-q, .sym-r, .sym-b,
+    .sym-bk, .sym-al, .sym-eu { color: #000 !important; }
+    .sym-d { font-weight: normal !important; opacity: 0.5; }
+    /* Méthodes API */
+    .method-get, .method-post, .method-del,
+    .endpoint-path { color: #000 !important; }
+    .method-get  { font-weight: bold; text-decoration: underline; }
+    .method-post { font-weight: bold; }
+    .method-del  { font-weight: bold; font-style: italic; }
+    /* Tags */
+    .tag-babka { background: #e8e8e8 !important; color: #000 !important;
+                 border-color: #999 !important; }
+    /* Masquer les éléments inutiles à l'impression */
+    .btn-row, .back, nav.toc { display: none !important; }
   }
 </style>
 </head>
