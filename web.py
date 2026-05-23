@@ -280,6 +280,14 @@ _state: dict = {
 _CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 
+def _atom_label(prob: float, ratchet: int, jitter: int) -> str:
+    """Reverse-map d'un BabkaStep/DNA row vers le symbole atom source."""
+    if ratchet >= 3: return '↺'
+    if jitter >= 20: return '░'
+    if prob < 1.0:   return '?'
+    return 'x'
+
+
 def midi_note_name(n: int) -> str:
     """Convention Roland/GM : C-2=0, C1=36 (Kick GM), Middle C=C3=60."""
     return f"{_CHROMATIC[n % 12]}{n // 12 - 2}"
@@ -1103,6 +1111,7 @@ async def get_pattern():
                             "velocity": _vel_map(s.velocity, vf, vc, vcu),
                             "prob":     round(s.prob, 2),
                             "ratchet":  s.ratchet,
+                            "atom":     _atom_label(s.prob, s.ratchet, s.jitter),
                         })
                     cursor += s.duration
                 cyc += 1
@@ -1125,6 +1134,7 @@ async def get_pattern():
                 "velocity": _vel_map(int(row[1]), vf, vc, vcu),
                 "prob":     round(float(row[2]), 2),
                 "ratchet":  int(row[3]),
+                "atom":     _atom_label(float(row[2]), int(row[3]), int(row[4])),
             })
         if vtype.startswith("vd"):
             channel = int(vtype[2:])
