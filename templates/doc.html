@@ -625,7 +625,89 @@ OSCdef(\bangMarkov, { |msg|
 // Verrouiller la voix 0 (index)
 ~bang.sendMsg('/bang/lock/0', 1);</code></pre>
 
-<h3>Max/MSP</h3>
+<h3>TouchOSC — Dashboard de contrôle live</h3>
+<p>TouchOSC (iOS / Android / macOS / Windows) permet de créer un vrai panneau de contrôle physique pour BANG. Voici un layout complet prêt à l'emploi.</p>
+
+<p><strong>Connexion :</strong> dans TouchOSC → Settings → OSC</p>
+<ul>
+  <li><strong>Host</strong> : IP du serveur BANG (ex. <code>192.168.1.100</code> ou <code>bang.lan</code>)</li>
+  <li><strong>Send Port</strong> : <code>57121</code> — les gestes envoyés par TouchOSC arrivent dans BANG (RX)</li>
+  <li><strong>Receive Port</strong> : <code>57120</code> — optionnel, pour que BANG renvoie le clock sur l'écran</li>
+</ul>
+
+<h4>Page 1 — Paramètres globaux</h4>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│  ╔══════╗  ╔══════╗  ╔══════╗  ╔══════╗  ╔══════╗           │
+│  ║  BPM ║  ║CHAOS ║  ║GRAV. ║  ║SWING ║  ║MICRO ║           │
+│  ║      ║  ║      ║  ║      ║  ║      ║  ║      ║           │
+│  ║  ▓▓  ║  ║ ▓▓▓▓ ║  ║▓▓▓  ║  ║ ▓▓▓  ║  ║▓▓▓▓▓ ║           │
+│  ║  ▓▓  ║  ║ ▓▓▓▓ ║  ║▓▓▓  ║  ║ ▓▓▓  ║  ║▓▓▓▓▓ ║           │
+│  ║ 120  ║  ║  0.3 ║  ║ 0.7 ║  ║  0.0 ║  ║  1.0 ║           │
+│  ╚══════╝  ╚══════╝  ╚══════╝  ╚══════╝  ╚══════╝           │
+│                                                              │
+│  ╔═══════════════╗   ╔═══════════════╗   ╔═════════════╗    │
+│  ║   ⚡ GENERATE ║   ║   ∿  VARY     ║   ║  CC DEPTH   ║    │
+│  ╚═══════════════╝   ╚═══════════════╝   ║    ▓▓▓▓     ║    │
+│                                          ║    0.5      ║    │
+│                                          ╚═════════════╝    │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+
+<table>
+  <tr><th>Contrôle</th><th>Type</th><th>Adresse OSC</th><th>Range</th></tr>
+  <tr><td>BPM</td><td>Fader vertical</td><td><code>/bang/param/bpm</code></td><td>40 – 240</td></tr>
+  <tr><td>CHAOS</td><td>Fader vertical</td><td><code>/bang/param/chaos</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>GRAV.</td><td>Fader vertical</td><td><code>/bang/param/gravity</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>SWING</td><td>Fader vertical</td><td><code>/bang/param/swing</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>MICRO</td><td>Fader vertical</td><td><code>/bang/param/microtiming</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>CC DEPTH</td><td>Fader vertical</td><td><code>/bang/param/cc_depth</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>GENERATE</td><td>Button (momentary)</td><td><code>/bang/generate</code></td><td>—</td></tr>
+  <tr><td>VARY</td><td>Button (momentary)</td><td><code>/bang/vary</code></td><td>—</td></tr>
+</table>
+
+<div class="note-green">Pour GENERATE et VARY : dans TouchOSC, choisir type <strong>Button</strong> en mode <em>momentary</em>. L'adresse OSC est envoyée avec la valeur <code>1.0</code> au toucher — BANG déclenche l'action à la réception, peu importe la valeur.</div>
+
+<h4>Page 2 — Voix individuelles</h4>
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+│  DENSITÉ                              LOCK                   │
+│                                                              │
+│  KICK  ══════════════════════▓  1.0   [🔒]                   │
+│  SNARE ══════════════▓           0.6   [  ]                   │
+│  HIHAT ════════════════════▓  0.9   [  ]                   │
+│  BASS  ═══════▓                   0.4   [🔒]                  │
+│  MRK   ═════════════════▓      0.8   [  ]                   │
+│                                                              │
+│  ╔══════════╗  ╔══════════╗  ╔══════════╗  ╔══════════╗     │
+│  ║ STEPS 16 ║  ║ STEPS 32 ║  ║ STEPS 64 ║  ║ STEPS128 ║     │
+│  ╚══════════╝  ╚══════════╝  ╚══════════╝  ╚══════════╝     │
+└──────────────────────────────────────────────────────────────┘</code></pre>
+
+<table>
+  <tr><th>Contrôle</th><th>Type</th><th>Adresse OSC</th><th>Notes</th></tr>
+  <tr><td>Density Kick</td><td>Fader horizontal</td><td><code>/bang/density/Kick</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>Density Snare</td><td>Fader horizontal</td><td><code>/bang/density/Snare</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>Density HH</td><td>Fader horizontal</td><td><code>/bang/density/HiHat</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>Density Bass</td><td>Fader horizontal</td><td><code>/bang/density/Bass</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>Density Markov</td><td>Fader horizontal</td><td><code>/bang/density/Markov</code></td><td>0.0 – 1.0</td></tr>
+  <tr><td>Lock voix 0</td><td>Toggle</td><td><code>/bang/lock/0</code></td><td>0 = libre · 1 = verrouillé</td></tr>
+  <tr><td>Lock voix 1</td><td>Toggle</td><td><code>/bang/lock/1</code></td><td>0 = libre · 1 = verrouillé</td></tr>
+  <tr><td>Lock voix 2</td><td>Toggle</td><td><code>/bang/lock/2</code></td><td>0 = libre · 1 = verrouillé</td></tr>
+  <tr><td>Steps 16</td><td>Button (radio)</td><td><code>/bang/param/steps</code></td><td>valeur fixe : 16</td></tr>
+  <tr><td>Steps 32</td><td>Button (radio)</td><td><code>/bang/param/steps</code></td><td>valeur fixe : 32</td></tr>
+  <tr><td>Steps 64</td><td>Button (radio)</td><td><code>/bang/param/steps</code></td><td>valeur fixe : 64</td></tr>
+</table>
+
+<div class="note">Le nom de voix dans <code>/bang/density/</code> correspond au label affiché dans l'interface BANG — respecter la casse exacte (<code>Kick</code>, <code>Snare</code>, <code>HiHat</code>, <code>Bass</code>, <code>Markov</code>, <code>KSP Lead</code>…). L'index dans <code>/bang/lock/</code> correspond à la position dans la liste (0 = première voix affichée).</div>
+
+<h4>Workflow live typique avec TouchOSC</h4>
+<pre><code>1. Générer un pattern initial depuis l'interface web
+2. Verrouiller Kick + Snare (🔒) depuis TouchOSC page 2
+3. Baisser la density HH à 0.4 pour aérer
+4. Ajuster BPM en live sur page 1 selon le tempo de la room
+5. Toucher VARY toutes les 8 mesures pour faire évoluer les voix libres
+6. Monter le chaos à 0.8 → toucher GENERATE pour une rupture
+7. Déverrouiller tout, chaos à 0.3, GENERATE → nouvelle section</code></pre>
+
+<h3>Max/MSP — Recevoir depuis BANG (TX)</h3>
 <pre><code>// Objet principal
 [udpreceive 57120]
        |
@@ -636,13 +718,58 @@ OSCdef(\bangMarkov, { |msg|
            |              |
          [cycle~]       [saw~]</code></pre>
 
-<h3>TouchDesigner</h3>
+<h3>Max/MSP — Envoyer vers BANG (RX)</h3>
+<pre><code>// Créer un objet udpsend pointant vers BANG RX
+[udpsend 127.0.0.1 57121]
+
+// Envoyer un message OSC formaté
+[prepend /bang/param/bpm] → [tosymbol] → [udpsend]
+
+// Exemple complet — fader MIDI → BPM BANG
+[slider]          (0-127)
+    |
+[scale 0 127 40 240]
+    |
+[route /bang/param/bpm]   ← ou patcher un message
+    |
+[pack s f]                ← address + value
+    |
+[sendOSC]                 ← ou objet CNMAT OSC
+    |
+[udpsend 127.0.0.1 57121]</code></pre>
+
+<h3>Python — Test rapide</h3>
+<pre><code>from pythonosc.udp_client import SimpleUDPClient
+
+bang = SimpleUDPClient("bang.lan", 57121)
+
+bang.send_message("/bang/param/bpm",   120)
+bang.send_message("/bang/param/chaos", 0.5)
+bang.send_message("/bang/param/gravity", 0.8)
+bang.send_message("/bang/vary",        None)   # None = pas d'argument
+bang.send_message("/bang/generate",    None)
+bang.send_message("/bang/density/Kick", 0.7)
+bang.send_message("/bang/lock/0",      1)      # verrouille voix 0</code></pre>
+
+<h3>TouchDesigner — Recevoir depuis BANG (TX)</h3>
 <pre><code>// OSC In DAT — port 57120
 // Filter: /bang/*
 // Columns: address, step, velocity, note
 // Mapper vers Chops via Script DAT ou Table DAT</code></pre>
 
-<div class="note">Les voix Babka sont <strong>exclues</strong> de l'OSC (timing fractionnel incompatible avec le tick step-par-step). Les notes Markov sont régénérées au début de chaque cycle (step 0) — elles évoluent au fil du temps.</div>
+<h3>TouchDesigner — Envoyer vers BANG (RX)</h3>
+<pre><code>// OSC Out DAT
+// Network Address: bang.lan   Port: 57121
+
+// Exemple — bouton TD → vary BANG
+execute DAT (ou Script DAT) :
+  op('oscout1').sendOSC('/bang/vary', [])
+
+// Exemple — slider TD → BPM
+val = op('slider1')[0]
+op('oscout1').sendOSC('/bang/param/bpm', [int(val * 200 + 40)])</code></pre>
+
+<div class="note">Les voix Babka sont <strong>exclues</strong> de l'OSC TX (timing fractionnel incompatible avec le tick step-par-step). Les notes Markov sont régénérées au début de chaque cycle (step 0) — elles évoluent au fil du temps.</div>
 
 <!-- ─── API ──────────────────────────────────────────────────────────────── -->
 <h2 id="api">API HTTP</h2>
@@ -673,7 +800,7 @@ OSCdef(\bangMarkov, { |msg|
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/ab/store</code></td><td>Sauvegarde état dans slot. Param : <code>slot=a|b</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/ab/load</code></td><td>Charge slot. Param : <code>slot=a|b</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/osc/toggle</code></td><td>Active/désactive l'émission OSC</td></tr>
-  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/osc/config</code></td><td>Configure OSC. Params : <code>host, port</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/osc/config</code></td><td>Configure OSC. Params : <code>host, port, rx_port</code> (relance le serveur RX à chaud)</td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/notes</code></td><td>Remap notes MIDI. Form : <code>remap_{name}=&lt;0-127&gt;</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/poly</code></td><td>Max voix simultanées. Param : <code>max_poly</code> (0 = infini)</td></tr>
 </table>
