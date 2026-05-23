@@ -694,6 +694,16 @@
       </select>
     </div>
 
+    <div class="tb-group scale-ctrl" id="markov-ch-group" style="display:none">
+      <label>MEL CH</label>
+      {% set _cur_mch = last_p.markov_channel if last_p else 9 %}
+      <select name="markov_channel" class="tb-w-sm">
+        {% for ch in range(16) %}
+        <option value="{{ ch }}"{% if ch == _cur_mch %} selected{% endif %}>{{ ch + 1 }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <div class="tb-group">
       <label>SWING</label>
       <div style="display:flex;align-items:center;gap:6px">
@@ -892,10 +902,14 @@
 <script>
 const _SCALE_MODES = new Set(['markov', 'phase2', 'bassline']);
 
+const _MARKOV_MODES = new Set(['markov', 'phase2']);
+
 function toggleScaleControls(mode) {
-  const show = _SCALE_MODES.has(mode);
-  document.getElementById('root-group').style.display  = show ? '' : 'none';
-  document.getElementById('scale-group').style.display = show ? '' : 'none';
+  const showScale  = _SCALE_MODES.has(mode);
+  const showMarkov = _MARKOV_MODES.has(mode);
+  document.getElementById('root-group').style.display          = showScale  ? '' : 'none';
+  document.getElementById('scale-group').style.display         = showScale  ? '' : 'none';
+  document.getElementById('markov-ch-group').style.display     = showMarkov ? '' : 'none';
 }
 
 // Init au chargement : refléter le mode courant

@@ -818,7 +818,7 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
         elif vtype.startswith("mf"):
             engine.add_voice(note, dna, channel=0)  # MIDI ch1 — paraphonique
         elif vtype == "markov":
-            engine.add_markov_voice(chain, trigger_dna=dna)
+            engine.add_markov_voice(chain, trigger_dna=dna, channel=p.get("markov_channel", 9))
         elif vtype == "bl":
             if bl_chain is None:
                 bl_chain = _bass_chain_from_gravity(p["gravity"], root_note=root_midi, intervals=intervals)
@@ -858,8 +858,9 @@ def _read_form(
     vel_curve:   float = 1.0,
     root:        str   = "A",
     scale:       str   = "penta_min",
-    seed:        str   = "",
-    swing:       float = 0.0,
+    seed:           str   = "",
+    swing:          float = 0.0,
+    markov_channel: int   = 9,
 ) -> dict:
     _steps = max(1, int(steps))
     if mode in ("volca_drum", "volca_kick", "volca_fm"):
@@ -882,8 +883,9 @@ def _read_form(
         "vel_curve":   max(0.1, min(4.0, float(vel_curve))),
         "root":        _root,
         "scale":       _scale,
-        "seed":        str(seed).strip(),
-        "swing":       max(0.0, min(1.0, float(swing))),
+        "seed":           str(seed).strip(),
+        "swing":          max(0.0, min(1.0, float(swing))),
+        "markov_channel": max(0, min(15, int(markov_channel))),
     }
 
 
@@ -921,11 +923,12 @@ async def generate(
     vel_curve:   Annotated[float, Form()] = 1.0,
     root:        Annotated[str,   Form()] = "A",
     scale:       Annotated[str,   Form()] = "penta_min",
-    seed:        Annotated[str,   Form()] = "",
-    swing:       Annotated[float, Form()] = 0.0,
+    seed:           Annotated[str,   Form()] = "",
+    swing:          Annotated[float, Form()] = 0.0,
+    markov_channel: Annotated[int,   Form()] = 9,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel)
     _state["last_p"] = p
     voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
@@ -956,11 +959,12 @@ async def export(
     vel_curve:   Annotated[float, Form()] = 1.0,
     root:        Annotated[str,   Form()] = "A",
     scale:       Annotated[str,   Form()] = "penta_min",
-    seed:        Annotated[str,   Form()] = "",
-    swing:       Annotated[float, Form()] = 0.0,
+    seed:           Annotated[str,   Form()] = "",
+    swing:          Annotated[float, Form()] = 0.0,
+    markov_channel: Annotated[int,   Form()] = 9,
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing)
+                   vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))
@@ -1416,6 +1420,9 @@ async def get_pattern():
         elif vtype.startswith("mf"):
             channel = 0
             name    = _MF_PART_NAMES[int(vtype[2:])]
+        elif vtype == "markov":
+            channel = p.get("markov_channel", 9)
+            name    = _NOTE_NAMES.get(note, f"n{note}")
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")
