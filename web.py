@@ -24,6 +24,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from bang_engine import (
     BangEngine,
     DNA_SYMBOLS,
+    SCALE_INTERVALS,
+    build_markov_chain,
     compile_dna,
     fetch_weather,
     morph_dna,
@@ -363,6 +365,12 @@ _state: dict = {
 # ---------------------------------------------------------------------------
 
 _CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+# Chromatic roots: name → MIDI offset in octave 1 (A1=33 = A in oct-2)
+_ROOTS: dict[str, int] = {
+    name: 33 + ((i - 9) % 12)
+    for i, name in enumerate(_CHROMATIC)
+}  # A→33, A#→34, B→35, C→24, C#→25, … G#→32
 
 
 def _atom_label(prob: float, ratchet: int, jitter: int) -> str:
@@ -788,7 +796,9 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
         vel_ceiling=p.get("vel_ceiling", 127),
         vel_curve=p.get("vel_curve", 1.0),
     )
-    chain       = _markov_from_gravity(p["gravity"])
+    root_midi   = _ROOTS.get(p.get("root", "A"), 33)
+    intervals   = SCALE_INTERVALS.get(p.get("scale", "penta_min"), SCALE_INTERVALS["penta_min"])
+    chain       = _markov_from_gravity(p["gravity"], root_note=root_midi, intervals=intervals)
     cc_peak     = int(20 + p["cc_depth"] * 100)
     breakpoints = [20, cc_peak, cc_peak, int((20 + cc_peak) / 2), 20]
     kick_done   = False
@@ -811,7 +821,7 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_markov_voice(chain, trigger_dna=dna)
         elif vtype == "bl":
             if bl_chain is None:
-                bl_chain = _bass_chain_from_gravity(p["gravity"])
+                bl_chain = _bass_chain_from_gravity(p["gravity"], root_note=root_midi, intervals=intervals)
             engine.add_markov_voice(bl_chain, trigger_dna=dna)
         elif p["mode"] == "phase2" and note == 36 and not kick_done:
             engine.add_voice(note, [dna, mutate_dna("x---x--x", intensity=p["chaos"] * 0.8)])
@@ -846,12 +856,16 @@ def _read_form(
     vel_floor:   int   = 0,
     vel_ceiling: int   = 127,
     vel_curve:   float = 1.0,
+    root:        str   = "A",
+    scale:       str   = "penta_min",
 ) -> dict:
     _steps = max(1, int(steps))
     if mode in ("volca_drum", "volca_kick", "volca_fm"):
         _steps = min(_steps, 16)
     elif mode == "bassline" and _steps > 128:
         _steps = 128
+    _root  = root  if root  in _ROOTS          else "A"
+    _scale = scale if scale in SCALE_INTERVALS else "penta_min"
     return {
         "mode":        mode,
         "chaos":       max(0.0, min(1.0, float(chaos))),
@@ -864,6 +878,8 @@ def _read_form(
         "vel_floor":   max(0, min(126, int(vel_floor))),
         "vel_ceiling": max(1, min(127, int(vel_ceiling))),
         "vel_curve":   max(0.1, min(4.0, float(vel_curve))),
+        "root":        _root,
+        "scale":       _scale,
     }
 
 
@@ -898,9 +914,11 @@ async def generate(
     vel_floor:   Annotated[int,   Form()] = 0,
     vel_ceiling: Annotated[int,   Form()] = 127,
     vel_curve:   Annotated[float, Form()] = 1.0,
+    root:        Annotated[str,   Form()] = "A",
+    scale:       Annotated[str,   Form()] = "penta_min",
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve)
+                   vel_floor, vel_ceiling, vel_curve, root, scale)
     _state["last_p"] = p
     voices = _apply_note_remap(_build_voices(p))
     _state["voices"] = voices
@@ -929,9 +947,11 @@ async def export(
     vel_floor:   Annotated[int,   Form()] = 0,
     vel_ceiling: Annotated[int,   Form()] = 127,
     vel_curve:   Annotated[float, Form()] = 1.0,
+    root:        Annotated[str,   Form()] = "A",
+    scale:       Annotated[str,   Form()] = "penta_min",
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
-                   vel_floor, vel_ceiling, vel_curve)
+                   vel_floor, vel_ceiling, vel_curve, root, scale)
 
     if _state["engine"] is None:
         voices = _apply_note_remap(_build_voices(p))

@@ -619,7 +619,7 @@
 
     <div class="tb-group">
       <label>MODE</label>
-      <select name="mode" class="tb-w-md">
+      <select name="mode" class="tb-w-md" onchange="toggleScaleControls(this.value)">
         <option value="morph">Morph</option>
         <option value="random">Random</option>
         <option value="weather">Weather</option>
@@ -680,6 +680,38 @@
     <div class="tb-group">
       <label>CC DEPTH</label>
       <input type="number" name="cc_depth" value="0.50" min="0" max="1" step="0.05" class="tb-w-sm">
+    </div>
+
+    <div class="tb-group scale-ctrl" id="root-group" style="display:none">
+      <label>ROOT</label>
+      <select name="root" class="tb-w-sm">
+        <option value="A" selected>A</option>
+        <option value="A#">A#</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+        <option value="C#">C#</option>
+        <option value="D">D</option>
+        <option value="D#">D#</option>
+        <option value="E">E</option>
+        <option value="F">F</option>
+        <option value="F#">F#</option>
+        <option value="G">G</option>
+        <option value="G#">G#</option>
+      </select>
+    </div>
+
+    <div class="tb-group scale-ctrl" id="scale-group" style="display:none">
+      <label>SCALE</label>
+      <select name="scale" class="tb-w-md">
+        <option value="penta_min" selected>Penta Min</option>
+        <option value="penta_maj">Penta Maj</option>
+        <option value="minor">Minor</option>
+        <option value="dorian">Dorian</option>
+        <option value="phrygian">Phrygian</option>
+        <option value="major">Major</option>
+        <option value="mixo">Mixolydian</option>
+        <option value="lydian">Lydian</option>
+      </select>
     </div>
 
     <div class="tb-group">
@@ -858,6 +890,14 @@
 </div>
 
 <script>
+const _SCALE_MODES = new Set(['markov', 'phase2', 'bassline']);
+
+function toggleScaleControls(mode) {
+  const show = _SCALE_MODES.has(mode);
+  document.getElementById('root-group').style.display  = show ? '' : 'none';
+  document.getElementById('scale-group').style.display = show ? '' : 'none';
+}
+
 document.addEventListener('keydown', function(e) {
   const tag  = e.target.tagName;
   const type = e.target.type || '';

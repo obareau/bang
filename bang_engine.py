@@ -282,6 +282,66 @@ def bass_chain() -> MarkovChain:
 
 
 # ---------------------------------------------------------------------------
+# Gammes configurables — construction algorithmique de chaînes de Markov
+# ---------------------------------------------------------------------------
+
+SCALE_INTERVALS: dict[str, list[int]] = {
+    "penta_min": [0, 3, 5, 7, 10],        # pentatonique mineure
+    "penta_maj": [0, 2, 4, 7, 9],          # pentatonique majeure
+    "minor":     [0, 2, 3, 5, 7, 8, 10],   # mineur naturel (éolien)
+    "dorian":    [0, 2, 3, 5, 7, 9, 10],   # dorien
+    "phrygian":  [0, 1, 3, 5, 7, 8, 10],   # phrygien
+    "major":     [0, 2, 4, 5, 7, 9, 11],   # majeur (ionien)
+    "mixo":      [0, 2, 4, 5, 7, 9, 10],   # mixolydien
+    "lydian":    [0, 2, 4, 6, 7, 9, 11],   # lydien
+}
+
+
+def build_markov_chain(root_note: int, intervals: list[int], num_octaves: int = 1) -> MarkovChain:
+    """
+    Construit une chaîne de Markov musicale pour n'importe quelle gamme.
+    La matrice de transitions est générée algorithmiquement :
+    - mouvement par degrés favorisé (décroissance exponentielle avec la distance)
+    - gravité vers la tonique et la quinte
+    - répétition pénalisée
+    """
+    notes: list[int] = []
+    for oct_i in range(num_octaves):
+        for iv in intervals:
+            n = root_note + oct_i * 12 + iv
+            if 21 <= n <= 108:
+                notes.append(n)
+    # Note de fermeture — octave supérieure de la fondamentale
+    closing = root_note + num_octaves * 12
+    if 21 <= closing <= 108:
+        notes.append(closing)
+    notes = sorted(set(notes))
+    if not notes:
+        notes = [root_note]
+
+    root_class  = root_note % 12
+    fifth_class = (root_note + 7) % 12
+
+    matrix: dict[int, dict[int, float]] = {}
+    for i, src in enumerate(notes):
+        weights: dict[int, float] = {}
+        for j, dst in enumerate(notes):
+            dist = abs(i - j)                    # distance en degrés de gamme
+            w    = math.exp(-dist * 0.45)        # décroissance par degrés
+            if dst % 12 == root_class:
+                w *= 1.5                          # gravité vers la tonique
+            elif dst % 12 == fifth_class:
+                w *= 1.2                          # légère attraction vers la quinte
+            if i == j:
+                w *= 0.35                         # pénalité répétition
+            weights[dst] = w
+        total = sum(weights.values())
+        matrix[src] = {n: w / total for n, w in weights.items()}
+
+    return MarkovChain(notes, matrix)
+
+
+# ---------------------------------------------------------------------------
 # Moteur
 # ---------------------------------------------------------------------------
 
