@@ -24,6 +24,20 @@ _CHAR_MAP = {
     '░': [1,  85, 1.0, 1, 25],   # hit avec jitter ±25 ticks
 }
 
+_CHORD_INTERVALS: dict[str, list[int]] = {
+    "mono":  [],
+    "power": [7],
+    "minor": [3, 7],
+    "major": [4, 7],
+    "sus2":  [2, 7],
+    "sus4":  [5, 7],
+    "m7":    [3, 7, 10],
+    "M7":    [4, 7, 11],
+    "dom7":  [4, 7, 10],
+    "dim":   [3, 6],
+    "aug":   [4, 8],
+}
+
 _LOG_FILE = Path(__file__).parent / "bang_sessions.jsonl"
 _SSH_KEY_PATHS = ["~/.ssh/id_ed25519", "~/.ssh/id_rsa", "~/.ssh/id_ecdsa"]
 _SCAER_LAT = 48.0253
@@ -445,6 +459,7 @@ class BangEngine:
         plocks: list | None = None,
         vel_humanize: int = 0,
         densities: list[float] | None = None,
+        voice_chords: list[str] | None = None,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -533,10 +548,18 @@ class BangEngine:
 
                     raw_vel = int(vel) + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
                     out_vel = vel_map(raw_vel, self.vel_floor, self.vel_ceiling, self.vel_curve)
+
+                    chord_type   = (voice_chords[vi] if voice_chords and vi < len(voice_chords) else "mono") or "mono"
+                    chord_offs   = _CHORD_INTERVALS.get(chord_type, []) if voice["type"] == "markov" else []
+
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
                         v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
                         v_events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        for off in chord_offs:
+                            cn = max(0, min(127, note + off))
+                            v_events.append((t_on,         1, 'note_on',  channel, cn, out_vel))
+                            v_events.append((t_on + r_dur, 0, 'note_off', channel, cn, 0))
 
                 # P-locks : CC step-par-step, indépendants du trigger
                 for pl in voice_plocks:

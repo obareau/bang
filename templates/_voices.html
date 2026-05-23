@@ -30,6 +30,20 @@
       {% endif %}
       {% if vtype == "markov" %}
         <span class="tag">↳ Markov</span>
+        {% set cur_chord = voice_chords[name] if name in voice_chords else "mono" %}
+        <select class="chord-select"
+                hx-post="/voice/chord"
+                hx-vals='{"name": "{{ name }}"}'
+                hx-include="this"
+                hx-target="#voices"
+                hx-swap="innerHTML"
+                hx-trigger="change"
+                name="chord_type"
+                title="Type d'accord">
+          {% for c in ["mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"] %}
+          <option value="{{ c }}"{% if cur_chord == c %} selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
       {% elif vtype == "cc" %}
         <span class="tag cc">↳ CC</span>
       {% elif vtype == "babka" %}

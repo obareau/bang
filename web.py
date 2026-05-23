@@ -363,6 +363,7 @@ _state: dict = {
     "ab_current":      None,  # "a" | "b" | None
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "voice_density":   {},  # voice_name -> float (0.0–1.0, défaut 1.0)
+    "voice_chords":    {},  # voice_name -> chord_type str (défaut "mono")
     "max_poly":        0,   # 0 = illimité
 }
 
@@ -552,6 +553,7 @@ def _build_voices_html(voices: list) -> str:
         voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in voices],
         voice_thin=_state["voice_thin"],
         voice_density=_state["voice_density"],
+        voice_chords=_state.get("voice_chords", {}),
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -1044,6 +1046,10 @@ async def export(
             _state["voice_density"].get(_voice_label(n, t), 1.0)
             for n, _d, t in _state["voices"]
         ]
+        chord_types = [
+            _state["voice_chords"].get(_voice_label(n, t), "mono")
+            for n, _d, t in _state["voices"]
+        ]
         _state["engine"].export_midi(
             num_steps=p["steps"],
             filename=export_path,
@@ -1054,6 +1060,7 @@ async def export(
             plocks=_state.get("plocks") or None,
             vel_humanize=p.get("vel_humanize", 0),
             densities=densities,
+            voice_chords=chord_types,
         )
         seed        = (_state["engine"].last_seed or "")[:16]
         _state["last_seed"] = _state["engine"].last_seed
@@ -1509,6 +1516,7 @@ async def get_pattern():
             "type":    vtype,
             "events":  events,
             "plocks":  voice_plocks,
+            "chord":   _state["voice_chords"].get(name, "mono"),
         })
 
     # Appliquer le filtre de polyphonie globale
@@ -1539,6 +1547,15 @@ async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()
 @app.post("/voice/density", response_class=HTMLResponse)
 async def voice_density(name: Annotated[str, Form()], density: Annotated[float, Form()] = 1.0):
     _state["voice_density"][name] = max(0.0, min(1.0, float(density)))
+    return HTMLResponse(_build_voices_html(_state["voices"]))
+
+
+_VALID_CHORDS = {"mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"}
+
+@app.post("/voice/chord", response_class=HTMLResponse)
+async def voice_chord(name: Annotated[str, Form()], chord_type: Annotated[str, Form()] = "mono"):
+    if chord_type in _VALID_CHORDS:
+        _state["voice_chords"][name] = chord_type
     return HTMLResponse(_build_voices_html(_state["voices"]))
 
 
@@ -1646,6 +1663,7 @@ async def session_export():
         "voices":       [{"note": n, "pattern": d, "type": t} for n, d, t in _state["voices"]],
         "voice_thin":    _state["voice_thin"],
         "voice_density": _state["voice_density"],
+        "voice_chords":  _state["voice_chords"],
         "note_remap":    _state["note_remap"],
         "max_poly":     _state["max_poly"],
     }
@@ -1669,6 +1687,7 @@ async def session_import(file: UploadFile = File(...)):
     _state["voices"]       = [(v["note"], v["pattern"], v["type"]) for v in data.get("voices", [])]
     _state["voice_thin"]    = data.get("voice_thin", {})
     _state["voice_density"] = data.get("voice_density", {})
+    _state["voice_chords"]  = data.get("voice_chords", {})
     _state["note_remap"]    = data.get("note_remap", {})
     _state["max_poly"]     = int(data.get("max_poly", 0))
     _state["last_seed"]    = data.get("seed", "")

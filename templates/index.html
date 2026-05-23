@@ -296,6 +296,18 @@
     .btn-lock:hover  { opacity: 1; border-color: var(--border); }
     .btn-lock.active { opacity: 1; color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
     .voice-locked    { border-left: 2px solid var(--accent); padding-left: 4px; }
+    .chord-select {
+      font-size: 10px;
+      padding: 1px 3px;
+      background: var(--bg2);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      flex-shrink: 0;
+      max-width: 62px;
+    }
+    .chord-select:focus { outline: none; border-color: var(--accent); }
 
     /* D.I.M legend (inline dans bottom-bar) */
     .dim-item { color: var(--muted); display: flex; align-items: center; gap: .25rem; font-size: 11px; }
@@ -953,6 +965,12 @@
 </div>
 
 <script>
+const _CHORD_OFFSETS = {
+  "mono":  [], "power": [7], "minor": [3,7], "major": [4,7],
+  "sus2":  [2,7], "sus4": [5,7], "m7": [3,7,10], "M7": [4,7,11],
+  "dom7":  [4,7,10], "dim": [3,6], "aug": [4,8],
+};
+
 const _SCALE_MODES = new Set(['markov', 'phase2', 'bassline']);
 
 const _MARKOV_MODES = new Set(['markov', 'phase2']);
@@ -1140,16 +1158,27 @@ function _scheduleStep(step, timeS) {
       const subOff  = (e.step - Math.floor(e.step)) * stepDurMs;  // sub-step offset ms
       const durMs   = (e.dur ?? 1) * stepDurMs;
       const t0ms    = noteOnMs + subOff;
+      const _chordOffs = (v.type === 'markov') ? (_CHORD_OFFSETS[v.chord] || []) : [];
       if (e.ratchet > 1) {
         const rd = durMs / e.ratchet;
         for (let r = 0; r < e.ratchet; r++) {
           const t0 = t0ms + r * rd;
           _midiOut.send([0x90 | v.channel, v.note, vel], t0);
           _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
+          for (const off of _chordOffs) {
+            const cn = Math.max(0, Math.min(127, v.note + off));
+            _midiOut.send([0x90 | v.channel, cn, vel], t0);
+            _midiOut.send([0x80 | v.channel, cn, 0],   t0 + rd * 0.75);
+          }
         }
       } else {
         _midiOut.send([0x90 | v.channel, v.note, vel], t0ms);
         _midiOut.send([0x80 | v.channel, v.note, 0],   t0ms + durMs * 0.8);
+        for (const off of _chordOffs) {
+          const cn = Math.max(0, Math.min(127, v.note + off));
+          _midiOut.send([0x90 | v.channel, cn, vel], t0ms);
+          _midiOut.send([0x80 | v.channel, cn, 0],   t0ms + durMs * 0.8);
+        }
       }
       // Log MIDI en temps réel (setTimeout synchronisé au timestamp MIDI)
       const logDelay = Math.max(0, t0ms - performance.now());
