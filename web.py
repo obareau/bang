@@ -98,6 +98,11 @@ DRUM_PRESETS: dict[str, dict[str, int]] = {
         "FM2": 43,  # G1 — quinte
         "FM3": 48,  # C2 — octave
     },
+    "MicroFreak": {
+        "MF1": 45,  # A2 — lead principal
+        "MF2": 40,  # E2 — contre-voix
+        "MF3": 36,  # C2 — note grave
+    },
 }
 
 
@@ -186,6 +191,24 @@ VOLCA_KICK_CC: dict[int, str] = {
 # Korg Volca FM — MIDI CC (DX7-compatible, 4 opérateurs)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Arturia MicroFreak — MIDI CC (paraphonique 4 voix, filtres Steiner-Parker)
+# ---------------------------------------------------------------------------
+
+MICROFREAK_CC: dict[int, str] = {
+    5:  "Portamento",  # glide
+    9:  "Osc Type",    # type d'oscillateur / wavetable
+    10: "Wave",        # position wavetable
+    11: "Timbre",      # paramètre timbre (dépend du type)
+    12: "Shape",       # morphing forme d'onde
+    13: "Cutoff",      # coupure filtre Steiner-Parker
+    14: "Resonance",   # résonance filtre
+    15: "LFO Rate",    # vitesse LFO
+    16: "LFO Amount",  # profondeur LFO
+    17: "Rise",        # attaque enveloppe
+    18: "Fall",        # déclin enveloppe
+}
+
 VOLCA_FM_CC: dict[int, str] = {
     40: "Algorithm",    # algorithme FM (0-127 → 8 algos)
     41: "Feedback",     # auto-feedback opérateur 1
@@ -216,6 +239,13 @@ _SYNTH_PLOCK_PROFILES: dict[str, list[tuple]] = {
         (45, "Op2Lvl", "sweep"),    # balance porteur/modulateur
         (42, "LFOSpd", "texture"),  # vitesse vibrato
     ],
+    "mf0": [
+        (13, "Cutoff",  "sweep"),   # filtre — ouverture/fermeture
+        (11, "Timbre",  "texture"), # timbre wavetable — variation sonore
+        (12, "Shape",   "texture"), # morphing forme d'onde
+        (16, "LFOAmt",  "spike"),   # accents LFO expressifs
+        (15, "LFORate", "sweep"),   # vitesse vibrato variable
+    ],
 }
 
 
@@ -244,7 +274,8 @@ def _plock_values(style: str, steps: int, chaos: float, phase: float = 0.0) -> l
 
 def _generate_plocks(voices: list, p: dict) -> list:
     """Génère des p-locks (valeurs CC par step) pour les voix synth (Volca Drum, Volca Kick…)."""
-    steps = min(p["steps"], 16)
+    volca_modes = ("volca_drum", "volca_kick", "volca_fm")
+    steps = min(p["steps"], 16) if p["mode"] in volca_modes else p["steps"]
     chaos = p["chaos"]
     result = []
 
@@ -418,6 +449,10 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             idx   = int(vtype[3:])
             color = _VFM_PART_COLORS[idx]
             name  = _VFM_PART_NAMES[idx]
+        elif vtype.startswith("mf"):
+            idx   = int(vtype[2:])
+            color = _MF_PART_COLORS[idx]
+            name  = _MF_PART_NAMES[idx]
         elif vtype == "bl":
             bl_idx = sum(1 for r in rows if r.get("vtype") == "bl")
             color  = "#a78bfa"
@@ -645,6 +680,25 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
         dna  = mutate_dna(dna, intensity=chaos * 0.25)
         return [(60, dna, "vk")]  # C3 — pitch initial
 
+    if mode == "microfreak":
+        # 3 voix paraphoniques — canal ch1, lead mélodique / synth
+        # Notes : A2=45 (lead), E2=40 (contre), C2=36 (grave)
+        _MF_NOTES = [45, 40, 36]
+        _MF_BASES = [
+            # MF1 (lead) — séquence mélodique principale, syncopes
+            ("x---x-x-x---x---", "x--?x-x-x--?x---"),
+            # MF2 (contre) — réponses et fills
+            ("--x---x---x---x-", "--x---x?--x---?-"),
+            # MF3 (pédale) — note grave, très sparse
+            ("x-----------x---", "?-----------?---"),
+        ]
+        voices = []
+        for i, ((base_a, base_b), note) in enumerate(zip(_MF_BASES, _MF_NOTES)):
+            dna = morph_dna(base_a, base_b, mutation_rate=chaos * 0.45)
+            dna = mutate_dna(dna, intensity=chaos * 0.30)
+            voices.append((note, dna, f"mf{i}"))
+        return voices
+
     if mode == "volca_fm":
         # 3 voix polyphoniques FM — canal unique ch1 (index 0)
         # Notes : C1=36 (grave), G1=43 (quinte), C2=48 (octave)
@@ -693,12 +747,17 @@ _VD_PART_COLORS = ["#38bdf8", "#4ade80", "#fb923c", "#facc15", "#c084fc", "#67e8
 _VFM_PART_NAMES  = ["FM1", "FM2", "FM3"]
 _VFM_PART_COLORS = ["#60a5fa", "#2dd4bf", "#818cf8"]  # bleu, teal, indigo
 
+_MF_PART_NAMES  = ["MF1", "MF2", "MF3"]
+_MF_PART_COLORS = ["#e879f9", "#d946ef", "#a855f7"]  # fuchsia, pink, violet
+
 
 def _voice_label(note: int, vtype: str) -> str:
     if vtype.startswith("vd"):
         return _VD_PART_NAMES[int(vtype[2:])]
     if vtype.startswith("vfm"):
         return _VFM_PART_NAMES[int(vtype[3:])]
+    if vtype.startswith("mf"):
+        return _MF_PART_NAMES[int(vtype[2:])]
     if vtype == "babka":
         return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
     if vtype == "bl":
@@ -716,6 +775,7 @@ def _apply_note_remap(voices: list) -> list:
         (n if (vtype.startswith("vd") or vtype == "bl") else
          remap.get("VKick", n) if vtype == "vk" else
          remap.get(_VFM_PART_NAMES[int(vtype[3:])], n) if vtype.startswith("vfm") else
+         remap.get(_MF_PART_NAMES[int(vtype[2:])], n) if vtype.startswith("mf") else
          remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
         for n, dna, vtype in voices
     ]
@@ -745,6 +805,8 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_voice(note, dna, channel=0)  # MIDI ch1
         elif vtype.startswith("vfm"):
             engine.add_voice(note, dna, channel=0)  # MIDI ch1 — polyphonique
+        elif vtype.startswith("mf"):
+            engine.add_voice(note, dna, channel=0)  # MIDI ch1 — paraphonique
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna)
         elif vtype == "bl":
@@ -844,7 +906,7 @@ async def generate(
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
-    plocks = _generate_plocks(voices, p) if p["mode"] in ("volca_drum", "volca_kick", "volca_fm") else []
+    plocks = _generate_plocks(voices, p) if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak") else []
     _state["plocks"] = plocks
 
     pr_html = _build_pr_html(voices, p["steps"], plocks)
@@ -1301,6 +1363,9 @@ async def get_pattern():
         elif vtype.startswith("vfm"):
             channel = 0
             name    = _VFM_PART_NAMES[int(vtype[3:])]
+        elif vtype.startswith("mf"):
+            channel = 0
+            name    = _MF_PART_NAMES[int(vtype[2:])]
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")
