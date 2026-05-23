@@ -1,5 +1,44 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.5.1] — 2026-05-23
+
+### Séquençage & génération
+
+- **Seed cliquable dans le log** (#1) — cliquer un seed dans le log le copie dans le champ seed et le rend réutilisable.
+- **Multi-canal Markov** (#2) — paramètre `markov_channel` (MIDI ch 1–16) pour router la voix mélodique Markov sur n'importe quel canal. Gammes configurables (`root` + `scale`) avec 8 gammes disponibles (penta_min/maj, minor, dorian, phrygien, major, mixo, lydien).
+- **Chord mode Markov** (#10) — sélecteur d'accord par voix Markov/KSP : mono, power, minor, major, sus2, sus4, m7, M7, dom7, dim, aug. Accords appliqués à l'export MIDI et au player JS.
+
+### Export MIDI
+
+- **P-locks dans le `.mid`** (#3) — automation CC step-par-step incluse dans l'export multi-piste (type 1). Tempo BPM écrit dans la track 0. Priorité CC avant note_on.
+- **Export multi-piste** (#5) — `MidiFile(type=1)` : une track par voix + une track par drone CC. Track nommée par voix, track 0 = tempo + seed.
+
+### Interface voix
+
+- **Lock de voix** (#4) — bouton 🔒 par voix : verrouille le pattern lors des regénérations. Indicateur visuel `voice-locked` (bordure gauche colorée).
+- **Densité par voix** (#8) — slider 0–1 par voix : multiplie la probabilité de déclenchement. Persisté en session, appliqué à l'export et au player JS.
+- **Undo génération** (#6) — bouton ↩ dans le toolbar : ring buffer de 5 snapshots (voix + plocks + params). Restaure l'état complet.
+- **Humanisation velocity** (#7) — paramètre `vel_humanize` (0–40) : décalage aléatoire ±N sur la velocity à chaque note. Appliqué export MIDI et player JS.
+
+### Workflow
+
+- **Comparaison A/B** (#9) — slots A et B pour stocker deux snapshots (voix + plocks + params) et switcher en live. Boutons ▸A ▸B (store) et A○/A● B○/B● (load) dans le toolbar. OOB HTMX pour mise à jour synchronisée.
+
+### Nouveaux modes
+
+- **Keystep Pro ♜** (#12) — mode dédié Arturia Keystep Pro : 3 voix drums (ch10) + 4 pistes mélodiques Markov indépendantes sur ch1-4 (Lead, Bass, Chord, Arp). Chaînes de Markov avec registres différenciés. Chord selector par piste. Steps auto 16. Export multi-piste compatible import KSP.
+
+### OSC output
+
+- **OSC output** (#11) — thread serveur UDP temps réel (`python-osc`). Émet au BPM du pattern courant :
+  - `/bang/clock [step, total_steps]` à chaque step
+  - `/bang/{NomVoix} [step, velocity, note]` par trigger
+  - Régénération des notes Markov au début de chaque cycle
+  - Bouton OSC ○/● dans le toolbar + modal config host:port (défaut `127.0.0.1:57120`)
+  - Compatible SuperCollider, TouchDesigner, Max/MSP
+
+---
+
 ## [0.2.0] — 2026-05-17
 
 ### Modes de génération
