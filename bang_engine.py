@@ -444,6 +444,7 @@ class BangEngine:
         swing: float = 0.0,
         plocks: list | None = None,
         vel_humanize: int = 0,
+        densities: list[float] | None = None,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -462,6 +463,7 @@ class BangEngine:
         for vi, voice in enumerate(self.voices):
             channel      = voice.get("channel", 0)
             voice_plocks = plocks[vi] if plocks and vi < len(plocks) else []
+            v_density    = densities[vi] if densities and vi < len(densities) else 1.0
             v_events: list[tuple] = []
 
             # --- Babka ---
@@ -517,7 +519,7 @@ class BangEngine:
                 else:
                     note = voice["note"]
 
-                if trig == 1 and random.random() < prob:
+                if trig == 1 and random.random() < prob * v_density:
                     swing_off = int(swing * self.ticks_per_step * 0.5) if i % 2 == 1 else 0
                     abs_start = i * self.ticks_per_step + swing_off
                     base_jit  = int(random.uniform(-jit, jit))

@@ -267,6 +267,18 @@
     .btn-thin:hover  { color: var(--text); border-color: var(--muted); }
     .btn-thin.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 
+    /* Density slider per voice */
+    .density-slider {
+      width: 52px;
+      height: 3px;
+      cursor: pointer;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      opacity: .5;
+      transition: opacity .15s;
+    }
+    .density-slider:hover { opacity: 1; }
+
     /* Voice lock button */
     .btn-lock {
       font-size: 10px;

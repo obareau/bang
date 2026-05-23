@@ -359,6 +359,7 @@ _state: dict = {
     "locked_voices":   set(),  # indices de voix verrouillées
     "history":         deque(maxlen=5),  # ring buffer (voices, plocks, last_p)
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
+    "voice_density":   {},  # voice_name -> float (0.0–1.0, défaut 1.0)
     "max_poly":        0,   # 0 = illimité
 }
 
@@ -547,6 +548,7 @@ def _build_voices_html(voices: list) -> str:
     return jinja.get_template("_voices.html").render(
         voices=[(n, dna_html(d), d, t, _voice_label(n, t)) for n, d, t in voices],
         voice_thin=_state["voice_thin"],
+        voice_density=_state["voice_density"],
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -1002,6 +1004,10 @@ async def export(
 
     export_path = str(target_dir / p["out"])
     try:
+        densities = [
+            _state["voice_density"].get(_voice_label(n, t), 1.0)
+            for n, _d, t in _state["voices"]
+        ]
         _state["engine"].export_midi(
             num_steps=p["steps"],
             filename=export_path,
@@ -1011,6 +1017,7 @@ async def export(
             swing=p["swing"],
             plocks=_state.get("plocks") or None,
             vel_humanize=p.get("vel_humanize", 0),
+            densities=densities,
         )
         seed        = (_state["engine"].last_seed or "")[:16]
         _state["last_seed"] = _state["engine"].last_seed
@@ -1455,6 +1462,9 @@ async def get_pattern():
         # Appliquer thinning par voix
         thin = _state["voice_thin"].get(name, 1)
         events = _thin_events(events, thin)
+        density = _state["voice_density"].get(name, 1.0)
+        if density < 1.0:
+            events = [{**e, "prob": round(e["prob"] * density, 3)} for e in events]
         voice_plocks = _state["plocks"][len(voices_data)] if len(voices_data) < len(_state["plocks"]) else []
         voices_data.append({
             "note":    note,
@@ -1488,6 +1498,12 @@ async def voice_thin(name: Annotated[str, Form()], factor: Annotated[int, Form()
     pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
     oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/voice/density", response_class=HTMLResponse)
+async def voice_density(name: Annotated[str, Form()], density: Annotated[float, Form()] = 1.0):
+    _state["voice_density"][name] = max(0.0, min(1.0, float(density)))
+    return HTMLResponse(_build_voices_html(_state["voices"]))
 
 
 @app.post("/voice/preview", response_class=HTMLResponse)
@@ -1563,8 +1579,9 @@ async def session_export():
         "seed":         _state["last_seed"],
         "params":       _state["last_p"] or {},
         "voices":       [{"note": n, "pattern": d, "type": t} for n, d, t in _state["voices"]],
-        "voice_thin":   _state["voice_thin"],
-        "note_remap":   _state["note_remap"],
+        "voice_thin":    _state["voice_thin"],
+        "voice_density": _state["voice_density"],
+        "note_remap":    _state["note_remap"],
         "max_poly":     _state["max_poly"],
     }
     content = json.dumps(payload, ensure_ascii=False, indent=2)
@@ -1585,8 +1602,9 @@ async def session_import(file: UploadFile = File(...)):
         return HTMLResponse("Fichier JSON invalide", status_code=400)
 
     _state["voices"]       = [(v["note"], v["pattern"], v["type"]) for v in data.get("voices", [])]
-    _state["voice_thin"]   = data.get("voice_thin", {})
-    _state["note_remap"]   = data.get("note_remap", {})
+    _state["voice_thin"]    = data.get("voice_thin", {})
+    _state["voice_density"] = data.get("voice_density", {})
+    _state["note_remap"]    = data.get("note_remap", {})
     _state["max_poly"]     = int(data.get("max_poly", 0))
     _state["last_seed"]    = data.get("seed", "")
     if data.get("params"):
