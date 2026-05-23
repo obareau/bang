@@ -11,7 +11,7 @@ import random
 import re
 import secrets
 import zipfile
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -357,6 +357,7 @@ _state: dict = {
     "current_preset":  "",  # nom du preset actif
     "plocks":          [],  # p-locks par voix (volca_drum uniquement)
     "locked_voices":   set(),  # indices de voix verrouillées
+    "history":         deque(maxlen=5),  # ring buffer (voices, plocks, last_p)
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "max_poly":        0,   # 0 = illimité
 }
@@ -942,6 +943,10 @@ async def generate(
 ):
     p = _read_form(mode, chaos, bpm, steps, gravity, cc_depth, out, temporal,
                    vel_floor, vel_ceiling, vel_curve, root, scale, seed, swing, markov_channel)
+    # Snapshot avant génération (pour undo)
+    if _state["voices"] and _state["last_p"]:
+        _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(_state["last_p"])))
+
     _state["last_p"] = p
     voices = _apply_note_remap(_apply_locks(_build_voices(p)))
     _state["voices"] = voices
@@ -1504,6 +1509,20 @@ async def voice_pattern(idx: Annotated[int, Form()], pattern: Annotated[str, For
         oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     else:
         oob = ""
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/undo", response_class=HTMLResponse)
+async def undo():
+    if not _state["history"]:
+        return HTMLResponse("")
+    voices, plocks, last_p = _state["history"].pop()
+    _state["voices"]  = voices
+    _state["plocks"]  = plocks
+    _state["last_p"]  = last_p
+    _state["engine"]  = _assemble_engine(last_p, voices)
+    pr_html = _build_pr_html(voices, last_p["steps"], plocks or None)
+    oob     = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(voices) + oob)
 
 

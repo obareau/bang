@@ -391,7 +391,9 @@
       display: inline-flex;
       align-items: center;
     }
-    #tb-actions .btn-gen { height: 26px; font-size: 12px; padding: 0 12px; }
+    #tb-actions .btn-gen  { height: 26px; font-size: 12px; padding: 0 12px; }
+    #tb-actions .btn-undo { color: var(--muted); opacity: .7; }
+    #tb-actions .btn-undo:hover { opacity: 1; color: var(--text); }
 
     /* Bottom bar */
     #bottom-bar {
@@ -762,6 +764,12 @@
             hx-swap="innerHTML">
       ⚡ Générer <kbd>G</kbd>
     </button>
+
+    <button class="btn-undo"
+            hx-post="/undo"
+            hx-target="#voices"
+            hx-swap="innerHTML"
+            title="Annuler la dernière génération">↩ Undo</button>
 
     <button class="btn-exp" onclick="openExportModal()">↯ Export <kbd>E</kbd></button>
 
