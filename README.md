@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.4.0**
+> **v0.5.0**
 
 BANG! génère des fichiers `.mid` — c'est tout ce qu'il fait, et c'est tout ce qu'il fera.
 
@@ -12,6 +12,7 @@ Pas de séquenceur temps réel. Pas de timeline. Pas de mixage. BANG produit des
 
 - Un **générateur de patterns** selon des modes qui correspondent à des usages prédéfinis : batterie algorithmique, ligne de basse Markov, synths dédiés (Volca Drum, Volca Kick, Volca FM, MicroFreak), ambient, noise, babka euclidien
 - Des **presets qui collent au matériel** : notes MIDI et canaux câblés pour Volca Drum (6 canaux split), Volca Kick, Volca FM, MicroFreak, TR-808/909, GM, MPC60, etc.
+- Des **gammes configurables** pour les modes mélodiques (Markov, Phase 2, Bassline) : 12 toniques × 8 modes (pentatonique, mineur, dorian, phrygien, majeur, mixolydien, lydien)
 - Une **fonction Play** intégrée dans l'interface — lecture MIDI du pattern courant dans le navigateur, avec pianoroll synchronisé, sans export
 - Une **fonction Preview** live — toute modification de pattern DNA met à jour le pianoroll en temps réel, avant d'exporter quoi que ce soit
 - Des **P-locks par step** pour les synths hardware (Volca Drum, Volca Kick, Volca FM, MicroFreak) — automation CC générée algorithmiquement
@@ -138,6 +139,25 @@ uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
 | `↺` | Ratchet ×3 |
 | `░` | Ghost — jitter ±25ms |
 
+## Gammes (modes Markov, Phase 2, Bassline)
+
+Sélectionnables depuis l'interface (sélecteurs ROOT + SCALE, visibles uniquement sur les modes mélodiques).
+
+| Gamme | Intervalles |
+|-------|-------------|
+| `penta_min` | 0 3 5 7 10 |
+| `penta_maj` | 0 2 4 7 9 |
+| `minor` | 0 2 3 5 7 8 10 |
+| `dorian` | 0 2 3 5 7 9 10 |
+| `phrygian` | 0 1 3 5 7 8 10 |
+| `major` | 0 2 4 5 7 9 11 |
+| `mixo` | 0 2 4 5 7 9 10 |
+| `lydian` | 0 2 4 6 7 9 11 |
+
+La chaîne de Markov est construite algorithmiquement (distance de degré, gravité tonique/quinte) via `build_markov_chain(root_note, intervals, num_octaves)`.
+
+---
+
 ## Syntaxe Babka ⚗
 
 | Opérateur | Syntaxe | Comportement |
@@ -172,13 +192,18 @@ uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
 ## BangEngine — API Python
 
 ```python
-from bang_engine import BangEngine, dark_chain, bass_chain
+from bang_engine import BangEngine, build_markov_chain, SCALE_INTERVALS
 
 e = BangEngine(bpm=120, vel_floor=20, vel_ceiling=110, vel_curve=0.7)
 e.add_voice(36, "x---x---")
-e.add_voice(42, ["x-x-", "x--x"])          # polyrythmie
-e.add_markov_voice(dark_chain(), "x-?-")   # mélodie Markov gamme mineure
-e.add_markov_voice(bass_chain(), "x---x-") # basse Markov 2 octaves
+e.add_voice(42, ["x-x-", "x--x"])                          # polyrythmie
+
+chain = build_markov_chain(root_note=50, intervals=SCALE_INTERVALS["dorian"], num_octaves=2)
+e.add_markov_voice(chain, "x-?-")                          # mélodie Markov D dorian 2 octaves
+
+bass  = build_markov_chain(root_note=26, intervals=SCALE_INTERVALS["penta_min"], num_octaves=2)
+e.add_markov_voice(bass, "x---x-")                         # basse pentatonique mineure
+
 e.add_babka_voice(38, "x(3,8)")
 e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
 e.export_midi(num_steps=64, filename="out.mid")
