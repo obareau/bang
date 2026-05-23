@@ -22,6 +22,8 @@
   p  { color: rgba(255,170,0,.75); margin-bottom: .75rem; }
   a  { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
+  ul { color: rgba(255,170,0,.75); padding-left: 1.25rem; margin-bottom: .75rem; }
+  li { margin-bottom: .25rem; }
   .subtitle { color: var(--muted); font-size: 11px; margin-bottom: 2rem; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 1.25rem; }
   th { background: var(--surface); color: var(--muted); font-weight: normal;
@@ -30,7 +32,8 @@
        color: rgba(255,170,0,.75); }
   td:first-child { color: var(--accent); }
   tr:nth-child(even) td { background: #070700; }
-  code { background: var(--surface); color: var(--accent); padding: 1px 5px; border-radius: 2px; font-size: 12px; border: 1px solid var(--border); }
+  code { background: var(--surface); color: var(--accent); padding: 1px 5px; border-radius: 2px;
+         font-size: 12px; border: 1px solid var(--border); }
   pre  { background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
          padding: .75rem 1rem; overflow-x: auto; margin-bottom: 1rem; color: rgba(255,170,0,.75); }
   pre code { background: none; padding: 0; border: none; color: inherit; }
@@ -42,11 +45,12 @@
   .sym-bk { color: var(--babka); font-weight: bold; font-style: italic; }
   .sym-al { color: var(--alt);   font-weight: bold; font-style: italic; }
   .sym-eu { color: var(--euc);   font-weight: bold; font-style: italic; }
-  .kv  { color: var(--muted); }
-  .kv b{ color: var(--accent); }
   .note { background: var(--surface); border-left: 3px solid var(--warn);
           padding: .5rem .75rem; margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
-  .note-red { border-left-color: var(--red); }
+  .note-red { background: var(--surface); border-left: 3px solid var(--red);
+              padding: .5rem .75rem; margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
+  .note-green { background: var(--surface); border-left: 3px solid var(--green);
+               padding: .5rem .75rem; margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
   .btn-row { display: flex; gap: .5rem; margin: 1.5rem 0; flex-wrap: wrap; }
   button, .btn { background: var(--surface); color: var(--accent); border: 1px solid var(--border);
                  border-radius: 3px; padding: .3rem .8rem; font-family: inherit; font-size: 12px;
@@ -55,8 +59,6 @@
   .back { margin-bottom: 1.5rem; font-size: 12px; }
   .tag-babka { background: rgba(192,132,252,.15); color: var(--babka); border: 1px solid rgba(192,132,252,.3);
                padding: 0 4px; border-radius: 2px; font-size: 11px; }
-  .tag-api   { background: var(--dim); color: var(--accent); border: 1px solid var(--border);
-               padding: 0 5px; border-radius: 2px; font-size: 11px; }
   .method-get  { color: var(--green); font-weight: bold; }
   .method-post { color: var(--warn); font-weight: bold; }
   .method-del  { color: var(--red); font-weight: bold; }
@@ -64,6 +66,12 @@
   .toc { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin-bottom: 2rem; }
   .toc a { font-size: 12px; color: var(--muted); }
   .toc a:hover { color: var(--accent); }
+  .what-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .what-box { background: var(--surface); border: 1px solid var(--border); padding: .75rem 1rem; }
+  .what-box h4 { font-size: .8rem; color: var(--accent); margin-bottom: .5rem; letter-spacing: .05em; }
+  .what-box ul { color: var(--muted); font-size: 12px; }
+  .what-no h4 { color: var(--red); }
+  @media (max-width: 600px) { .what-grid { grid-template-columns: 1fr; } }
 
   @media print {
     body { background: #fff; color: #000; max-width: 100%; }
@@ -72,7 +80,6 @@
             --green: #16a34a; --warn: #ca8a04; --red: #dc2626;
             --babka: #a21caf; --alt: #be123c; --euc: #065f46; }
     .btn-row, .back { display: none; }
-    h2 { page-break-before: auto; }
   }
 </style>
 </head>
@@ -81,266 +88,222 @@
 <div class="back"><a href="/">← Retour à BANG!</a></div>
 
 <h1>BANG!</h1>
-<p class="subtitle">v{{ app_version }} · Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis</p>
+<p class="subtitle">v{{ app_version }} · Générateur MIDI algorithmique · Dark Umbrae / Robōtariis</p>
 
 <div class="btn-row">
-  <button onclick="downloadMd()">⬇ Télécharger .md</button>
   <button onclick="window.print()">🖨 Exporter PDF</button>
   <a class="btn" href="/">← Interface</a>
 </div>
 
 <nav class="toc">
-  <a href="#tui">TUI</a>
-  <a href="#cli">CLI</a>
-  <a href="#api">API</a>
+  <a href="#concept">Concept</a>
+  <a href="#midi">Ce que BANG génère</a>
+  <a href="#modes">Modes</a>
+  <a href="#presets">Presets</a>
+  <a href="#tui">Interface</a>
+  <a href="#params">Paramètres</a>
   <a href="#dna">Syntaxe DNA</a>
   <a href="#babka">Syntaxe Babka</a>
-  <a href="#modes">Modes</a>
-  <a href="#params">Paramètres</a>
+  <a href="#api">API HTTP</a>
   <a href="#session">Session</a>
   <a href="#engine">BangEngine</a>
 </nav>
 
+<!-- ─── CONCEPT ─────────────────────────────────────────────────────────────── -->
+<h2 id="concept">Concept</h2>
+
+<div class="what-grid">
+  <div class="what-box">
+    <h4>BANG! EST</h4>
+    <ul>
+      <li>Un générateur de patterns MIDI algorithmiques</li>
+      <li>Des modes correspondant à des usages prédéfinis (batterie, basse, synths)</li>
+      <li>Des presets câblés au matériel (Volca Drum, Volca Kick, Volca FM, MicroFreak…)</li>
+      <li>Une fonction Play — lecture du pattern dans le navigateur, pianoroll synchronisé</li>
+      <li>Une fonction Preview — modification DNA → pianoroll mis à jour en temps réel</li>
+      <li>Des P-locks CC par step pour les synths hardware</li>
+    </ul>
+  </div>
+  <div class="what-box what-no">
+    <h4>BANG! N'EST PAS</h4>
+    <ul>
+      <li>Un séquenceur temps réel — les patterns ne tournent pas dans BANG</li>
+      <li>Un DAW — pas de clips, pas de timeline, pas de routing audio</li>
+      <li>Un plugin — c'est une app web locale servie en réseau</li>
+      <li>Un outil de mixage ou d'arrangement</li>
+    </ul>
+  </div>
+</div>
+
+<p>Le workflow est simple : <strong>Générer → Écouter → Ajuster → Exporter</strong>. Le rendu final se fait dans le DAW. BANG s'occupe uniquement de produire des <code>.mid</code> intéressants.</p>
+
+<p>BANG repose sur une logique de <strong>complexité sous-marine</strong> : structures simples en surface, mécanismes chaotiques en profondeur. Entropie multi-sources (os.urandom + horloge ns + fragment clé SSH + météo), polyrythmie native (chaque voix a sa propre longueur de cycle), mutations DNA probabilistes.</p>
+
+<!-- ─── MIDI ──────────────────────────────────────────────────────────────── -->
+<h2 id="midi">Ce que BANG génère — les fichiers .mid</h2>
+
+<p>Chaque export produit un fichier <code>.mid</code> standard, lisible par tout DAW. La structure interne varie selon le mode.</p>
+
+<h3>Batterie standard — modes Morph, Random, Weather, Noise, Ambient, Babka</h3>
+<p>Plusieurs pistes MIDI sur <strong>canal 10</strong> (GM drums). Chaque voix correspond à une note (Kick 36, Snare 38, HH 42…). Les patterns ont des longueurs indépendantes — le cycle global ne se répète jamais à l'identique.</p>
+<pre><code>Canal 10 · note 36 (Kick)  · pattern 16 steps
+Canal 10 · note 38 (Snare) · pattern 8 steps
+Canal 10 · note 42 (HH)    · pattern 16 steps
+Canal 10 · note 24 (Bass)  · pattern 5 steps   ← décalage polyrythmique</code></pre>
+
+<h3>Ligne de basse — mode Bassline ♩</h3>
+<p>2 voix mélodiques sur <strong>canal 1</strong> pilotées par une chaîne de Markov sur la gamme pentatonique mineure (A1–C3, 2 octaves). Les notes changent à chaque step selon une matrice de transitions. Un drone CC74 (filtre) et optionnellement CC5 (portamento) sont exportés sur la même piste.</p>
+<pre><code>Canal 1 · notes Markov Am penta 2 octaves · 2 patterns indépendants
+Canal 1 · CC74 (filtre) drone continu
+Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
+
+<h3>Markov mélodique — modes Markov, Phase 2</h3>
+<p>Batterie standard + 1 voix mélodique Markov sur gamme mineure (A1–G2). Phase 2 ajoute un kick polyrhythmique (2 patterns morphés) et un second drone CC91 modulé par la météo.</p>
+
+<h3>Korg Volca Kick ★ — mode Volca Kick</h3>
+<p>1 voix sur <strong>canal 1</strong>. La note MIDI (défaut C3/60) contrôle la hauteur de l'oscillateur du Volca Kick. 5 P-locks CC automatisés par step :</p>
+<table>
+  <tr><th>CC</th><th>Paramètre</th><th>Style</th></tr>
+  <tr><td>40</td><td>Pitch</td><td>sweep sinusoïdal</td></tr>
+  <tr><td>45</td><td>Amp Decay</td><td>sweep sinusoïdal</td></tr>
+  <tr><td>46</td><td>Drive</td><td>texture rythmique</td></tr>
+  <tr><td>47</td><td>Fold</td><td>texture rythmique</td></tr>
+  <tr><td>48</td><td>Bit Reduction</td><td>spikes rares</td></tr>
+</table>
+
+<h3>Korg Volca FM ⚡ — mode Volca FM</h3>
+<p>3 voix polyphoniques sur <strong>canal 1</strong>. Notes : FM1=C1 (36), FM2=G1 (43), FM3=C2 (48). P-locks sur FM1 seulement (les paramètres FM sont globaux au patch) :</p>
+<table>
+  <tr><th>CC</th><th>Paramètre</th><th>Style</th></tr>
+  <tr><td>40</td><td>Algorithm</td><td>spikes — changements de timbre</td></tr>
+  <tr><td>41</td><td>Feedback</td><td>texture — densité harmonique</td></tr>
+  <tr><td>44</td><td>Op1 Level</td><td>sweep — balance porteur/modulateur</td></tr>
+  <tr><td>45</td><td>Op2 Level</td><td>sweep — balance porteur/modulateur</td></tr>
+  <tr><td>42</td><td>LFO Rate</td><td>texture — vitesse vibrato</td></tr>
+</table>
+
+<h3>Korg Volca Drum ★ — mode Volca Drum</h3>
+<p>6 voix sur <strong>6 canaux MIDI distincts</strong> (ch1→ch6, Split Channel mode du Volca Drum). Note envoyée : C3 (60) — seul le canal identifie la part. Max 16 steps (limitation du séquenceur interne). P-locks sur chaque part :</p>
+<table>
+  <tr><th>Part</th><th>Canal</th><th>Rôle</th><th>P-locks typiques</th></tr>
+  <tr><td>Punch</td><td>1</td><td>kick-ish</td><td>Release, Pitch, BitCrush</td></tr>
+  <tr><td>Snap</td><td>2</td><td>snare-ish</td><td>Release, ModAmt, Drive</td></tr>
+  <tr><td>HH</td><td>3</td><td>closed hi-hat</td><td>ModRate, Pitch, Fold</td></tr>
+  <tr><td>OH</td><td>4</td><td>open hat / cymbal</td><td>Release, WGDecay, WGBody</td></tr>
+  <tr><td>Perc</td><td>5</td><td>synth perc</td><td>Pitch, ModAmt, ModRate</td></tr>
+  <tr><td>Acc</td><td>6</td><td>accent / layer</td><td>BitCrush, Fold, Drive</td></tr>
+</table>
+
+<h3>Arturia MicroFreak ◈ — mode MicroFreak</h3>
+<p>3 voix paraphoniques sur <strong>canal 1</strong>. Notes : MF1=A2 (45, lead), MF2=E2 (40, contre), MF3=C2 (36, pédale). P-locks sur MF1 :</p>
+<table>
+  <tr><th>CC</th><th>Paramètre</th><th>Style</th></tr>
+  <tr><td>13</td><td>Cutoff</td><td>sweep — ouverture/fermeture filtre</td></tr>
+  <tr><td>11</td><td>Timbre</td><td>texture — variation sonore wavetable</td></tr>
+  <tr><td>12</td><td>Shape</td><td>texture — morphing forme d'onde</td></tr>
+  <tr><td>16</td><td>LFO Amount</td><td>spikes — accents expressifs</td></tr>
+  <tr><td>15</td><td>LFO Rate</td><td>sweep — vitesse vibrato variable</td></tr>
+</table>
+
+<div class="note">Les P-locks sont exportés dans le <code>.mid</code> comme des événements CC normaux, lisibles dans n'importe quel DAW. Dans Ableton, ils apparaissent dans l'automation des tracks MIDI. La lecture dans un DAW avec le matériel branché en MIDI Out envoie l'automation directement au synth.</div>
+
+<!-- ─── MODES ──────────────────────────────────────────────────────────────── -->
+<h2 id="modes">Modes de génération</h2>
+<table>
+  <tr><th>Mode</th><th>Voix</th><th>Canal(aux)</th><th>Steps</th><th>Description</th></tr>
+  <tr><td><code>morph</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>DNA morphé + mutation proportionnelle au chaos</td></tr>
+  <tr><td><code>random</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>DNA entièrement aléatoire — point de départ</td></tr>
+  <tr><td><code>weather</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>Densité/texture dérivée météo Scaër (temp, vent)</td></tr>
+  <tr><td><code>markov</code></td><td>4 drums + 1 mélodie</td><td>ch10 + ch10</td><td>libre</td><td>Voix mélodique Markov gamme Am + drone CC74</td></tr>
+  <tr><td><code>phase2</code></td><td>4 drums + 1 mélodie</td><td>ch10</td><td>libre</td><td>Markov + kick polyrhythmique + CC91 météo</td></tr>
+  <tr><td><code>noise</code></td><td>8 (drums)</td><td>ch10</td><td>libre</td><td>8 voix, cycles asymétriques, haute entropie</td></tr>
+  <tr><td><code>ambient</code></td><td>3 (drums)</td><td>ch10</td><td>libre</td><td>3 voix ultra-sparse — espace, respiration</td></tr>
+  <tr><td><code>babka</code></td><td>4 (drums)</td><td>ch10</td><td>libre</td><td>Syntaxe Babka — subdivision / euclidien / alternance</td></tr>
+  <tr><td><code>bassline</code> ♩</td><td>2 basse + CC</td><td>ch1</td><td>≤128</td><td>Ligne de basse Markov Am penta 2 octaves, portamento</td></tr>
+  <tr><td><code>volca_kick</code> ★</td><td>1 synth</td><td>ch1</td><td>≤16</td><td>Volca Kick — 1 voix + 5 P-locks CC</td></tr>
+  <tr><td><code>volca_fm</code> ⚡</td><td>3 synths</td><td>ch1</td><td>≤16</td><td>Volca FM — polyphonie 3 voix + P-locks FM1</td></tr>
+  <tr><td><code>volca_drum</code> ★</td><td>6 parts</td><td>ch1→ch6</td><td>≤16</td><td>Volca Drum — 6 canaux split + P-locks par part</td></tr>
+  <tr><td><code>microfreak</code> ◈</td><td>3 synths</td><td>ch1</td><td>≤64</td><td>MicroFreak — paraphonie 3 voix + P-locks MF1</td></tr>
+</table>
+
+<!-- ─── PRESETS ───────────────────────────────────────────────────────────── -->
+<h2 id="presets">Presets hardware</h2>
+<p>Un preset est un mapping <em>nom de voix → note MIDI</em>. Les presets built-in sont câblés au matériel cible. Les presets custom sont sauvegardés dans <code>bang_presets.json</code>.</p>
+<table>
+  <tr><th>Preset</th><th>Cible</th><th>Notes principales</th></tr>
+  <tr><td>GM</td><td>Batterie GM standard</td><td>Kick 36 · Snare 38 · HH 42 · Tom 48</td></tr>
+  <tr><td>TR-808</td><td>Roland TR-8 mode 808</td><td>Kick 36 · Snare 38 · HH 42</td></tr>
+  <tr><td>TR-909</td><td>Roland TR-8 mode 909</td><td>Kick 36 · Snare 38 · Tom 50</td></tr>
+  <tr><td>MPC60</td><td>Akai MPC60 / MPC3000</td><td>Kick 35 · Snare 40</td></tr>
+  <tr><td>Battery 4</td><td>NI Battery 4</td><td>Compatible GM</td></tr>
+  <tr><td>Tekno</td><td>Baby Audio Tekno</td><td>C1→F2 séquentiel (36→41)</td></tr>
+  <tr><td>LinnDrum</td><td>LinnDrum</td><td>Kick 36 · Snare 38</td></tr>
+  <tr><td>Volca Kick</td><td>Korg Volca Kick</td><td>VKick 60 (C3 — pitch oscillateur)</td></tr>
+  <tr><td>Volca FM</td><td>Korg Volca FM</td><td>FM1 36 · FM2 43 · FM3 48</td></tr>
+  <tr><td>MicroFreak</td><td>Arturia MicroFreak</td><td>MF1 45 · MF2 40 · MF3 36</td></tr>
+</table>
+
 <!-- ─── TUI ──────────────────────────────────────────────────────────────── -->
 <h2 id="tui">Interface TUI</h2>
-<p>BANG! présente une interface web TUI monochrome — terminal esthétique, thème couleur unique, fond quasi-noir.</p>
+<p>Interface web monochrome — terminal esthétique, fond quasi-noir, accent couleur unique.</p>
 
 <h3>Layout</h3>
 <table>
   <tr><th>Zone</th><th>Description</th></tr>
   <tr><td>Header</td><td>Sélecteur de thème (AMB/GRN/RED/TRQ/WHT) + version</td></tr>
-  <tr><td>Panneau gauche</td><td>Formulaire de génération : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, météo</td></tr>
-  <tr><td>Panneau central</td><td>Voix générées — note MIDI, DNA coloré, boutons thin, tags Markov/Babka/CC</td></tr>
-  <tr><td>Panneau droit</td><td>Pianoroll SVG + contrôles de zoom</td></tr>
-  <tr><td>Log</td><td>Historique des exports (timestamp, fichier, seed, BPM, mode, météo)</td></tr>
+  <tr><td>Panneau gauche</td><td>Formulaire : mode, BPM, steps, chaos, gravity, CC depth, dynamics, poly, météo</td></tr>
+  <tr><td>Panneau central</td><td>Voix — note MIDI éditable, DNA coloré cliquable, boutons thin (×1/÷2/÷4), tags de type</td></tr>
+  <tr><td>Panneau droit</td><td>Pianoroll SVG + P-locks + contrôles zoom (×0.5 à ×3)</td></tr>
+  <tr><td>Log</td><td>Historique des exports (timestamp, fichier, seed, BPM, mode)</td></tr>
 </table>
 
 <h3>Thèmes couleur</h3>
-<p>Le bouton de thème change la couleur d'accent de toute l'interface. Le choix est mémorisé dans <code>localStorage</code>.</p>
 <table>
-  <tr><th>Bouton</th><th>Nom</th><th>Couleur accent</th></tr>
-  <tr><td>AMB</td><td>Amber</td><td>rgb(255, 170, 0) — défaut</td></tr>
-  <tr><td>GRN</td><td>Green</td><td>rgb(0, 255, 65)</td></tr>
-  <tr><td>RED</td><td>Red</td><td>rgb(255, 34, 0)</td></tr>
-  <tr><td>TRQ</td><td>Turquoise</td><td>rgb(0, 220, 200)</td></tr>
-  <tr><td>WHT</td><td>White</td><td>rgb(200, 200, 200)</td></tr>
+  <tr><th>Bouton</th><th>Couleur accent</th></tr>
+  <tr><td>AMB</td><td>rgb(255, 170, 0) — amber, défaut</td></tr>
+  <tr><td>GRN</td><td>rgb(0, 255, 65) — green</td></tr>
+  <tr><td>RED</td><td>rgb(255, 34, 0) — red</td></tr>
+  <tr><td>TRQ</td><td>rgb(0, 220, 200) — turquoise</td></tr>
+  <tr><td>WHT</td><td>rgb(200, 200, 200) — white</td></tr>
 </table>
-<div class="note">L'implémentation repose sur des variables CSS RGB (<code>--ar/--ag/--ab</code>) permettant de composer des variantes alpha (<code>rgba(var(--ar),var(--ag),var(--ab),0.45)</code>) sans duplication de code.</div>
 
-<h3>Panneau Voix</h3>
-<p>Chaque voix affiche sur deux lignes :</p>
-<ul style="color:var(--muted);padding-left:1.25rem;margin-bottom:.75rem">
-  <li><b>Ligne 1</b> — note MIDI (éditable), nom, boutons thin (×1 / ÷2 / ÷4), tag de type</li>
-  <li><b>Ligne 2</b> — DNA coloré cliquable · clic → champ d'édition · Escape → annuler · Enter → valider</li>
-</ul>
-<p>La modification d'un pattern met à jour le pianoroll en temps réel (via <code>/voice/preview</code> + debounce 350 ms) sans perdre le focus.</p>
+<h3>Édition inline</h3>
+<p>Cliquer sur la représentation DNA d'une voix ouvre un champ d'édition. La modification met à jour le pianoroll en temps réel via <code>/voice/preview</code> (debounce 350 ms). <code>Enter</code> valide et sauvegarde, <code>Escape</code> annule.</p>
 
-<h3>Pianoroll</h3>
-<p>SVG généré côté serveur. Chaque cellule affiche l'atome correspondant (<span class="sym-x">x</span> <span class="sym-d">−</span> <span class="sym-q">?</span> <span class="sym-r">↺</span> <span class="sym-b">░</span>). Les P-locks Volca Drum apparaissent sous le piano principal.</p>
-<p>Zoom : boutons <code>−</code> / <code>+</code> → 6 niveaux : ×0.5 · ×0.75 · ×1 · ×1.5 · ×2 · ×3</p>
-
-<!-- ─── CLI ──────────────────────────────────────────────────────────────── -->
-<h2 id="cli">CLI</h2>
+<h3>Raccourcis clavier</h3>
+<table>
+  <tr><th>Touche</th><th>Action</th></tr>
+  <tr><td><code>G</code></td><td>Générer les patterns</td></tr>
+  <tr><td><code>E</code></td><td>Exporter le fichier MIDI</td></tr>
+  <tr><td><code>W</code></td><td>Rafraîchir la météo</td></tr>
+</table>
 
 <h3>Lancement</h3>
-<pre><code># Port par défaut 7777
-python web.py
-
-# Port personnalisé
+<pre><code>python web.py               # port 7777
 BANG_PORT=8888 python web.py
+systemctl start bang        # via systemd</code></pre>
 
-# Via systemd (production)
-systemctl start bang
-systemctl status bang</code></pre>
-
-<h3>Variables d'environnement</h3>
+<!-- ─── PARAMS ────────────────────────────────────────────────────────────── -->
+<h2 id="params">Paramètres</h2>
 <table>
-  <tr><th>Variable</th><th>Défaut</th><th>Description</th></tr>
-  <tr><td><code>BANG_PORT</code></td><td>7777</td><td>Port d'écoute uvicorn</td></tr>
+  <tr><th>Paramètre</th><th>Plage</th><th>Effet</th></tr>
+  <tr><td>BPM</td><td>40–300</td><td>Tempo en battements par minute</td></tr>
+  <tr><td>Steps</td><td>4–256 (selon mode)</td><td>Longueur du pattern. Volcas limités à 16, MicroFreak à 64, Bassline à 128.</td></tr>
+  <tr><td>Chaos</td><td>0–1</td><td>Intensité des mutations DNA, densité des P-locks, variation des patterns</td></tr>
+  <tr><td>Gravity</td><td>0–1</td><td>Attraction vers la chaîne de Markov de référence (0 = uniform, 1 = full Markov)</td></tr>
+  <tr><td>CC Depth</td><td>0–1</td><td>Amplitude du drone CC (filtre, réverb…)</td></tr>
+  <tr><td>VEL MIN</td><td>0–126</td><td>Plancher de velocity après mappage courbe</td></tr>
+  <tr><td>VEL MAX</td><td>1–127</td><td>Plafond de velocity après mappage courbe</td></tr>
+  <tr><td>DYNAMICS</td><td>0.1–4.0</td><td>&lt;1 = compression · 1 = linéaire · &gt;1 = expansion des dynamiques</td></tr>
+  <tr><td>Poly</td><td>0 = ∞</td><td>Max de voix simultanées par step (filtre les excédents)</td></tr>
 </table>
 
-<h3>Dossier exports</h3>
-<pre><code>bang-proto/exports/          # MIDI exportés
-bang-proto/exports/archive/  # Favoris archivés</code></pre>
-
-<h3>Dépendances</h3>
-<pre><code>uv sync                # ou: pip install -r requirements.txt
-# FastAPI · uvicorn · Jinja2 · mido · requests</code></pre>
-
-<!-- ─── API ──────────────────────────────────────────────────────────────── -->
-<h2 id="api">API HTTP</h2>
-<p>Toutes les réponses HTMX retournent du HTML. Les endpoints JSON retournent <code>application/json</code>.</p>
-
-<h3>Génération &amp; export</h3>
-<table>
-  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/</code></td>
-    <td>Interface principale — rendu complet de <code>index.html</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/generate</code></td>
-    <td>Génère de nouvelles voix + pianoroll. Retourne HTML (voix + OOB pianoroll). Paramètres form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/export</code></td>
-    <td>Génère + écrit le fichier MIDI. Retourne une entrée de log HTML. Paramètre supplémentaire : <code>dest_dir</code> (dossier destination, défaut = <code>exports/</code>)</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/export/song</code></td>
-    <td>Génère une song complète en plusieurs fichiers (structure intro/couplet/climax/outro). Retourne log HTML.</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/weather</code></td>
-    <td>Rafraîchit la météo Scaër. Retourne HTML du widget météo.</td>
-  </tr>
-</table>
-
-<h3>Pattern &amp; voix</h3>
-<table>
-  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/pattern</code></td>
-    <td>Retourne JSON de l'état courant : BPM, steps, step_ms, voices[] avec events (step, velocity, prob, ratchet, atom, plocks)</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/voice/preview</code></td>
-    <td>Met à jour un pattern en mémoire + retourne HTML pianoroll uniquement (pas de rechargement voix → pas de perte de focus). Params : <code>idx, pattern</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/voice/pattern</code></td>
-    <td>Valide un pattern modifié → met à jour voix + pianoroll (OOB swap). Params : <code>idx, pattern</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/voice/thin</code></td>
-    <td>Applique un thinning sur une voix (×1/÷2/÷4). Params : <code>name, factor</code>. Retourne HTML voix + OOB pianoroll.</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/notes</code></td>
-    <td>Applique un remap de notes MIDI. Form : <code>remap_{name}=&lt;note 0-127&gt;</code> pour chaque voix. Retourne HTML voix + OOB pianoroll.</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/poly</code></td>
-    <td>Définit le max de voix simultanées. Param : <code>max_poly</code> (0 = infini). Retourne HTML pianoroll.</td>
-  </tr>
-</table>
-
-<h3>Presets</h3>
-<table>
-  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/presets</code></td>
-    <td>Liste presets built-in et custom. Retourne <code>{"builtin": [...], "custom": [...], "current": "..."}</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/preset/apply</code></td>
-    <td>Applique un preset (remap note). Param : <code>name</code>. Retourne HTML voix + OOB pianoroll.</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/preset/save</code></td>
-    <td>Sauvegarde le remap courant comme preset. Param : <code>name</code>. Retourne <code>{"ok": true, "name": "..."}</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-del">DELETE</span></td>
-    <td><code class="endpoint-path">/preset/{name}</code></td>
-    <td>Supprime un preset custom.</td>
-  </tr>
-</table>
-
-<h3>Session &amp; fichiers</h3>
-<table>
-  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/session/export</code></td>
-    <td>Télécharge l'état complet en JSON (<code>bang-session-YYYYMMDD-HHMMSS.json</code>)</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/session/import</code></td>
-    <td>Charge une session JSON (multipart file upload). Redirige vers <code>/</code>.</td>
-  </tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/download/{filename}</code></td>
-    <td>Télécharge un fichier MIDI depuis <code>exports/</code>.</td>
-  </tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/archive</code></td>
-    <td>Page archive — liste les fichiers MIDI favoris.</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/song/favorite/{tag}</code></td>
-    <td>Marque un fichier comme favori (copie dans <code>exports/archive/</code>).</td>
-  </tr>
-  <tr>
-    <td><span class="method-post">POST</span></td>
-    <td><code class="endpoint-path">/song/regen/{tag}</code></td>
-    <td>Re-génère un fichier à partir de son tag.</td>
-  </tr>
-</table>
-
-<h3>Utilitaires</h3>
-<table>
-  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/browse?path=...</code></td>
-    <td>Navigateur de dossiers (file picker). Retourne <code>{"path", "parent", "dirs": [...]}</code></td>
-  </tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/next-filename?mode=&amp;dest_dir=</code></td>
-    <td>Propose le prochain nom de fichier auto-incrémenté (<code>gen-mode-NNN.mid</code>).</td>
-  </tr>
-  <tr>
-    <td><span class="method-get">GET</span></td>
-    <td><code class="endpoint-path">/doc</code></td>
-    <td>Cette page.</td>
-  </tr>
-</table>
-
-<h3>Exemple — requête JSON pattern</h3>
-<pre><code>curl http://bang.lan:7777/pattern | jq '.voices[0].events[:4]'
-
-# Réponse :
-{
-  "ok": true,
-  "bpm": 120,
-  "steps": 16,
-  "step_ms": 125.0,
-  "voices": [
-    {
-      "note": 36, "name": "bd", "channel": 9,
-      "type": "babka",
-      "events": [
-        {"step": 0,   "dur": 1.0, "velocity": 105, "prob": 1.0, "ratchet": 1, "atom": "x"},
-        {"step": 4.0, "dur": 1.0, "velocity": 90,  "prob": 0.5, "ratchet": 1, "atom": "?"}
-      ],
-      "plocks": []
-    }
-  ]
-}</code></pre>
+<h3>Thinning de voix (÷2 / ÷4)</h3>
+<p>Réduit la densité d'une voix sans modifier le pattern DNA. <code>÷2</code> garde 1 trigger sur 2, <code>÷4</code> garde 1 sur 4. Appliqué aussi bien au pianoroll qu'à l'export MIDI.</p>
 
 <!-- ─── DNA ──────────────────────────────────────────────────────────────── -->
 <h2 id="dna">Syntaxe DNA</h2>
-<p>Les atomes DNA sont les briques de base. Ils s'enchaînent sans séparateur.</p>
+<p>Les atomes s'enchaînent sans séparateur. Un pattern DNA est une chaîne de caractères compilée en matrice <code>[trigger, velocity, prob, ratchet, jitter]</code>.</p>
 
 <table>
   <tr><th>Symbole</th><th>Nom</th><th>Trigger</th><th>Velocity</th><th>Prob</th><th>Ratchet</th><th>Jitter</th></tr>
@@ -351,25 +314,11 @@ bang-proto/exports/archive/  # Favoris archivés</code></pre>
   <tr><td><span class="sym-b">░</span></td><td>Ghost</td><td>oui</td><td>85</td><td>100%</td><td>×1</td><td>±25ms</td></tr>
 </table>
 
-<h3>Exemples</h3>
 <pre><code>x---x---       → kick sur 1 et 3
 x-x-x-x-       → hi-hat double-croche
 ?-?-?-?-       → pattern 50% aléatoire
 x-░-x-░-      → ghost notes sur les temps faibles
 ↺---x---      → ratchet sur le 1</code></pre>
-
-<h3>CSS classes DNA (rendu coloré)</h3>
-<table>
-  <tr><th>Classe</th><th>Atomes</th><th>Rendu</th></tr>
-  <tr><td><code>.dx</code></td><td>x</td><td>accent, bold</td></tr>
-  <tr><td><code>.dd</code></td><td>-</td><td>accent dim (opacity .38)</td></tr>
-  <tr><td><code>.dq</code></td><td>?</td><td>accent semi (opacity .78), bold</td></tr>
-  <tr><td><code>.dr</code></td><td>↺</td><td>accent, bold</td></tr>
-  <tr><td><code>.db</code></td><td>░</td><td>accent (opacity .55), bold</td></tr>
-  <tr><td><code>.dbk</code></td><td>[ ]</td><td>accent, bold, italic</td></tr>
-  <tr><td><code>.dalt</code></td><td>&lt; &gt;</td><td>accent, bold, italic</td></tr>
-  <tr><td><code>.deuc</code></td><td>( )</td><td>accent, bold, italic</td></tr>
-</table>
 
 <!-- ─── BABKA ────────────────────────────────────────────────────────────── -->
 <h2 id="babka">Syntaxe Babka <span class="tag-babka">⚗</span></h2>
@@ -377,290 +326,137 @@ x-░-x-░-      → ghost notes sur les temps faibles
 
 <table>
   <tr><th>Opérateur</th><th>Syntaxe</th><th>Comportement</th></tr>
-  <tr>
-    <td><span class="sym-bk">[ ]</span></td>
-    <td><code>[a b c]</code></td>
-    <td>Subdivision — n atomes partagent 1 step (durées divisées équitablement)</td>
-  </tr>
-  <tr>
-    <td><span class="sym-al">&lt; &gt;</span></td>
-    <td><code>&lt;a b c&gt;</code></td>
-    <td>Alternance — sélectionne une alternative par cycle (alternatives séparées par espaces)</td>
-  </tr>
-  <tr>
-    <td><span class="sym-eu">( )</span></td>
-    <td><code>x(n,k)</code></td>
-    <td>Euclidien inline — distribue n triggers sur k steps (algorithme de Bresenham)</td>
-  </tr>
-  <tr>
-    <td><span class="sym-bk">[</span><span class="sym-eu">x(n,k)</span><span class="sym-bk">]</span></td>
-    <td><code>[x(n,k)]</code></td>
-    <td>Euclidien overlay — k steps euclidiens compressés dans 1 step</td>
-  </tr>
+  <tr><td><span class="sym-bk">[ ]</span></td><td><code>[a b c]</code></td><td>Subdivision — n atomes partagent 1 step (durées divisées équitablement)</td></tr>
+  <tr><td><span class="sym-al">&lt; &gt;</span></td><td><code>&lt;a b c&gt;</code></td><td>Alternance — une alternative par cycle</td></tr>
+  <tr><td><span class="sym-eu">( )</span></td><td><code>x(n,k)</code></td><td>Euclidien inline — n triggers sur k steps (Bresenham)</td></tr>
+  <tr><td><span class="sym-bk">[x(n,k)]</span></td><td>overlay</td><td>Euclidien compressé dans 1 step</td></tr>
 </table>
 
-<h3>Subdivision <code class="sym-bk">[a b c]</code></h3>
-<pre><code>[x x]            → 2 hits dans 1 step (16e → 32e)
-[x x x]          → triolet dans 1 step
-x-[x x]-         → hit · silence · 2 hits subdivisés · silence
-[x x]-[x x x]-   → combinaison</code></pre>
-<div class="note">La durée totale du groupe reste 1 step quelle que soit la profondeur d'imbrication.</div>
+<pre><code>[x x]-x-[x x]-x-    → subdivisions (32e)
+x(3,8)               → 3 hits euclidiens sur 8 steps
+&lt;x-x- ?-?-&gt;          → alternance deux patterns
+↺(2,8)              → 2 ratchets euclidiens
+&lt;[x x]- x--&gt;         → subdivision dans alternance
+&lt;x---x--- x-[x-]x--&gt; → alternance avec complexité croissante</code></pre>
 
-<h3>Alternance <code class="sym-al">&lt;a b c&gt;</code></h3>
-<pre><code>&lt;x- -x&gt;                      → cycle 0: x-  |  cycle 1: -x  |  ...
-&lt;x---x--- x-[x-]x--&gt;         → alternance de patterns complexes
-&lt;x ↺ ?&gt;                     → alterne hit / ratchet / prob par cycle</code></pre>
-<div class="note">Alternatives séparées par espaces au niveau 0. Les imbrications <code>[]</code> ou <code>&lt;&gt;</code> internes sont correctement gérées.</div>
+<!-- ─── API ──────────────────────────────────────────────────────────────── -->
+<h2 id="api">API HTTP</h2>
+<p>Les réponses HTMX retournent du HTML. Les endpoints sans HTMX retournent <code>application/json</code>.</p>
 
-<h3>Euclidien inline <code class="sym-eu">x(n,k)</code></h3>
-<pre><code>x(3,8)   → 3 hits sur 8 steps : x--x--x-
-x(5,8)   → 5 hits sur 8 steps : x-xx-xx-
-?(2,8)   → 2 hits probables sur 8 steps
-↺(2,8)  → 2 ratchets sur 8 steps</code></pre>
-<div class="note">Tout atome DNA supporte le suffixe euclidien. Les k steps sont générés à durée 1.0 (séquence plate).</div>
-
-<h3>Euclidien overlay <code class="sym-bk">[</code><code class="sym-eu">x(n,k)</code><code class="sym-bk">]</code></h3>
-<pre><code>[x(3,4)]  → 3 hits sur 4 steps, compressés dans 1 step
-[x(3,8)]  → 3 hits sur 8 steps dans 1 step (durées = 0.125 chacune)</code></pre>
-<div class="note"><code>[x(n,k)]</code> overlay ≠ <code>x(n,k)</code> inline : les k steps sont normalisés pour tenir dans 1 step de base.</div>
-
-<h3>Combinaisons</h3>
-<pre><code>x-[x x]-?                   → hit · silence · 2 hits · prob
-&lt;x---x--- x-[x-]x--&gt;        → alternance avec subdivision
-&lt;[x x]- x--&gt;                → subdivision dans alternance
-↺-[x ?]-░(2,4)             → ratchet · silence · prob+hit · 2 ghosts euclidiens</code></pre>
-
-<!-- ─── MODES ──────────────────────────────────────────────────────────────── -->
-<h2 id="modes">Modes de génération</h2>
+<h3>Génération &amp; export</h3>
 <table>
-  <tr><th>Mode</th><th>Description</th><th>Usage type</th></tr>
-  <tr><td>Morph</td><td>DNA morphé + mutation selon chaos</td><td>Évolution organique d'un pattern existant</td></tr>
-  <tr><td>Random</td><td>Aléatoire pur</td><td>Exploration, point de départ</td></tr>
-  <tr><td>Weather</td><td>Densité/texture selon météo Scaër (temp, vent)</td><td>Ambient génératif lié aux données météo</td></tr>
-  <tr><td>Markov</td><td>Ligne mélodique via chaîne de Markov + CC drone</td><td>Mélodies sombres, Dark Umbrae</td></tr>
-  <tr><td>Phase 2</td><td>Markov + CC drone + polyrythmie (2 patterns kick)</td><td>Textures complexes en évolution</td></tr>
-  <tr><td>Noise ◼</td><td>8 voix, cycles asymétriques, haute entropie</td><td>Percussion industrielle dense</td></tr>
-  <tr><td>Ambient ◌</td><td>3 voix ultra-sparse</td><td>Espace, respiration</td></tr>
-  <tr><td>Babka ⚗</td><td>Syntaxe Babka — 3 niveaux selon chaos</td><td>Patterns structurés avec subdivision et euclidien</td></tr>
-  <tr><td>Volca Drum ★</td><td>6 parts canaux 1–6, P-locks CC par step</td><td>Korg Volca Drum natif</td></tr>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/</code></td><td>Interface principale</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/generate</code></td><td>Génère voix + pianoroll. Form : <code>mode, chaos, bpm, steps, gravity, cc_depth, out, temporal, vel_floor, vel_ceiling, vel_curve</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export</code></td><td>Génère + écrit le <code>.mid</code>. Param supplémentaire : <code>dest_dir</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/export/song</code></td><td>Song complète multi-fichiers (intro → couplets → climax → outro)</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/weather</code></td><td>Rafraîchit la météo Scaër</td></tr>
 </table>
 
-<!-- ─── PARAMS ────────────────────────────────────────────────────────────── -->
-<h2 id="params">Paramètres</h2>
+<h3>Pattern &amp; voix</h3>
 <table>
-  <tr><th>Paramètre</th><th>Plage</th><th>Effet</th></tr>
-  <tr><td>BPM</td><td>40–300</td><td>Tempo en battements par minute</td></tr>
-  <tr><td>Steps</td><td>4–128</td><td>Longueur du pattern (16 = 1 mesure 4/4)</td></tr>
-  <tr><td>Chaos</td><td>0–1</td><td>Intensité des mutations et de l'aléatoire</td></tr>
-  <tr><td>Gravity</td><td>0–1</td><td>Gravité de la chaîne Markov (modes Markov/Phase 2)</td></tr>
-  <tr><td>CC Depth</td><td>0–1</td><td>Amplitude du drone CC MIDI</td></tr>
-  <tr><td>VEL MIN</td><td>0–126</td><td>Plancher de velocity après mappage</td></tr>
-  <tr><td>VEL MAX</td><td>1–127</td><td>Plafond de velocity après mappage</td></tr>
-  <tr><td>DYNAMICS</td><td>0.1–4.0</td><td>&lt;1 = compression · 1 = linéaire · &gt;1 = expansion</td></tr>
-  <tr><td>Poly</td><td>0 = ∞</td><td>Nombre max de voix simultanées par step</td></tr>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/pattern</code></td><td>JSON état courant : bpm, steps, step_ms, voices[].events + plocks</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/preview</code></td><td>Preview pianoroll sans rechargement voix. Params : <code>idx, pattern</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/pattern</code></td><td>Valide un pattern modifié. Params : <code>idx, pattern</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/thin</code></td><td>Thinning ×1/÷2/÷4. Params : <code>name, factor</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/notes</code></td><td>Remap notes MIDI. Form : <code>remap_{name}=&lt;0-127&gt;</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/poly</code></td><td>Max voix simultanées. Param : <code>max_poly</code> (0 = infini)</td></tr>
 </table>
 
-<h3>Opérateurs de voix (Thin)</h3>
+<h3>Presets &amp; session</h3>
 <table>
-  <tr><th>Bouton</th><th>Effet</th></tr>
-  <tr><td>×1</td><td>Pattern complet</td></tr>
-  <tr><td>÷2</td><td>Garde 1 trigger sur 2 (half-time)</td></tr>
-  <tr><td>÷4</td><td>Garde 1 trigger sur 4 (quarter-time)</td></tr>
+  <tr><th>Méthode</th><th>Route</th><th>Description</th></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/presets</code></td><td>Liste built-in + custom + courant</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/preset/apply</code></td><td>Applique preset. Param : <code>name</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/preset/save</code></td><td>Sauvegarde remap courant comme preset custom</td></tr>
+  <tr><td><span class="method-del">DELETE</span></td><td><code class="endpoint-path">/preset/{name}</code></td><td>Supprime preset custom</td></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/session/export</code></td><td>Télécharge session JSON complète</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/session/import</code></td><td>Charge session JSON (multipart upload)</td></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/download/{filename}</code></td><td>Télécharge un <code>.mid</code> depuis <code>exports/</code></td></tr>
+  <tr><td><span class="method-get">GET</span></td><td><code class="endpoint-path">/archive</code></td><td>Archive songs + exports individuels</td></tr>
 </table>
+
+<h3>Exemple — JSON pattern</h3>
+<pre><code>curl http://bang.lan:7777/pattern | jq .
+
+{
+  "ok": true,
+  "bpm": 120,
+  "steps": 16,
+  "step_ms": 125.0,
+  "voices": [
+    {
+      "note": 36, "name": "VKick", "channel": 0,
+      "type": "vk",
+      "events": [
+        {"step": 0, "velocity": 105, "prob": 1.0, "ratchet": 1, "atom": "x"},
+        {"step": 4, "velocity": 90,  "prob": 0.5, "ratchet": 1, "atom": "?"}
+      ],
+      "plocks": [
+        {"cc": 40, "name": "Pitch", "style": "sweep",
+         "values": [72, null, 85, null, 95, null, 80, null, ...]},
+        {"cc": 45, "name": "Decay", "style": "sweep", "values": [...]}
+      ]
+    }
+  ]
+}</code></pre>
 
 <!-- ─── SESSION ───────────────────────────────────────────────────────────── -->
-<h2 id="session">Format Session (.json)</h2>
-<p>Sauvegarde l'état complet pour reproduction exacte. Exporté via <code>GET /session/export</code>, importé via <code>POST /session/import</code>.</p>
+<h2 id="session">Format Session</h2>
+<p>Sauvegarde l'état complet pour reproduction exacte. Exporté via <code>GET /session/export</code>.</p>
 <pre><code>{
-  "bang_version": "0.3.0",
+  "bang_version": "{{ app_version }}",
   "timestamp": "2026-05-23T10:00:00",
   "seed": "abc123def456",
   "params": {
-    "mode": "babka", "bpm": 120, "steps": 16,
-    "chaos": 0.3, "gravity": 0.7, "cc_depth": 0.5,
-    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0,
-    "out": "gen-babka-001.mid", "temporal": ""
+    "mode": "volca_kick", "bpm": 120, "steps": 16,
+    "chaos": 0.4, "gravity": 0.7, "cc_depth": 0.5,
+    "vel_floor": 0, "vel_ceiling": 127, "vel_curve": 1.0
   },
   "voices": [
-    {"note": 36, "pattern": "x---x---",  "type": "dna"},
-    {"note": 38, "pattern": "x(3,8)",    "type": "babka"},
-    {"note": 42, "pattern": "&lt;x-x- -x-x&gt;", "type": "babka"}
+    {"note": 60, "pattern": "x---x-?-x---x---", "type": "vk"}
   ],
-  "voice_thin": {"hh": 2},
-  "note_remap": {"bd": 36, "sd": 38},
+  "voice_thin": {},
+  "note_remap": {"VKick": 60},
   "max_poly": 0
 }</code></pre>
 
-<h3>Champs <code>voices[].type</code></h3>
+<h3>Types de voix (<code>voices[].type</code>)</h3>
 <table>
-  <tr><th>Type</th><th>Description</th></tr>
-  <tr><td><code>dna</code></td><td>Pattern DNA pur (atomes x − ? ↺ ░)</td></tr>
-  <tr><td><code>babka</code></td><td>Pattern Babka (superset DNA)</td></tr>
-  <tr><td><code>markov</code></td><td>Voix Markov — note générée à chaque step</td></tr>
-  <tr><td><code>cc</code></td><td>Drone CC MIDI (pas de note, contrôleur continu)</td></tr>
-  <tr><td><code>vdN</code></td><td>Volca Drum canal N (0-5) → MIDI channel N+1</td></tr>
+  <tr><th>Type</th><th>Canal MIDI</th><th>Description</th></tr>
+  <tr><td><code>drum</code></td><td>ch10</td><td>Batterie GM — note fixe, pattern DNA</td></tr>
+  <tr><td><code>babka</code></td><td>ch10</td><td>Batterie avec syntaxe Babka</td></tr>
+  <tr><td><code>markov</code></td><td>ch10</td><td>Voix mélodique — notes Markov gamme Am</td></tr>
+  <tr><td><code>cc</code></td><td>—</td><td>Drone CC (pas de note, automation continue)</td></tr>
+  <tr><td><code>bl</code></td><td>ch1</td><td>Basse Markov — notes Am penta 2 octaves</td></tr>
+  <tr><td><code>vk</code></td><td>ch1</td><td>Volca Kick — note = pitch oscillateur</td></tr>
+  <tr><td><code>vd{N}</code></td><td>ch{N+1}</td><td>Volca Drum part N (0–5)</td></tr>
+  <tr><td><code>vfm{N}</code></td><td>ch1</td><td>Volca FM voix N (0–2) — polyphonique</td></tr>
+  <tr><td><code>mf{N}</code></td><td>ch1</td><td>MicroFreak voix N (0–2) — paraphonique</td></tr>
 </table>
 
 <!-- ─── ENGINE ────────────────────────────────────────────────────────────── -->
 <h2 id="engine">BangEngine — API Python</h2>
-<pre><code>from bang_engine import BangEngine, dark_chain
-import babka
+<pre><code>from bang_engine import BangEngine, dark_chain, bass_chain
 
-e = BangEngine(
-    bpm=120,
-    ticks_per_step=120,
-    vel_floor=20,
-    vel_ceiling=110,
-    vel_curve=0.7,
-)
+e = BangEngine(bpm=120, vel_floor=20, vel_ceiling=110, vel_curve=0.7)
 
-e.add_voice(36, "x---x---")                       # DNA simple
-e.add_voice(42, ["x-x-", "x--x"])                 # polyrythmie (liste)
-e.add_markov_voice(dark_chain(), "x-?-")           # mélodie Markov
-e.add_babka_voice(38, "x(3,8)")                    # euclidien
-e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")       # alternance + subdivision
-e.add_cc_drone(control=74, breakpoints=[20,100,20])
+e.add_voice(36, "x---x---")                        # DNA simple, ch10
+e.add_voice(42, ["x-x-", "x--x"])                  # polyrythmie (liste)
+e.add_voice(60, "x---x-?-x---x---", channel=0)     # Volca Kick, ch1
+e.add_markov_voice(dark_chain(), "x-?-")            # mélodie Am gamme mineure
+e.add_markov_voice(bass_chain(), "x---x-x-")        # basse Am penta 2 octaves
+e.add_babka_voice(38, "x(3,8)")                     # euclidien
+e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")        # alternance + subdivision
+e.add_cc_drone(control=74, breakpoints=[20,100,20]) # automation filtre
 
 e.export_midi(num_steps=64, filename="out.mid")</code></pre>
 
 <div class="btn-row" style="margin-top:2rem">
-  <button onclick="downloadMd()">⬇ Télécharger .md</button>
   <button onclick="window.print()">🖨 Exporter PDF</button>
   <a class="btn" href="/">← Interface</a>
 </div>
-
-<script>
-function downloadMd() {
-  const md = `# BANG! — Documentation v{{ app_version }}
-
-Séquenceur MIDI algorithmique · Dark Umbrae / Robōtariis
-
-## TUI
-
-Interface web monochrome TUI. 5 thèmes : AMB (amber) · GRN (green) · RED (red) · TRQ (turquoise) · WHT (white).
-Mémorisation via localStorage.
-
-Variables CSS : \`--ar/--ag/--ab\` (canaux RGB) → \`--accent\` + variantes alpha.
-
-### Layout
-
-| Zone | Description |
-|------|-------------|
-| Header | Sélecteur thème + version |
-| Panneau gauche | Formulaire génération |
-| Panneau central | Voix — DNA coloré cliquable pour édition |
-| Panneau droit | Pianoroll SVG + zoom (×0.5 à ×3) |
-| Log | Historique exports |
-
-## CLI
-
-\`\`\`bash
-python web.py               # port 7777
-BANG_PORT=8888 python web.py
-systemctl start bang        # service systemd
-\`\`\`
-
-## API
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| GET  | / | Interface principale |
-| POST | /generate | Génère voix + pianoroll (form: mode, chaos, bpm, steps, ...) |
-| POST | /export | Génère + écrit MIDI |
-| POST | /export/song | Song complète multi-fichiers |
-| GET  | /pattern | JSON état courant (bpm, steps, voices, events) |
-| POST | /voice/preview | Preview pianoroll sans rechargement voix (idx, pattern) |
-| POST | /voice/pattern | Valide pattern édité (idx, pattern) |
-| POST | /voice/thin | Thinning (name, factor: 1/2/4) |
-| POST | /notes | Remap notes MIDI |
-| POST | /poly | Max polyphonie |
-| GET  | /session/export | Télécharge session JSON |
-| POST | /session/import | Charge session JSON |
-| GET  | /presets | Liste presets |
-| POST | /preset/apply | Applique preset |
-| POST | /preset/save | Sauvegarde preset courant |
-| DELETE | /preset/{name} | Supprime preset |
-| GET  | /download/{filename} | Télécharge MIDI |
-
-## Syntaxe DNA
-
-| Symbole | Nom | Trigger | Velocity | Prob | Ratchet | Jitter |
-|---------|-----|---------|----------|------|---------|--------|
-| \`x\` | Hit | oui | 105 | 100% | ×1 | — |
-| \`-\` | Silence | non | — | — | — | — |
-| \`?\` | Probable | oui | 90 | 50% | ×1 | — |
-| \`↺\` | Ratchet | oui | 110 | 100% | ×3 | — |
-| \`░\` | Ghost | oui | 85 | 100% | ×1 | ±25ms |
-
-## Syntaxe Babka ⚗
-
-| Opérateur | Syntaxe | Comportement |
-|-----------|---------|-------------|
-| \`[ ]\` | \`[a b c]\` | Subdivision dans 1 step |
-| \`< >\` | \`<a b c>\` | Alternance cycle par cycle |
-| \`( )\` | \`x(n,k)\` | Euclidien inline |
-| \`[( )]\` | \`[x(n,k)]\` | Euclidien overlay dans 1 step |
-
-\`\`\`
-x---x---           DNA pur
-[x x]-x-[x x]-x-  subdivisions
-x(3,8)             euclidien
-<x-x- ?-?->        alternance
-\`\`\`
-
-## Modes
-
-| Mode | Description |
-|------|-------------|
-| Morph | DNA morphé + mutation selon chaos |
-| Random | Aléatoire pur |
-| Weather | Densité selon météo Scaër |
-| Markov | Mélodie via chaîne de Markov |
-| Phase 2 | Markov + CC + polyrythmie |
-| Noise ◼ | 8 voix, haute entropie |
-| Ambient ◌ | 3 voix ultra-sparse |
-| Babka ⚗ | Syntaxe Babka |
-| Volca Drum ★ | 6 parts MIDI canal 1–6, P-locks |
-
-## Paramètres
-
-| Paramètre | Plage | Effet |
-|-----------|-------|-------|
-| BPM | 40–300 | Tempo |
-| Steps | 4–128 | Longueur pattern |
-| Chaos | 0–1 | Intensité mutations |
-| Gravity | 0–1 | Gravité Markov |
-| CC Depth | 0–1 | Amplitude drone CC |
-| VEL MIN | 0–126 | Plancher velocity |
-| VEL MAX | 1–127 | Plafond velocity |
-| DYNAMICS | 0.1–4.0 | <1 compresse · 1 linéaire · >1 expand |
-| Poly | 0=∞ | Max voix simultanées |
-
-## Format Session
-
-\`\`\`json
-{
-  "bang_version": "0.3.0",
-  "timestamp": "2026-05-23T10:00:00",
-  "seed": "abc123",
-  "params": { "mode": "babka", "bpm": 120, "steps": 16, "chaos": 0.3 },
-  "voices": [
-    {"note": 36, "pattern": "x---x---", "type": "dna"},
-    {"note": 38, "pattern": "x(3,8)",   "type": "babka"}
-  ],
-  "voice_thin": {},
-  "note_remap": {},
-  "max_poly": 0
-}
-\`\`\`
-`;
-  const blob = new Blob([md], {type: 'text/markdown'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'bang-doc.md';
-  a.click();
-}
-</script>
 
 </body>
 </html>
