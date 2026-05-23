@@ -136,9 +136,12 @@
   <a href="#presets">Presets</a>
   <a href="#tui">Interface</a>
   <a href="#params">Paramètres</a>
+  <a href="#voix">Contrôles par voix</a>
   <a href="#gammes">Gammes</a>
   <a href="#dna">Syntaxe DNA</a>
   <a href="#babka">Syntaxe Babka</a>
+  <a href="#syntaxes">Exemples concrets</a>
+  <a href="#osc">OSC Output</a>
   <a href="#api">API HTTP</a>
   <a href="#session">Session</a>
   <a href="#engine">BangEngine</a>
@@ -260,6 +263,7 @@ Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
   <tr><td><code>volca_fm</code> ⚡</td><td>3 synths</td><td>ch1</td><td>≤16</td><td>Volca FM — polyphonie 3 voix + P-locks FM1</td></tr>
   <tr><td><code>volca_drum</code> ★</td><td>6 parts</td><td>ch1→ch6</td><td>≤16</td><td>Volca Drum — 6 canaux split + P-locks par part</td></tr>
   <tr><td><code>microfreak</code> ◈</td><td>3 synths</td><td>ch1</td><td>≤64</td><td>MicroFreak — paraphonie 3 voix + P-locks MF1</td></tr>
+  <tr><td><code>keystep_pro</code> ♜</td><td>3 drums + 4 Markov</td><td>ch10 + ch1–4</td><td>16</td><td>Arturia Keystep Pro — drums + Lead/Bass/Chord/Arp indépendants</td></tr>
 </table>
 
 <!-- ─── PRESETS ───────────────────────────────────────────────────────────── -->
@@ -306,6 +310,15 @@ Canal 1 · CC5  (portamento) si chaos > 0.35</code></pre>
 <h3>Édition inline</h3>
 <p>Cliquer sur la représentation DNA d'une voix ouvre un champ d'édition. La modification met à jour le pianoroll en temps réel via <code>/voice/preview</code> (debounce 350 ms). <code>Enter</code> valide et sauvegarde, <code>Escape</code> annule.</p>
 
+<h3>Toolbar</h3>
+<table>
+  <tr><th>Bouton</th><th>Action</th></tr>
+  <tr><td><code>↩</code></td><td>Undo — restaure le snapshot précédent (ring buffer 5 états)</td></tr>
+  <tr><td><code>▸A</code> / <code>▸B</code></td><td>Store — sauvegarde l'état dans le slot A ou B</td></tr>
+  <tr><td><code>A●</code> / <code>B●</code></td><td>Load — charge le slot A ou B (● = rempli, ○ = vide)</td></tr>
+  <tr><td><code>OSC ○</code></td><td>Active/désactive l'émission OSC UDP temps réel</td></tr>
+</table>
+
 <h3>Raccourcis clavier</h3>
 <table>
   <tr><th>Touche</th><th>Action</th></tr>
@@ -340,6 +353,49 @@ systemctl start bang        # via systemd</code></pre>
 
 <h3>Thinning de voix (÷2 / ÷4)</h3>
 <p>Réduit la densité d'une voix sans modifier le pattern DNA. <code>÷2</code> garde 1 trigger sur 2, <code>÷4</code> garde 1 sur 4. Appliqué aussi bien au pianoroll qu'à l'export MIDI.</p>
+
+<!-- ─── VOIX ──────────────────────────────────────────────────────────────── -->
+<h2 id="voix">Contrôles par voix</h2>
+<p>Chaque voix dispose de contrôles individuels dans le panneau central, indépendants de la génération globale.</p>
+
+<h3>Lock 🔒</h3>
+<p>Verrouille une voix : elle ne sera <strong>pas régénérée</strong> lors des prochains clics sur Generate. Indiqué par une bordure colorée sur la ligne. Le ring buffer Undo préserve l'état des locks.</p>
+<pre><code>Workflow : fixer le groove kick+snare → 🔒 les deux voix
+           → générer pour varier le hihat et les éléments secondaires</code></pre>
+
+<h3>Densité (0–1)</h3>
+<p>Multiplie la probabilité de déclenchement de chaque step. Appliqué à l'export MIDI et au player. <code>1.0</code> = normal · <code>0.5</code> = moitié des triggers supprimés · <code>0.0</code> = silence.</p>
+
+<h3>Chord mode (voix Markov / KSP)</h3>
+<p>Transforme chaque note en accord par ajout d'intervalles fixes. Appliqué à l'export MIDI et au player JS.</p>
+<table>
+  <tr><th>Type</th><th>Intervalles (demi-tons)</th><th>Couleur</th></tr>
+  <tr><td><code>mono</code></td><td>—</td><td>Note seule</td></tr>
+  <tr><td><code>power</code></td><td>+7</td><td>Quinte — rock, métal</td></tr>
+  <tr><td><code>minor</code></td><td>+3, +7</td><td>Mineur — sombre, expressif</td></tr>
+  <tr><td><code>major</code></td><td>+4, +7</td><td>Majeur — lumineux</td></tr>
+  <tr><td><code>sus2</code></td><td>+2, +7</td><td>Suspendu 2 — aérien, ouvert</td></tr>
+  <tr><td><code>sus4</code></td><td>+5, +7</td><td>Suspendu 4 — tendu, résolution</td></tr>
+  <tr><td><code>m7</code></td><td>+3, +7, +10</td><td>Mineur 7 — jazz, soul</td></tr>
+  <tr><td><code>M7</code></td><td>+4, +7, +11</td><td>Majeur 7 — fusion, romantique</td></tr>
+  <tr><td><code>dom7</code></td><td>+4, +7, +10</td><td>Dominante 7 — blues, tension</td></tr>
+  <tr><td><code>dim</code></td><td>+3, +6</td><td>Diminué — instable, dramatique</td></tr>
+  <tr><td><code>aug</code></td><td>+4, +8</td><td>Augmenté — mystérieux, flottant</td></tr>
+</table>
+
+<h3>Euclidien — bouton E</h3>
+<p>Remplace le DNA d'une voix par un rythme euclidien E(n, k) où n = longueur du pattern courant et k = nombre de hits à saisir. Algorithme Bresenham — distribue k hits aussi uniformément que possible sur n steps.</p>
+<table>
+  <tr><th>E(n, k)</th><th>Pattern (n=16)</th><th>Contexte musical</th></tr>
+  <tr><td>k=2</td><td><code>x-------x-------</code></td><td>Kick minimaliste</td></tr>
+  <tr><td>k=3</td><td><code>x-----x----x----</code></td><td>Kick asymétrique</td></tr>
+  <tr><td>k=4</td><td><code>x---x---x---x---</code></td><td>Four on the floor</td></tr>
+  <tr><td>k=5</td><td><code>x---x--x--x--x--</code></td><td>Clave afro-cubaine approx.</td></tr>
+  <tr><td>k=7</td><td><code>x--x-x-x--x-x-x-</code></td><td>Bol / pattern turc</td></tr>
+  <tr><td>k=8</td><td><code>x-x-x-x-x-x-x-x-</code></td><td>Hi-hat double croche</td></tr>
+  <tr><td>k=3 / n=8</td><td><code>x--x--x-</code></td><td>Afro-cubain classique 3/8</td></tr>
+</table>
+<div class="note">Cliquer <strong>E</strong> sur une voix → saisir k → <strong>Entrée</strong>. Le pattern remplace le DNA existant, le pianoroll se met à jour immédiatement.</div>
 
 <!-- ─── GAMMES ────────────────────────────────────────────────────────────── -->
 <h2 id="gammes">Gammes configurables</h2>
@@ -396,6 +452,158 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
 &lt;[x x]- x--&gt;         → subdivision dans alternance
 &lt;x---x--- x-[x-]x--&gt; → alternance avec complexité croissante</code></pre>
 
+<!-- ─── SYNTAXES ─────────────────────────────────────────────────────────── -->
+<h2 id="syntaxes">Syntaxes — Exemples concrets</h2>
+<p>Référence pratique : patterns prêts à coller dans le champ DNA ou à utiliser comme point de départ.</p>
+
+<h3>Kicks</h3>
+<pre><code>x---x---x---x---    → four on the floor (16 steps)
+x---x---x-x-x---    → kick avec upbeat step 10
+x---x-----------    → kick minimaliste 2 temps
+x-x-----x-x-----    → kick syncopé
+?---x---?---x---    → kick probabiliste — varie à chaque cycle
+x---x---x---x-x-    → kick + double sur la fin</code></pre>
+
+<h3>Snares / Claps</h3>
+<pre><code>----x-------x---    → snare sur 2 et 4 (GM standard)
+--------x-------    → snare minimaliste sur 3
+--?-x--?----x-?-    → snare avec anticipations probabilistes
+----x---?---x---    → snare avec variation
+----x--↺----x---   → snare + ratchet sur 2</code></pre>
+
+<h3>Hi-hats</h3>
+<pre><code>x-x-x-x-x-x-x-x-   → 16ths (double croche)
+x---x---x---x---    → quarts (noire)
+x--x--x--x--x---    → triolets approx.
+x-░-x-░-x-░-x-░-   → 16ths avec ghost notes
+?-?-?-?-?-?-?-?-   → hi-hat aléatoire (chaos source)
+x-x-x-x-?-x-x-x-   → 16ths avec trou probabiliste</code></pre>
+
+<h3>Patterns percussifs complexes</h3>
+<pre><code># Clave 3-2 (16 steps)
+x--x-x--x--x-x--
+
+# Son clave cubain
+x--x--x---x-x---
+
+# Bembe / afro-cubain (12 steps si steps=12)
+x--x-x--x-x-
+
+# Funk
+x---x-x-x---x-x-
+
+# Soca / calypso
+x-x---x-x---x---</code></pre>
+
+<h3>Patterns mélodiques (voix Markov — DNA détermine les silences)</h3>
+<pre><code>x---x---x---x---    → mélodie pulsée, 4 notes
+x-?-x-?-x-?-x-?-   → demi probabiliste — respiration
+x-------x-------    → longues notes (tenues en MIDI)
+?-?--?--?-?--?--    → sparse, flottant
+↺---x-?-↺---x---   → ratchets expressifs
+x-x-?---x-x-?---    → motif répété avec variation</code></pre>
+
+<h3>Babka — subdivision</h3>
+<p>Les crochets <code>[ ]</code> subdivisent un step en n parties égales.</p>
+<pre><code>[x x]-x-[x x]-x-    → kick en 32e sur les 1er et 3ème beats
+[x x x]-------------→ triolet sur le 1er step seulement
+x-[x x]-x-[x x]-    → double sur les temps faibles
+[x -]-x-[x x]-x-    → avec silences dans subdivision
+[x x x x]---x---    → quadruplet + kick simple</code></pre>
+
+<h3>Babka — alternance</h3>
+<p>Les chevrons <code>&lt; &gt;</code> tournent entre alternatives à chaque cycle.</p>
+<pre><code>&lt;x-x- ?-?-&gt;              → alterne un pattern dense et un sparse
+&lt;x---x--- x-x-x-x-&gt;      → alterne groove lent et rapide
+&lt;x--x-x-- x---x---&gt;      → alterne clave et kick simple
+&lt;x--- ----&gt;               → son présent 1 cycle sur 2
+&lt;x-x- x-- x-x-x-&gt;        → rotation 3 variantes</code></pre>
+
+<h3>Babka — euclidien inline</h3>
+<p>La notation <code>x(k,n)</code> distribue k hits sur n steps dans un seul token.</p>
+<pre><code>x(3,8)               → x--x--x-  (3/8, afro-cubain classique)
+x(5,8)               → x-xx-xx-  (5/8, quintolet)
+x(5,16)              → x---x--x--x--x-- (clave)
+x(7,16)              → x--x-x-x--x-x-x- (bol turc)
+↺(2,8)              → 2 ratchets euclidiens sur 8 steps
+?(3,8)               → 3 hits probabilistes euclidiens
+[x(2,3)]--x--        → euclidien compressé dans 1 step</code></pre>
+
+<h3>Babka — combinaisons</h3>
+<pre><code># Groove avec subdivision + alternance
+&lt;[x x]-x-[x x]-x-  x---x---&gt;
+
+# Clave euclidienne + ornement
+x(3,8)-░(2,8)
+
+# Pattern évolutif sur 4 cycles
+&lt;x(3,8)  x(4,8)  x(5,8)  x(7,8)&gt;
+
+# Batterie afro avec alternance et subdivision
+&lt;x--x-x--x--x-x--  [x x]--x-[x x]--x-&gt;</code></pre>
+
+<h3>Recettes par style musical</h3>
+<table>
+  <tr><th>Style</th><th>Kick</th><th>Snare</th><th>Hi-hat</th></tr>
+  <tr><td>House</td><td><code>x---x---x---x---</code></td><td><code>----x-------x---</code></td><td><code>x-x-x-x-x-x-x-x-</code></td></tr>
+  <tr><td>Techno minimal</td><td><code>x---x---x---x---</code></td><td><code>--------x-------</code></td><td><code>x-x-----x-x-----</code></td></tr>
+  <tr><td>Jungle / DnB</td><td><code>x---x-x-----x-x-</code></td><td><code>--x---x---x---x-</code></td><td><code>[x x]x-[x x]x-x-</code></td></tr>
+  <tr><td>Afro-house</td><td><code>x(3,8)--x-------</code></td><td><code>----x--?----x---</code></td><td><code>&lt;x-x-x-x- x(5,8)&gt;</code></td></tr>
+  <tr><td>Ambient</td><td><code>x---------------</code></td><td><code>--------?-------</code></td><td><code>?---?---?---?---</code></td></tr>
+  <tr><td>Noise</td><td><code>?↺?-?-↺?-?-↺?-</code></td><td><code>?-?↺?-?-?-?↺?-</code></td><td><code>&lt;x(7,16) x(5,16)&gt;</code></td></tr>
+</table>
+
+<!-- ─── OSC ──────────────────────────────────────────────────────────────── -->
+<h2 id="osc">OSC Output</h2>
+<p>BANG émet des messages OSC en UDP en temps réel, synchronisés au BPM du pattern courant. Activer via <code>OSC ○</code> dans le toolbar → modal config → Start.</p>
+
+<h3>Format des messages</h3>
+<table>
+  <tr><th>Message</th><th>Arguments</th><th>Description</th></tr>
+  <tr><td><code>/bang/clock</code></td><td><code>[step, total_steps]</code></td><td>Émis à chaque step du pattern</td></tr>
+  <tr><td><code>/bang/{NomVoix}</code></td><td><code>[step, velocity, note]</code></td><td>Par trigger, par voix qui sonne ce step</td></tr>
+</table>
+<p><code>NomVoix</code> = label de la voix (<code>Kick</code>, <code>Snare</code>, <code>HH</code>, <code>Markov</code>, <code>KSP Lead</code>…). Défaut : <code>127.0.0.1:57120</code>.</p>
+
+<h3>SuperCollider</h3>
+<pre><code>// Écouter le clock global
+OSCdef(\bangClock, { |msg|
+    var step = msg[1], total = msg[2];
+    if (step == 0) { "--- new cycle ---".postln };
+    step.postln;
+}, '/bang/clock');
+
+// Déclencher un synthé sur le Kick
+OSCdef(\bangKick, { |msg|
+    var step = msg[1], vel = msg[2], note = msg[3];
+    Synth(\bd, [\amp, vel / 127, \freq, note.midicps]);
+}, '/bang/Kick');
+
+// Mélodie Markov → synthé mélodique
+OSCdef(\bangMarkov, { |msg|
+    var vel = msg[2], note = msg[3];
+    Synth(\blip, [\freq, note.midicps, \amp, vel / 127]);
+}, '/bang/Markov');</code></pre>
+
+<h3>Max/MSP</h3>
+<pre><code>// Objet principal
+[udpreceive 57120]
+       |
+[route /bang/clock /bang/Kick /bang/Markov]
+  |          |              |
+[unpack]  [unpack]      [unpack]
+[print]   [mtof]        [mtof]
+           |              |
+         [cycle~]       [saw~]</code></pre>
+
+<h3>TouchDesigner</h3>
+<pre><code>// OSC In DAT — port 57120
+// Filter: /bang/*
+// Columns: address, step, velocity, note
+// Mapper vers Chops via Script DAT ou Table DAT</code></pre>
+
+<div class="note">Les voix Babka sont <strong>exclues</strong> de l'OSC (timing fractionnel incompatible avec le tick step-par-step). Les notes Markov sont régénérées au début de chaque cycle (step 0) — elles évoluent au fil du temps.</div>
+
 <!-- ─── API ──────────────────────────────────────────────────────────────── -->
 <h2 id="api">API HTTP</h2>
 <p>Les réponses HTMX retournent du HTML. Les endpoints sans HTMX retournent <code>application/json</code>.</p>
@@ -417,6 +625,15 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/preview</code></td><td>Preview pianoroll sans rechargement voix. Params : <code>idx, pattern</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/pattern</code></td><td>Valide un pattern modifié. Params : <code>idx, pattern</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/thin</code></td><td>Thinning ×1/÷2/÷4. Params : <code>name, factor</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/chord</code></td><td>Type d'accord voix Markov/KSP. Params : <code>name, chord_type</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/density</code></td><td>Densité 0–1 par voix. Params : <code>name, density</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/voice/euclidean</code></td><td>Applique E(n,k) sur une voix. Params : <code>idx, k</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/lock_voice</code></td><td>Toggle lock voix. Param : <code>idx</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/undo</code></td><td>Restaure snapshot précédent (ring buffer 5)</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/ab/store</code></td><td>Sauvegarde état dans slot. Param : <code>slot=a|b</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/ab/load</code></td><td>Charge slot. Param : <code>slot=a|b</code></td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/osc/toggle</code></td><td>Active/désactive l'émission OSC</td></tr>
+  <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/osc/config</code></td><td>Configure OSC. Params : <code>host, port</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/notes</code></td><td>Remap notes MIDI. Form : <code>remap_{name}=&lt;0-127&gt;</code></td></tr>
   <tr><td><span class="method-post">POST</span></td><td><code class="endpoint-path">/poly</code></td><td>Max voix simultanées. Param : <code>max_poly</code> (0 = infini)</td></tr>
 </table>
@@ -494,6 +711,7 @@ x(3,8)               → 3 hits euclidiens sur 8 steps
   <tr><td><code>vd{N}</code></td><td>ch{N+1}</td><td>Volca Drum part N (0–5)</td></tr>
   <tr><td><code>vfm{N}</code></td><td>ch1</td><td>Volca FM voix N (0–2) — polyphonique</td></tr>
   <tr><td><code>mf{N}</code></td><td>ch1</td><td>MicroFreak voix N (0–2) — paraphonique</td></tr>
+  <tr><td><code>ksp{N}</code></td><td>ch{N} (1–4)</td><td>Keystep Pro piste N — Markov, registre différencié (Lead/Bass/Chord/Arp)</td></tr>
 </table>
 
 <!-- ─── ENGINE ────────────────────────────────────────────────────────────── -->
@@ -518,7 +736,10 @@ e.add_babka_voice(38, "x(3,8)")                     # euclidien
 e.add_babka_voice(36, "&lt;x-[x x]- [x x]--&gt;")        # alternance + subdivision
 e.add_cc_drone(control=74, breakpoints=[20,100,20]) # automation filtre
 
-e.export_midi(num_steps=64, filename="out.mid", swing=0.3, seed="abc123")</code></pre>
+e.export_midi(
+    num_steps=64, filename="out.mid", swing=0.3, seed="abc123",
+    voice_chords={"markov-ch1": "minor", "markov-ch2": "power"},
+)</code></pre>
 
 <div class="btn-row" style="margin-top:2rem">
   <button onclick="window.print()">🖨 Exporter PDF</button>
