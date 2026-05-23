@@ -9,6 +9,7 @@ import time
 from bang_engine import (
     BangEngine,
     MarkovChain,
+    bass_chain,
     dark_chain,
     fetch_weather,
     morph_dna,
@@ -216,14 +217,29 @@ class MidiController:
 def _markov_from_gravity(gravity: float) -> MarkovChain:
     """
     Interpole entre transitions uniformes (gravity=0) et dark_chain() (gravity=1).
-    Permet de doser la gravité vers les graves sans reconstruire la matrice à la main.
     """
     base = dark_chain()
     if gravity >= 0.98:
         return base
-    notes  = base.notes
+    notes   = base.notes
     uniform = 1.0 / len(notes)
-    matrix = {
+    matrix  = {
+        note: {m: base.matrix[note][m] * gravity + uniform * (1 - gravity) for m in notes}
+        for note in notes
+    }
+    return MarkovChain(notes, matrix)
+
+
+def _bass_chain_from_gravity(gravity: float) -> MarkovChain:
+    """
+    Interpole entre transitions uniformes (gravity=0) et bass_chain() (gravity=1).
+    """
+    base = bass_chain()
+    if gravity >= 0.98:
+        return base
+    notes   = base.notes
+    uniform = 1.0 / len(notes)
+    matrix  = {
         note: {m: base.matrix[note][m] * gravity + uniform * (1 - gravity) for m in notes}
         for note in notes
     }

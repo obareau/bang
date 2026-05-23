@@ -32,7 +32,7 @@ from bang_engine import (
     weather_cc_breakpoints,
     weather_dna,
 )
-from cli import _markov_from_gravity
+from cli import _bass_chain_from_gravity, _markov_from_gravity
 import babka as _babka
 
 # ---------------------------------------------------------------------------
@@ -360,6 +360,10 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             idx   = int(vtype[2:])
             color = _VD_PART_COLORS[idx]
             name  = _VD_PART_NAMES[idx]
+        elif vtype == "bl":
+            bl_idx = sum(1 for r in rows if r.get("vtype") == "bl")
+            color  = "#a78bfa"
+            name   = "Bass ♩" if bl_idx == 0 else f"Bass {bl_idx + 1} ♩"
         else:
             color = _NOTE_COLOR.get(note, "#94a3b8")
             name  = _NOTE_NAMES.get(note, f"n{note}")
@@ -370,6 +374,7 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             "dna_len": dna_len, "color": color,
             "boundaries": boundaries,
             "plocks": voice_plocks,
+            "vtype": vtype,
         })
     return rows
 
@@ -546,6 +551,28 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
                 (24, "<↺(2,8) ░(3,8)>",               "babka"),
             ]
 
+    if mode == "bassline":
+        # Patterns rythmiques selon chaos — groove syncopé, tension variable
+        if chaos < 0.30:
+            trig_a = "x---x---"
+            trig_b = "x-------x-------"
+        elif chaos < 0.55:
+            trig_a = mutate_dna("x---x-x-", intensity=chaos * 0.5)
+            trig_b = mutate_dna("x-------x--x----", intensity=chaos * 0.3)
+        else:
+            trig_a = mutate_dna("x-x--x-?", intensity=chaos * 0.55)
+            trig_b = mutate_dna("?--x-x--x---?---", intensity=chaos * 0.45)
+        cc_peak = int(20 + p["cc_depth"] * 80)
+        voices = [
+            (33, trig_a, "bl"),   # A1 — ligne principale
+            (33, trig_b, "bl"),   # A1 — contre-rythme
+            (0, f"CC74 → 20…{cc_peak}…20", "cc"),
+        ]
+        if chaos > 0.35:
+            port_peak = int(chaos * 60)
+            voices.append((0, f"CC5 portamento ↗{port_peak}", "cc"))
+        return voices
+
     if mode == "volca_drum":
         # 6 parts, chacun sur son canal MIDI (ch 1→6 = index 0→5)
         # Note indifférente (on envoie 60/C3) — seul le canal compte
@@ -577,6 +604,8 @@ def _voice_label(note: int, vtype: str) -> str:
         return _VD_PART_NAMES[int(vtype[2:])]
     if vtype == "babka":
         return _NOTE_NAMES.get(note, f"n{note}") + " ⚗"
+    if vtype == "bl":
+        return "Bass ♩"
     return _NOTE_NAMES.get(note, f"n{note}")
 
 
@@ -585,7 +614,7 @@ def _apply_note_remap(voices: list) -> list:
     if not remap:
         return voices
     return [
-        (n if vtype.startswith("vd") else remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
+        (n if (vtype.startswith("vd") or vtype == "bl") else remap.get(_NOTE_NAMES.get(n, f"n{n}"), n), dna, vtype)
         for n, dna, vtype in voices
     ]
 
@@ -602,6 +631,7 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
     breakpoints = [20, cc_peak, cc_peak, int((20 + cc_peak) / 2), 20]
     kick_done   = False
 
+    bl_chain = None
     for note, dna, vtype in voices:
         if vtype == "cc":
             continue
@@ -611,6 +641,10 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
             engine.add_voice(note, dna, channel=int(vtype[2:]))
         elif vtype == "markov":
             engine.add_markov_voice(chain, trigger_dna=dna)
+        elif vtype == "bl":
+            if bl_chain is None:
+                bl_chain = _bass_chain_from_gravity(p["gravity"])
+            engine.add_markov_voice(bl_chain, trigger_dna=dna)
         elif p["mode"] == "phase2" and note == 36 and not kick_done:
             engine.add_voice(note, [dna, mutate_dna("x---x--x", intensity=p["chaos"] * 0.8)])
             kick_done = True
@@ -622,6 +656,12 @@ def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
         if p["mode"] == "phase2" and _state["weather"]:
             bps = weather_cc_breakpoints(_state["weather"], num_points=7)
             engine.add_cc_drone(control=91, breakpoints=list(reversed(bps)))
+
+    if p["mode"] == "bassline":
+        engine.add_cc_drone(control=74, breakpoints=breakpoints)
+        if p["chaos"] > 0.35:
+            port_peak = int(p["chaos"] * 60)
+            engine.add_cc_drone(control=5, breakpoints=[0, port_peak, port_peak // 2, 0])
 
     return engine
 
@@ -642,6 +682,8 @@ def _read_form(
     _steps = max(1, int(steps))
     if mode == "volca_drum":
         _steps = min(_steps, 16)
+    elif mode == "bassline" and _steps > 128:
+        _steps = 128
     return {
         "mode":        mode,
         "chaos":       max(0.0, min(1.0, float(chaos))),
@@ -1144,6 +1186,9 @@ async def get_pattern():
         if vtype.startswith("vd"):
             channel = int(vtype[2:])
             name    = _VD_PART_NAMES[channel]
+        elif vtype == "bl":
+            channel = 0   # MIDI ch1 — bass sur canal mélodique
+            name    = "Bass ♩"
         else:
             channel = 9
             name    = _NOTE_NAMES.get(note, f"n{note}")
