@@ -171,22 +171,38 @@
       padding: 4px 0;
       border-bottom: 1px solid var(--border);
     }
-    .vr-controls {
-      display: flex;
-      align-items: center;
-      gap: .35rem;
-      flex-wrap: nowrap;
-    }
-    .vr-controls .note   { color: var(--accent); width: 2.4rem; font-weight: bold; font-size: 12px; flex-shrink: 0; }
-    .vr-controls .name   { color: var(--text); font-size: 11px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .vr-controls .tag    { font-size: 10px; color: var(--muted); flex-shrink: 0; }
-    .vr-controls .tag.cc     { color: var(--muted); }
-    .vr-controls .tag.babka  { color: var(--accent); opacity: .7; }
-    .vr-controls .tag.bl     { color: #a78bfa; opacity: .85; }
-    .vr-controls .tag.vk     { color: #f97316; opacity: .85; }
-    .vr-controls .tag.vfm    { color: #60a5fa; opacity: .85; }
-    .vr-controls .tag.mf     { color: #e879f9; opacity: .85; }
-    .vr-controls .tag.ksp    { color: #c084fc; opacity: .85; }
+    /* Voice header (remplace .vr-controls) */
+    .vr-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .vr-hl { display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0; flex-wrap: nowrap; }
+    .vr-hr { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .vr-name { color: var(--text); font-size: 11px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vr-hl .note { color: var(--accent); font-weight: bold; font-size: 12px; flex-shrink: 0; }
+
+    /* Tag pills */
+    .tag-pill { font-size: 8px; padding: 0 4px; border-radius: 8px; font-weight: 700; letter-spacing: .04em; line-height: 15px; flex-shrink: 0; }
+    .tag-pill.markov { background: #1e1630; color: #a78bfa; border: 1px solid #4c2fa0; }
+    .tag-pill.cc     { background: #1e2030; color: #64748b; border: 1px solid #334155; }
+    .tag-pill.babka  { background: #1a2e20; color: #4ade80; border: 1px solid #166534; }
+    .tag-pill.bl     { background: #1e1a30; color: #c084fc; border: 1px solid #6b21a8; }
+    .tag-pill.vk     { background: #2d1b0e; color: #f97316; border: 1px solid #9a3412; }
+    .tag-pill.vfm    { background: #1c2020; color: #34d399; border: 1px solid #065f46; }
+    .tag-pill.mf     { background: #1e1e2e; color: #e879f9; border: 1px solid #86198f; }
+    .tag-pill.ksp    { background: #2a1f10; color: #fbbf24; border: 1px solid #92400e; }
+
+    /* Expand button */
+    .btn-expand { font-size: 10px; padding: 1px 4px; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 3px; cursor: pointer; flex-shrink: 0; transition: color .1s, transform .15s; }
+    .btn-expand:hover { color: var(--text); border-color: var(--border); }
+    .btn-expand.active { color: var(--accent); transform: rotate(180deg); }
+
+    /* Expand panel + tabs */
+    .vr-expand { border-top: 1px solid var(--border); padding-top: 4px; margin-top: 2px; }
+    .vr-tabs { display: flex; gap: 2px; margin-bottom: 4px; }
+    .vr-tab { font-size: 9px; padding: 1px 7px; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 3px; cursor: pointer; letter-spacing: .06em; }
+    .vr-tab:hover { color: var(--text); border-color: var(--border); }
+    .vr-tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+    .ops-row { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-bottom: 3px; }
+    .mod-label { font-size: 9px; color: var(--muted); letter-spacing: .05em; }
+
     .vr-pattern { width: 100%; }
 
     /* DNA/Babka display coloré — click pour éditer */
@@ -281,17 +297,32 @@
     .btn-thin:hover  { color: var(--text); border-color: var(--muted); }
     .btn-thin.active { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
 
-    /* Density slider per voice */
+    /* Density slider per voice — barre pleine largeur */
     .density-slider {
-      width: 52px;
+      display: block;
+      width: 100%;
       height: 3px;
       cursor: pointer;
-      flex-shrink: 0;
       accent-color: var(--accent);
-      opacity: .5;
+      opacity: .3;
       transition: opacity .15s;
+      margin: 1px 0;
     }
-    .density-slider:hover { opacity: 1; }
+    .density-slider:hover { opacity: .9; }
+
+    /* Mute / Solo per voice */
+    .btn-mute, .btn-solo {
+      font-size: 10px; padding: 1px 5px; line-height: 1.4;
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 3px; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .btn-mute.active { background: #3a0000; color: #f66; border-color: #f66; }
+    .btn-solo.active { background: #2a1a00; color: #fc0; border-color: #fc0; }
+    .voice-row.v-muted .vr-pattern { opacity: 0.2; }
+    .voice-row.v-muted .vr-header  { opacity: 0.4; }
+    .voice-row.v-muted .btn-mute,
+    .voice-row.v-muted .btn-solo   { opacity: 1; }
 
     /* Voice lock button */
     .btn-lock {
@@ -348,6 +379,214 @@
     }
     .euclid-k:focus { outline: none; }
 
+    /* Polymetry per-voice */
+    .steps-wrap { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .btn-steps {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-steps:hover { color: var(--text); border-color: var(--muted); }
+    .btn-steps.active { color: var(--primary); border-color: var(--primary); }
+    .steps-n {
+      width: 38px;
+      font-size: 10px;
+      padding: 1px 3px;
+      background: var(--bg2);
+      color: var(--fg);
+      border: 1px solid var(--primary);
+      border-radius: 3px;
+      text-align: center;
+    }
+    .steps-n:focus { outline: none; }
+
+    /* Phase offset per voice */
+    .offset-wrap { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .btn-offset {
+      font-size: 10px;
+      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-offset:hover { color: var(--text); border-color: var(--muted); }
+    .btn-offset.active { color: var(--primary); border-color: var(--primary); }
+    .offset-n {
+      width: 38px;
+      font-size: 10px;
+      padding: 1px 3px;
+      background: var(--bg2);
+      color: var(--fg);
+      border: 1px solid var(--primary);
+      border-radius: 3px;
+      text-align: center;
+    }
+    .offset-n:focus { outline: none; }
+
+    /* LFO per-voice */
+    .lfo-wrap { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .btn-lfo {
+      font-size: 9px; padding: 1px 4px; line-height: 1.4;
+      background: transparent; color: var(--muted);
+      border: 1px solid transparent; border-radius: 3px; cursor: pointer;
+      transition: color .1s, border-color .1s;
+    }
+    .btn-lfo:hover { color: var(--text); border-color: var(--border); }
+    .btn-lfo.active { color: #a78bfa; border-color: #a78bfa; background: #1e1730; }
+    .lfo-config { display: inline-flex; align-items: center; gap: 2px; }
+    .lfo-shape, .lfo-target, .lfo-freq {
+      font-size: 9px; padding: 0 2px; height: 16px;
+      background: var(--bg2); color: var(--fg);
+      border: 1px solid var(--border); border-radius: 2px; cursor: pointer;
+    }
+    .lfo-depth { width: 40px; height: 14px; accent-color: #a78bfa; cursor: pointer; }
+    .btn-lfo-off {
+      font-size: 9px; padding: 0 3px; line-height: 1.4;
+      background: transparent; color: var(--muted);
+      border: 1px solid transparent; border-radius: 3px; cursor: pointer;
+    }
+    .btn-lfo-off:hover { color: #f87171; border-color: #f87171; }
+
+    .dna-ops { display: inline-flex; gap: 2px; }
+    .btn-dna-rot, .btn-dna-rev {
+      font-size: 11px;
+      padding: 1px 5px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-dna-rot:hover, .btn-dna-rev:hover { color: var(--text); border-color: var(--muted); }
+    .btn-dna-rev { color: var(--accent); }
+    .btn-dna-rev:hover { border-color: var(--accent); }
+    .btn-dna-sz {
+      font-size: 10px;
+      padding: 1px 4px;
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .btn-dna-sz:hover { color: var(--text); border-color: var(--muted); }
+    .drop-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      font-size: 10px;
+      color: var(--muted);
+      cursor: default;
+    }
+    .drop-label.active { color: var(--primary); }
+    .drop-pct {
+      width: 30px;
+      font-size: 10px;
+      padding: 1px 2px;
+      background: var(--bg2);
+      color: inherit;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      text-align: center;
+    }
+    .drop-pct:focus { outline: none; border-color: var(--primary); }
+
+    /* Séquenceur de presets */
+    #seq-panel { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: .35rem .8rem; }
+    #seq-panel.open { display: flex; align-items: center; }
+    .seq-inner { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+    .seq-label { font-size: 11px; color: var(--muted); font-weight: bold; letter-spacing: .05em; }
+    .seq-slots { display: flex; gap: 3px; }
+    .seq-slot-wrap { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .btn-seq-slot {
+      width: 24px; height: 24px;
+      border: 1px solid var(--border);
+      background: var(--bg2); color: var(--muted);
+      border-radius: 4px; font-size: 11px; cursor: pointer;
+    }
+    .btn-seq-slot:hover { border-color: var(--text); color: var(--text); }
+    .btn-seq-slot.saved { border-color: var(--primary); color: var(--primary); background: var(--surface); }
+    .btn-seq-slot.saved.current { background: var(--primary); color: #000; }
+    .seq-slot-actions { display: flex; gap: 1px; }
+    .btn-seq-save { font-size: 9px; padding: 0 2px; background: none; border: none; color: var(--muted); cursor: pointer; line-height: 1; }
+    .btn-seq-save:hover { color: var(--primary); }
+    .btn-seq-clear { font-size: 9px; padding: 0 2px; background: none; border: none; color: var(--muted); cursor: pointer; line-height: 1; }
+    .btn-seq-clear:hover { color: #f55; }
+    .btn-seq-slot:disabled { opacity: 0.25; cursor: default; }
+    .seq-controls { display: flex; align-items: center; gap: .4rem; }
+    .seq-cycles-n { width: 34px; font-size: 11px; padding: 2px 3px; background: var(--bg2); color: var(--fg); border: 1px solid var(--border); border-radius: 3px; text-align: center; }
+    .seq-cycles-label { font-size: 11px; color: var(--muted); }
+    .btn-seq-auto { font-size: 11px; padding: 2px 8px; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+    .btn-seq-auto.active { background: var(--success); color: #000; border-color: var(--success); }
+    .seq-weight-inp { width: 16px; font-size: 9px; padding: 0 1px; text-align: center; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--muted); }
+    .seq-weight-inp:focus { outline: none; color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Morph */
+    .seq-morph { display: flex; align-items: center; gap: 4px; padding: 4px 0 2px; border-top: 1px solid var(--border); margin-top: 4px; flex-wrap: nowrap; }
+    .seq-morph-label { font-size: 9px; color: var(--muted); letter-spacing: .08em; flex-shrink: 0; }
+    .seq-morph-arrow { font-size: 10px; color: var(--muted); }
+    .morph-slot-sel { font-size: 9px; padding: 0 2px; height: 16px; background: var(--bg2); color: var(--fg); border: 1px solid var(--border); border-radius: 2px; width: 42px; }
+    .morph-cycles-inp { width: 26px; font-size: 9px; padding: 0 2px; text-align: center; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--muted); }
+    .morph-cycles-inp:focus { outline: none; color: var(--accent); border-bottom-color: var(--accent); }
+    .btn-morph-start { font-size: 9px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; flex-shrink: 0; }
+    .btn-morph-start:hover { color: var(--text); border-color: var(--muted); }
+
+    /* OSC Panel */
+    #osc-panel { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: .35rem .8rem .4rem; }
+    #osc-panel.open { display: flex; flex-direction: column; gap: .3rem; }
+    .osc-row { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+    .osc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .3s; }
+    .osc-dot.active { background: #4f8; animation: osc-blink 1.4s ease-in-out infinite; }
+    @keyframes osc-blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+    .osc-field { display: flex; flex-direction: column; gap: 1px; }
+    .osc-field label { font-size: 8px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .osc-field input { font-size: 11px; padding: 2px 4px; height: 22px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); }
+    .osc-host-inp { width: 120px; }
+    .osc-port-inp { width: 52px; }
+    .btn-osc-connect { font-size: 11px; padding: 0 10px; height: 22px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg2); color: var(--muted); cursor: pointer; flex-shrink: 0; }
+    .btn-osc-connect:hover { border-color: var(--text); color: var(--text); }
+    .btn-osc-connect.active { background: #052; color: #4f8; border-color: #4f8; }
+    .osc-vsep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; margin: 0 3px; }
+    .osc-dl { display: flex; gap: 3px; align-items: center; }
+    .osc-dl-label { font-size: 9px; color: var(--muted); white-space: nowrap; }
+    .osc-dl a { font-size: 10px; padding: 2px 8px; height: 20px; display: inline-flex; align-items: center; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; text-decoration: none; }
+    .osc-dl a:hover { color: var(--text); border-color: var(--text); }
+    .osc-ref { font-size: 9px; color: var(--muted); line-height: 1.6; font-family: 'JetBrains Mono','Fira Code',monospace; }
+    .btn-morph-start.active { color: #fb923c; border-color: #fb923c; background: #1c1008; }
+    .morph-progress-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; min-width: 30px; }
+    .morph-progress-fill { height: 100%; width: 0%; background: #fb923c; border-radius: 2px; transition: width .2s; }
+
+    /* DNA grid editor */
+    .dna-editor-wrap { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+    .dna-grid { display: flex; gap: 1px; flex-wrap: nowrap; padding: 2px 0 0; min-height: 0; }
+    .dna-cell { font-size: 10px; width: 12px; height: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid transparent; border-radius: 2px; user-select: none; flex-shrink: 0; }
+    .dna-cell:hover { border-color: var(--border); background: var(--accent-dim); }
+    .dna-cell.dx { color: var(--accent); font-weight: bold; }
+    .dna-cell.dd { color: var(--accent); opacity: .35; }
+    .dna-cell.dq { color: var(--accent); opacity: .78; font-weight: bold; }
+    .dna-cell.dr { color: var(--accent); font-weight: bold; }
+    .dna-cell.db { color: var(--accent); opacity: .55; font-weight: bold; }
+
+    /* Velocity lane */
+    .vel-lane { display: flex; gap: 1px; align-items: flex-end; height: 20px; flex-wrap: nowrap; cursor: ns-resize; touch-action: none; }
+    .vel-bar { width: 12px; flex-shrink: 0; background: var(--accent); border-radius: 1px 1px 0 0; min-height: 1px; transition: height .05s; }
+    .vel-lane.active .vel-bar { transition: none; }
+
+    /* Probability lane */
+    .prob-lane { display: flex; gap: 1px; align-items: flex-end; height: 14px; flex-wrap: nowrap; cursor: ns-resize; touch-action: none; margin-top: 1px; }
+    .prob-bar { width: 12px; flex-shrink: 0; background: #4ecdc4; border-radius: 1px 1px 0 0; min-height: 1px; transition: height .05s; }
+    .prob-lane.active .prob-bar { transition: none; }
+
     /* D.I.M legend (inline dans bottom-bar) */
     .dim-item { color: var(--muted); display: flex; align-items: center; gap: .25rem; font-size: 11px; }
     .dim-item .dx { color: var(--dx); font-weight: bold; }
@@ -359,6 +598,12 @@
     /* MIDI Player */
     .btn-play { background: var(--primary); color: #0f172a; min-width: 90px; height: 26px; padding: 0 10px; font-size: 12px; }
     .btn-play.playing { background: #f87171; color: #fff; }
+    .btn-synth { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 7px; font-size: 13px; border-radius: 3px; cursor: pointer; }
+    .btn-synth:hover { color: var(--text); }
+    .btn-synth.active { background: #042; color: #4fc; border-color: #4fc; }
+    .btn-rec { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 9px; font-size: 12px; border-radius: 3px; cursor: pointer; }
+    .btn-rec:hover { color: var(--text); border-color: var(--muted); }
+    .btn-rec.recording { background: #3a0000; color: #f55; border-color: #f55; animation: rec-pulse 0.8s ease-in-out infinite; }
 
     /* Piano-roll panel (right side of #main) */
     #pianoroll-panel {
@@ -393,14 +638,16 @@
       flex: 1;
       overflow: auto;
       padding: .5rem 1rem;
+      transition: opacity 0.15s ease;
     }
+    #voices { transition: opacity 0.15s ease; }
 
-    /* Top bar */
+    /* Top bar — 2 lignes : params / actions */
     #top-bar {
       display: flex;
-      align-items: flex-end;
-      gap: .4rem;
-      padding: .4rem .8rem;
+      align-items: flex-start;
+      gap: .2rem;
+      padding: .2rem .5rem .15rem;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
@@ -408,56 +655,70 @@
     }
     #params {
       display: flex;
-      align-items: flex-end;
-      gap: .35rem;
+      align-items: center;
+      gap: .2rem;
       flex-wrap: wrap;
-      flex: 1;
+      flex-basis: 100%;
       min-width: 0;
     }
     .tb-group {
       display: flex;
-      flex-direction: column;
-      gap: 1px;
+      flex-direction: row;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
     }
     .tb-group label {
-      font-size: 9px;
+      font-size: 8px;
       color: var(--muted);
-      letter-spacing: .07em;
+      letter-spacing: .05em;
       white-space: nowrap;
       margin: 0;
+      flex-shrink: 0;
     }
-    .tb-group input[type=number], .tb-group select {
+    .tb-group input[type=number], .tb-group input[type=text], .tb-group select {
       width: auto;
-      padding: 3px 5px;
-      font-size: 12px;
-      height: 26px;
+      padding: 1px 3px;
+      font-size: 11px;
+      height: 22px;
     }
-    .tb-w-xs  { width: 46px !important; }
-    .tb-w-sm  { width: 56px !important; }
-    .tb-w-md  { width: 110px !important; }
-    .tb-w-lg  { width: 170px !important; }
+    .tb-w-xs  { width: 38px !important; }
+    .tb-w-sm  { width: 46px !important; }
+    #tap-btn  { font-size: 10px; padding: 1px 4px; height: 22px; letter-spacing: .03em; }
+    #tap-btn.active { color: var(--accent); border-color: var(--accent); }
+    #sync-btn { font-size: 10px; padding: 1px 4px; height: 22px; letter-spacing: .03em; }
+    #sync-btn.active { color: var(--accent); border-color: var(--accent); }
+    #sync-btn.beat   { background: var(--accent-dim); }
+    .btn-vary-voice { font-size: 13px; padding: 0 5px; color: var(--muted); border-color: transparent;
+                      background: none; cursor: pointer; line-height: 1; height: 20px; }
+    .btn-vary-voice:hover { color: var(--accent); border-color: var(--border); }
+    .tb-w-md  { width: 88px !important; }
+    .tb-w-lg  { width: 130px !important; }
     .tb-vel   { display: flex; gap: 2px; }
-    .tb-vel input { width: 42px !important; }
-    .tb-check { display: flex; align-items: center; gap: .3rem; height: 26px; }
+    .tb-vel input { width: 34px !important; }
+    .tb-check { display: flex; align-items: center; gap: .25rem; height: 22px; }
+    .tb-sep   { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
     #tb-actions {
       display: flex;
-      align-items: flex-end;
-      gap: .3rem;
+      align-items: center;
+      gap: .2rem;
       flex-wrap: wrap;
-      flex-shrink: 0;
-      padding-bottom: 0;
+      flex-basis: 100%;
+      border-top: 1px solid var(--border);
+      padding-top: .15rem;
+      margin-top: .05rem;
     }
     #tb-actions > button, #tb-actions > a, #tb-actions > form > button {
-      height: 26px;
-      padding: 0 9px;
+      height: 22px;
+      padding: 0 7px;
       font-size: 11px;
       display: inline-flex;
       align-items: center;
     }
-    #tb-actions .btn-gen  { height: 26px; font-size: 12px; padding: 0 12px; }
-    #tb-actions .btn-undo { color: var(--muted); opacity: .7; }
+    #tb-actions .btn-gen  { height: 22px; font-size: 12px; padding: 0 10px; }
+    #tb-actions .btn-undo { color: var(--muted); opacity: .7; background: transparent; border: none; }
     #tb-actions .btn-undo:hover { opacity: 1; color: var(--text); }
-    #tb-actions .btn-vary { color: var(--success); opacity: .75; }
+    #tb-actions .btn-vary { color: var(--success); opacity: .75; background: transparent; border: none; }
     #tb-actions .btn-vary:hover { opacity: 1; }
     .btn-ab { font-size: 10px; padding: 1px 6px; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
     .btn-ab:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
@@ -581,6 +842,24 @@
     .log-seed { color: var(--muted); font-size: 11px; }
     .log-tag  { font-size: 10px; background: var(--border); padding: 1px 5px; border-radius: 3px; }
     .log-err  { color: #f87171; }
+    /* MIDI serveur */
+    .btn-midi-srv { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; border-radius: 3px; cursor: pointer; }
+    .btn-midi-srv:hover { color: var(--text); border-color: var(--text); }
+    .btn-midi-srv.active { background: #052; color: #4f8; border-color: #4f8; }
+    #midi-srv-panel { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: .35rem .8rem .4rem; }
+    #midi-srv-panel.open { display: flex; flex-direction: column; gap: .3rem; }
+    .msrv-row { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+    .msrv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+    .msrv-dot.active { background: #4f8; animation: osc-blink 1.4s ease-in-out infinite; }
+    .msrv-field { display: flex; flex-direction: column; gap: 1px; }
+    .msrv-field label { font-size: 8px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+    .msrv-field select, .msrv-field input { font-size: 11px; padding: 2px 4px; height: 22px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); }
+    .msrv-port-sel { min-width: 200px; max-width: 320px; }
+    .msrv-ch-inp { width: 40px; }
+    .btn-msrv-connect { font-size: 11px; padding: 0 10px; height: 22px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg2); color: var(--muted); cursor: pointer; flex-shrink: 0; }
+    .btn-msrv-connect:hover { border-color: var(--text); color: var(--text); }
+    .btn-msrv-connect.active { background: #052; color: #4f8; border-color: #4f8; }
+    .msrv-hint { font-size: 9px; color: var(--muted); line-height: 1.5; }
     /* MIDI log */
     .ml { font-size: 11px; font-family: 'Courier New', monospace; padding: 1px 0;
           border-bottom: 1px solid var(--border); display: flex; gap: .6rem; align-items: baseline; }
@@ -603,7 +882,35 @@
     .btn-osc { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; }
     .btn-osc:hover { color: var(--text); border-color: var(--border); }
     .btn-osc.active { background: #052; color: #4f8; border-color: #4f8; }
-    #export-modal, #song-modal, #archive-modal, #osc-modal {
+    .btn-clip-dl {
+      font-size: 10px; padding: 1px 4px; line-height: 1.4;
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 3px;
+      cursor: grab; text-decoration: none; display: inline-block;
+    }
+    .btn-clip-dl:hover { color: var(--primary); border-color: var(--primary); }
+    .btn-midi-top { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; border-radius: 3px; cursor: pointer; }
+    .btn-midi-top:hover { color: var(--text); border-color: var(--border); }
+    .btn-midi-top.armed { background: #320; color: #f84; border-color: #f84; }
+    .btn-midi-rec {
+      font-size: 10px; padding: 1px 4px;
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 3px; cursor: pointer; line-height: 1.4;
+    }
+    .btn-midi-rec:hover { color: var(--text); border-color: var(--muted); }
+    .btn-midi-rec.recording { color: #f55; border-color: #f55; animation: rec-pulse 0.5s ease-in-out infinite; }
+    @keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .btn-copy-dna, .btn-paste-dna {
+      font-size: 10px; padding: 1px 4px; line-height: 1.4;
+      background: transparent; color: var(--muted);
+      border: 1px solid transparent; border-radius: 3px; cursor: pointer; flex-shrink: 0;
+      transition: color .1s, border-color .1s;
+    }
+    .btn-copy-dna:hover  { color: var(--text); border-color: var(--border); }
+    .btn-copy-dna.flash  { color: var(--primary); border-color: var(--primary); }
+    .btn-paste-dna:hover { color: var(--text); border-color: var(--border); }
+    .btn-paste-dna:disabled { opacity: .25; cursor: default; }
+    #export-modal, #song-modal, #archive-modal, #midi-modal, #strudel-modal, #ableton-modal {
       display: none;
       position: fixed; inset: 0;
       background: rgba(0,0,0,.65);
@@ -611,7 +918,14 @@
       align-items: center;
       justify-content: center;
     }
-    #export-modal.open, #song-modal.open, #archive-modal.open { display: flex; }
+    #export-modal.open, #song-modal.open, #archive-modal.open, #strudel-modal.open, #ableton-modal.open { display: flex; }
+    #strudel-code {
+      width: 100%; height: 200px; resize: vertical;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      font-family: 'JetBrains Mono','Fira Code','Courier New',monospace;
+      font-size: 11px; padding: .5rem; line-height: 1.5;
+    }
     .song-files { display: flex; flex-wrap: wrap; gap: .4rem .6rem; margin: .5rem 0; }
 
     /* Archive */
@@ -734,11 +1048,15 @@
 
     <div class="tb-group">
       <label>BPM</label>
-      <input type="number" name="bpm" value="110" min="40" max="200" class="tb-w-sm">
+      <input type="number" name="bpm" id="bpm-input" value="110" min="40" max="200" class="tb-w-sm">
+      <button type="button" id="tap-btn" onclick="bangTap()" title="Tap tempo — taper le rythme">TAP</button>
+      <button type="button" id="sync-btn" onclick="toggleMidiSync()" title="MIDI Clock sync (Chrome) — synchronise BPM sur horloge MIDI entrante · transport Start/Stop auto">SYNC</button>
     </div>
 
+    <div class="tb-sep"></div>
+
     <div class="tb-group">
-      <label>VEL MIN·MAX·DYN·±</label>
+      <label>VEL</label>
       <div class="tb-vel">
         <input type="number" name="vel_floor"     value="0"   min="0"   max="126" step="5"   title="VEL MIN">
         <input type="number" name="vel_ceiling"   value="127" min="1"   max="127" step="5"   title="VEL MAX">
@@ -765,9 +1083,11 @@
     </div>
 
     <div class="tb-group">
-      <label>CC DEPTH</label>
-      <input type="number" name="cc_depth" value="0.50" min="0" max="1" step="0.05" class="tb-w-sm">
+      <label>CC</label>
+      <input type="number" name="cc_depth" value="0.50" min="0" max="1" step="0.05" class="tb-w-sm" title="CC Depth">
     </div>
+
+    <div class="tb-sep"></div>
 
     <div class="tb-group scale-ctrl" id="root-group" style="display:none">
       <label>ROOT</label>
@@ -832,10 +1152,9 @@
     </div>
 
     <div class="tb-group">
-      <label>&nbsp;</label>
       <div class="tb-check">
         <input type="checkbox" name="temporal" id="temporal" value="1">
-        <label for="temporal" style="margin:0;color:var(--text);font-size:11px;letter-spacing:0">Temporal</label>
+        <label for="temporal" style="margin:0;color:var(--text);font-size:10px;letter-spacing:0">Tmp</label>
       </div>
     </div>
 
@@ -852,6 +1171,9 @@
       ⚡ Générer <kbd>G</kbd>
     </button>
 
+    <button id="rng-btn" class="btn-met" onclick="bangRandomize()"
+            title="Randomiser les paramètres (BPM · chaos · gravity · swing · micro · steps)">🎲</button>
+
     <button class="btn-undo"
             hx-post="/undo"
             hx-target="#voices"
@@ -863,6 +1185,18 @@
             hx-target="#voices"
             hx-swap="innerHTML"
             title="Muter légèrement le pattern courant sans tout régénérer (∿ V)">∿ Varier</button>
+
+    <div class="tb-group">
+      <label>EVL</label>
+      <select id="evolve-sel" style="font-size:11px;height:22px;padding:1px 3px;width:58px"
+              title="Auto-évolve : variation automatique toutes les N cycles (pendant la lecture)">
+        <option value="0">OFF</option>
+        <option value="1">×1</option>
+        <option value="2">×2</option>
+        <option value="4">×4</option>
+        <option value="8">×8</option>
+      </select>
+    </div>
 
     <div id="ab-controls" class="tb-group" style="display:flex;gap:2px">
       <button class="btn-ab btn-ab-store" hx-post="/ab/store" hx-vals='{"slot":"a"}' hx-target="#ab-controls" hx-swap="outerHTML" title="Stocker dans A">▸A</button>
@@ -878,6 +1212,16 @@
 
     <button class="btn-arch" onclick="openArchive()">☰</button>
 
+    <button class="btn-met" onclick="openStrudelModal()" title="Exporter en mini-notation Strudel / TidalCycles">Strudel</button>
+
+    <button class="btn-met" onclick="openAbletonModal()" title="Envoyer les patterns dans Ableton Live via AbletonOSC">→ Abl</button>
+
+    <button class="btn-met" id="seq-toggle-btn" onclick="bangToggleSeqPanel(this)" title="Séquenceur de presets — 8 slots, avance automatique">SEQ</button>
+
+    <select id="groove-select" style="font-size:11px;height:22px;padding:1px 3px;width:90px" onchange="bangApplyGroove(this.value)" title="Appliquer un groove preset">
+      <option value="">— Groove —</option>
+    </select>
+
     <a class="btn btn-session" href="/session/export" title="Sauver session JSON">💾</a>
 
     <form id="session-load-form" method="post" action="/session/import" enctype="multipart/form-data" style="display:inline">
@@ -887,9 +1231,21 @@
 
     <a class="btn btn-doc" href="/doc" target="_blank" title="Documentation">?</a>
 
+    <a class="btn btn-doc" href="/files" target="_blank" title="Fichiers MIDI exportés">📁</a>
+
     <span id="osc-btn">
-      <button class="btn-osc" onclick="openOscModal()" title="OSC output (cliquer pour configurer)">OSC ○</button>
+      <button class="btn-osc{% if osc_enabled %} active{% endif %}"
+              onclick="bangToggleOscPanel(this)"
+              title="OSC — {% if osc_enabled %}actif ● (cliquer pour configurer){% else %}inactif ○ (cliquer pour configurer){% endif %}">
+        OSC {{ '●' if osc_enabled else '○' }}
+      </button>
     </span>
+
+    <span id="midi-srv-btn">
+      <button class="btn-midi-srv" onclick="bangToggleMidiSrvPanel(this)" title="MIDI serveur (rtmidi — sans Chrome)">MIDI ○</button>
+    </span>
+
+    <button class="btn-midi-top" id="midi-top-btn" onclick="openMidiModal()" title="MIDI Learn (Web MIDI)">🎹 MIDI</button>
 
     <button class="btn-met"
             hx-post="/weather"
@@ -906,6 +1262,71 @@
   {% else %}
     Météo non chargée — cliquez W
   {% endif %}
+</div>
+
+<div id="seq-panel">
+  {{ seq_html | safe }}
+</div>
+
+<div id="osc-panel">
+  <div class="osc-row">
+    <div id="osc-dot" class="osc-dot{% if osc_enabled %} active{% endif %}"></div>
+    <span class="seq-label">OSC</span>
+    <div class="osc-field">
+      <label>HOST DEST.</label>
+      <input class="osc-host-inp" type="text" id="osc-host" value="{{ osc_host }}">
+    </div>
+    <div class="osc-field">
+      <label>TX ↑</label>
+      <input class="osc-port-inp" type="number" id="osc-port" value="{{ osc_port }}" min="1" max="65535">
+    </div>
+    <div class="osc-field">
+      <label>RX ↓</label>
+      <input class="osc-port-inp" type="number" id="osc-rx-port" value="{{ osc_rx_port }}" min="1" max="65535">
+    </div>
+    <button id="osc-connect-btn" class="btn-osc-connect{% if osc_enabled %} active{% endif %}"
+            onclick="oscPanelToggle()">
+      {{ '◉ CONNECTÉ' if osc_enabled else '○ CONNECTER' }}
+    </button>
+    <div class="osc-vsep"></div>
+    <div class="osc-dl">
+      <span class="osc-dl-label">TouchOSC :</span>
+      <a href="/touchosc?host=lan" download title="Télécharger le dashboard TouchOSC (réseau local LAN)">↓ LAN</a>
+      <a href="/touchosc?host=tailscale" download title="Télécharger le dashboard TouchOSC (Tailscale)">↓ Tailscale</a>
+    </div>
+  </div>
+  <div class="osc-ref">
+    <strong style="color:var(--text)">↑ OUT :</strong>
+    <code>/bang/clock [step,steps]</code>&nbsp;
+    <code>/bang/{Voix} [step,vel,note]</code>&nbsp;&nbsp;
+    <strong style="color:var(--text)">↓ IN :</strong>
+    <code>/bang/param/bpm N</code>&nbsp;
+    <code>/bang/param/chaos N</code>&nbsp;
+    <code>/bang/param/gravity N</code>&nbsp;
+    <code>/bang/generate</code>&nbsp;
+    <code>/bang/vary</code>&nbsp;
+    <code>/bang/density/Kick N</code>&nbsp;
+    <code>/bang/lock/0 N</code>
+  </div>
+</div>
+
+<div id="midi-srv-panel">
+  <div class="msrv-row">
+    <div id="msrv-dot" class="msrv-dot"></div>
+    <span class="seq-label">MIDI SRV</span>
+    <div class="msrv-field">
+      <label>PORT MIDI</label>
+      <select class="msrv-port-sel" id="msrv-port-sel"></select>
+    </div>
+    <div class="msrv-field">
+      <label>CH DRUMS</label>
+      <input class="msrv-ch-inp" type="number" id="msrv-ch" min="1" max="16" value="10" title="Canal MIDI drums (10 = standard)">
+    </div>
+    <button id="msrv-connect-btn" class="btn-msrv-connect" onclick="msrvToggle()">○ CONNECTER</button>
+  </div>
+  <div class="msrv-hint">
+    Drums → canal sélectionné · Voix mélodiques → canal 1 · IAC Driver (Mac) · loopMIDI (Windows) · ALSA (Linux)
+  </div>
 </div>
 
 <div id="main">
@@ -961,6 +1382,8 @@
     <select id="midi-out" onchange="selectMidiOut()">
       <option value="">— Web MIDI non initialisé —</option>
     </select>
+    <button id="synth-btn" class="btn-synth" onclick="toggleForceSynth()" title="Forcer synthèse audio browser (🔊) — indépendant du MIDI">🔊</button>
+    <button id="rec-btn" class="btn-rec" onclick="toggleRec()" title="Enregistrer la sortie audio browser en WebM — activer avant ou pendant la lecture">⏺ REC</button>
     <span id="play-status" style="font-size:11px;color:var(--muted)">—</span>
   </div>
   <div class="bb-sep"></div>
@@ -1041,50 +1464,95 @@
   </div>
 </div>
 
-<!-- OSC Modal -->
-<div id="osc-modal" onclick="if(event.target===this)closeOscModal()">
+<!-- Ableton Modal -->
+<div id="ableton-modal" onclick="if(event.target===this)closeAbletonModal()">
   <div class="modal-box" style="max-width:400px">
-    <h3 style="margin:0 0 .5rem">OSC Bidirectionnel</h3>
+    <h3 style="margin:0 0 .4rem">→ Ableton Live</h3>
+    <p style="color:var(--muted);font-size:11px;margin:0 0 .7rem;line-height:1.5">
+      Installe <a href="https://github.com/AbletonOSC/AbletonOSC" target="_blank" style="color:var(--accent)">AbletonOSC</a>
+      comme Control Surface dans Live (Préférences → MIDI → Control Surfaces).<br>
+      Chaque voix BANG! est envoyée dans un clip MIDI sur une track Ableton consécutive.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 80px 60px 60px;gap:.4rem;margin-bottom:.6rem;align-items:end">
+      <div>
+        <label style="font-size:11px">HOST</label>
+        <input type="text" id="abl-host" value="{{ ableton_host }}" style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px">PORT</label>
+        <input type="number" id="abl-port" value="{{ ableton_port }}" min="1" max="65535" style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px">Track #</label>
+        <input type="number" id="abl-track" value="{{ ableton_track_offset }}" min="0" max="255" style="width:100%;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px">Slot #</label>
+        <input type="number" id="abl-slot" value="{{ ableton_slot }}" min="0" max="255" style="width:100%;box-sizing:border-box">
+      </div>
+    </div>
+    <div id="abl-status" style="font-size:12px;min-height:1.4em;margin-bottom:.5rem"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAbletonModal()">Fermer</button>
+      <button class="btn-confirm" onclick="ablSaveConfig()">Config</button>
+      <button class="btn-met" onclick="ablSyncBpm()" title="Lire le BPM depuis Ableton Live">↻ BPM</button>
+      <button class="btn-confirm" style="background:var(--success)" onclick="ablSend()">⟶ Envoyer</button>
+    </div>
+  </div>
+</div>
 
+<!-- Strudel Modal -->
+<div id="strudel-modal" onclick="if(event.target===this)closeStrudelModal()">
+  <div class="modal-box" style="width:560px">
+    <h3 style="margin:0 0 .5rem">Strudel / TidalCycles</h3>
     <p style="color:var(--muted);font-size:11px;margin:0 0 .6rem;line-height:1.5">
-      <strong style="color:var(--text)">↑ OUTPUT</strong> — triggers au BPM courant<br>
-      &nbsp;<code>/bang/clock [step, steps]</code><br>
-      &nbsp;<code>/bang/{NomVoix} [step, vel, note]</code>
+      Mini-notation générée depuis le pattern courant. Coller dans
+      <a href="https://strudel.cc" target="_blank" style="color:var(--accent)">strudel.cc</a>
+      ou dans un fichier <code>.tidal</code>.
     </p>
-    <p style="color:var(--muted);font-size:11px;margin:0 0 .8rem;line-height:1.5">
-      <strong style="color:var(--text)">↓ INPUT</strong> — commandes reçues<br>
-      &nbsp;<code>/bang/param/bpm 120</code><br>
-      &nbsp;<code>/bang/param/chaos 0.5</code>&nbsp;&nbsp;<code>/bang/param/gravity 0.7</code><br>
-      &nbsp;<code>/bang/param/swing 0.3</code>&nbsp;&nbsp;<code>/bang/param/microtiming 0.8</code><br>
-      &nbsp;<code>/bang/generate</code>&nbsp;&nbsp;<code>/bang/vary</code><br>
-      &nbsp;<code>/bang/density/Kick 0.8</code>&nbsp;&nbsp;<code>/bang/lock/0 1</code>
+    <textarea id="strudel-code" readonly spellcheck="false"></textarea>
+    <div class="modal-actions" style="margin-top:.6rem">
+      <button class="btn-cancel" onclick="closeStrudelModal()">Fermer</button>
+      <button class="btn-confirm" onclick="bangCopyStrudel()">Copier</button>
+    </div>
+  </div>
+</div>
+
+<!-- MIDI Learn Modal -->
+<div id="midi-modal" onclick="if(event.target===this)closeMidiModal()">
+  <div class="modal-box" style="max-width:380px">
+    <h3 style="margin:0 0 .5rem">🎹 MIDI Learn</h3>
+
+    <p style="color:var(--muted);font-size:11px;margin:0 0 .6rem;line-height:1.6">
+      Capture un pattern depuis un pad ou clavier MIDI.<br>
+      Fonctionne dans <strong style="color:var(--text)">Chrome / Chromium</strong> uniquement<br>
+      (Web MIDI API non dispo sur Firefox/Safari).
     </p>
 
-    <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
-      <div style="flex:1">
-        <label style="font-size:11px">HOST DEST.</label>
-        <input type="text" id="osc-host" value="{{ osc_host }}" style="width:100%;box-sizing:border-box">
-      </div>
-      <div style="width:75px">
-        <label style="font-size:11px">PORT ↑</label>
-        <input type="number" id="osc-port" value="{{ osc_port }}" min="1" max="65535" style="width:100%;box-sizing:border-box">
-      </div>
+    <div id="midi-status-bar" style="font-size:12px;color:var(--muted);margin-bottom:.6rem">
+      Web MIDI non initialisé
     </div>
-    <div style="display:flex;gap:.5rem;margin-bottom:.8rem">
-      <div style="flex:1">
-        <label style="font-size:11px;color:var(--muted)">Écoute sur 0.0.0.0</label>
-      </div>
-      <div style="width:75px">
-        <label style="font-size:11px">PORT ↓</label>
-        <input type="number" id="osc-rx-port" value="{{ osc_rx_port }}" min="1" max="65535" style="width:100%;box-sizing:border-box">
-      </div>
+
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem">
+      <button id="midi-req-btn" class="btn" onclick="bangMidiInit()" style="font-size:12px;padding:4px 10px">
+        Activer MIDI
+      </button>
+      <select id="midi-port-sel" style="display:none;font-size:12px;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;flex:1">
+        <option value="">— Port MIDI —</option>
+      </select>
     </div>
+
+    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:.4rem">
+      1. Activer → sélectionner le port MIDI<br>
+      2. Cliquer <strong style="color:var(--text)">⏺</strong> sur une voix dans le panneau gauche<br>
+      3. Compte-à-rebours 2 temps → jouer le pattern<br>
+      4. Auto-appliqué après <em>N steps</em> (BPM courant)
+    </div>
+
+    <div id="midi-rec-display" style="min-height:18px;font-size:12px;color:var(--primary);letter-spacing:.05em"></div>
 
     <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeOscModal()">Fermer</button>
-      <span id="osc-btn-modal">
-        <button class="btn-confirm" onclick="oscApplyAndToggle()">Démarrer OSC</button>
-      </span>
+      <button class="btn-cancel" onclick="closeMidiModal()">Fermer</button>
     </div>
   </div>
 </div>
@@ -1119,6 +1587,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (swingEl) document.getElementById('swing-val').textContent = Math.round(swingEl.value * 100) + '%';
   const microEl = document.getElementById('micro-range');
   if (microEl) document.getElementById('micro-val').textContent = Math.round(microEl.value * 100) + '%';
+  bangInitAllGrids();
+  bangInitVelLanes();
+  bangInitProbLanes();
+  document.querySelectorAll('.btn-paste-dna').forEach(b => b.disabled = true);
 });
 
 document.addEventListener('keydown', function(e) {
@@ -1145,6 +1617,15 @@ let _midi = null, _midiOut = null;
 let _playing = false, _audioCtx = null;
 let _pattern = null, _startTime = 0;
 let _schedHandle = null;
+let _useBrowserSynth = false;
+let _forceBrowserSynth = false;
+let _masterGain = null;
+let _evolveCount = 0;
+
+function toggleForceSynth() {
+  _forceBrowserSynth = !_forceBrowserSynth;
+  document.getElementById('synth-btn').classList.toggle('active', _forceBrowserSynth);
+}
 
 // Init Web MIDI au chargement
 (async () => {
@@ -1183,7 +1664,6 @@ async function togglePlay() {
 }
 
 async function _start() {
-  if (!_midiOut) { alert('Sélectionnez une sortie MIDI.'); return; }
   const r = await fetch('/pattern');
   _pattern = await r.json();
   if (!_pattern.ok) { alert('Générez un pattern d\'abord (G).'); return; }
@@ -1191,13 +1671,27 @@ async function _start() {
   _audioCtx = _audioCtx || new AudioContext();
   if (_audioCtx.state === 'suspended') await _audioCtx.resume();
 
+  _useBrowserSynth = _forceBrowserSynth || !_midiOut;
+  if (_useBrowserSynth) {
+    const gainJustCreated = !_masterGain;
+    _masterGain = _masterGain || (() => {
+      const g = _audioCtx.createGain();
+      g.gain.value = 0.65;
+      g.connect(_audioCtx.destination);
+      return g;
+    })();
+    if (gainJustCreated && _recording && _recDest) _masterGain.connect(_recDest);
+  }
+
   _startTime = _audioCtx.currentTime + 0.05;
   _scheduledSteps.clear();
+  _evolveCount = 0;
   _playing   = true;
 
   document.getElementById('play-btn').textContent = '■ Stop  ';
   document.getElementById('play-btn').classList.add('playing');
-  document.getElementById('play-status').textContent = `${_pattern.bpm} BPM · ${_pattern.steps} steps`;
+  const modeLabel = _useBrowserSynth ? '🔊 browser synth' : `🎹 ${_midiOut.name}`;
+  document.getElementById('play-status').textContent = `${_pattern.bpm} BPM · ${_pattern.steps} steps · ${modeLabel}`;
   // Basculer automatiquement sur l'onglet MIDI
   const midiTab = document.querySelector('.log-tab:nth-child(2)');
   if (midiTab) showLogTab('midi', midiTab);
@@ -1208,7 +1702,9 @@ async function _start() {
 
 function _stop() {
   _playing = false;
+  _evolveCount = 0;
   clearTimeout(_schedHandle);
+  if (_recording) _stopRec();
   if (_midiOut) {
     // All Notes Off sur tous les canaux utilisés par le pattern courant
     const channels = new Set([9]); // ch10 toujours
@@ -1253,71 +1749,231 @@ function _scheduleStep(step, timeS) {
   const key = `${step}_${Math.round(timeS * 10)}`;
   if (_scheduledSteps.has(key)) return;
   _scheduledSteps.add(key);
-  // Nettoyage du Set pour éviter une fuite mémoire
   if (_scheduledSteps.size > _pattern.steps * 4) _scheduledSteps.clear();
+
+  // Auto-évolve + drop probability
+  if (step === 0) {
+    _evolveCount++;
+    const evolveN = parseInt(document.getElementById('evolve-sel')?.value || '0');
+    if (evolveN > 0 && _evolveCount % evolveN === 0) {
+      const delayMs = Math.max(0, (timeS - _audioCtx.currentTime) * 1000);
+      setTimeout(_doAutoEvolve, delayMs);
+    }
+    if (_morphActive) {
+      _morphProgress = Math.min(1.0, _morphProgress + 1 / _morphCycles);
+      _morphBlended  = _computeBlendedEvents(_morphProgress);
+      const fill = document.getElementById('morph-progress-fill');
+      if (fill) fill.style.width = Math.round(_morphProgress * 100) + '%';
+      if (_morphProgress >= 1.0) setTimeout(bangMorphStop, 0);
+    }
+    _droppedVoices = new Set();
+    for (let _di = 0; _di < _pattern.voices.length; _di++) {
+      let _drop = _pattern.voices[_di].drop ?? 1.0;
+      const _dropLfo = _pattern.voices[_di].lfo;
+      if (_dropLfo && _dropLfo.target === 'drop') {
+        const _lp = (_evolveCount * _dropLfo.freq) % 1;
+        _drop = Math.max(0, Math.min(1, _drop * (1 - _dropLfo.depth + _lfoValue(_dropLfo.shape, _lp) * _dropLfo.depth)));
+      }
+      if (_drop < 1.0 && Math.random() > _drop) _droppedVoices.add(_di);
+    }
+    // Séquenceur de presets : avance auto entre slots
+    if (_seqAutoActive) {
+      _seqCycleCount++;
+      const _seqN = parseInt(document.getElementById('seq-cycles-input')?.value || '2');
+      if (_seqN > 0 && _seqCycleCount % _seqN === 0) {
+        const _seqDelay = Math.max(0, (timeS - _audioCtx.currentTime) * 1000);
+        setTimeout(_doSeqAdvance, _seqDelay);
+      }
+    }
+  }
 
   const stepDurMs = _pattern.step_ms;
   const swingOff  = (step % 2 === 1) ? (_pattern.swing || 0) * stepDurMs * 0.5 : 0;
   const noteOnMs  = timeS * 1000 + swingOff;
 
-  // Drones CC (bassline, phase2…) — interpolation linéaire entre breakpoints
-  for (const drone of (_pattern.cc_drones || [])) {
-    const bps = drone.breakpoints;
-    if (!bps || bps.length === 0) continue;
-    const t   = step / (_pattern.steps - 1 || 1);  // 0→1
-    const seg = t * (bps.length - 1);
-    const lo  = Math.floor(seg), hi = Math.min(lo + 1, bps.length - 1);
-    const val = Math.round(bps[lo] + (bps[hi] - bps[lo]) * (seg - lo));
-    _midiOut.send([0xB0 | drone.channel, drone.control, val], noteOnMs - 1);
+  // Drones CC
+  if (_midiOut) {
+    for (const drone of (_pattern.cc_drones || [])) {
+      const bps = drone.breakpoints;
+      if (!bps || bps.length === 0) continue;
+      const t   = step / (_pattern.steps - 1 || 1);
+      const seg = t * (bps.length - 1);
+      const lo  = Math.floor(seg), hi = Math.min(lo + 1, bps.length - 1);
+      const val = Math.round(bps[lo] + (bps[hi] - bps[lo]) * (seg - lo));
+      _midiOut.send([0xB0 | drone.channel, drone.control, val], noteOnMs - 1);
+    }
   }
 
-  for (const v of _pattern.voices) {
-    // P-locks : envoyer les CC avant la note
-    for (const pl of (v.plocks || [])) {
-      const val = pl.values[step];
-      if (val !== null && val !== undefined) {
-        _midiOut.send([0xB0 | v.channel, pl.cc, val], noteOnMs - 2);
+  for (let _vi = 0; _vi < _pattern.voices.length; _vi++) {
+    const v = _pattern.voices[_vi];
+    const _vm = _soloVoice !== null ? _vi !== _soloVoice : _mutedVoices.has(_vi);
+    if (_vm || _droppedVoices.has(_vi)) continue;
+    if (_midiOut) {
+      for (const pl of (v.plocks || [])) {
+        const val = pl.values[step];
+        if (val !== null && val !== undefined)
+          _midiOut.send([0xB0 | v.channel, pl.cc, val], noteOnMs - 2);
       }
     }
 
-    for (const e of v.events) {
+    const _evts = (_morphActive && _morphBlended && _morphBlended[_vi]) ? _morphBlended[_vi] : v.events;
+    for (const e of _evts) {
       if (Math.floor(e.step) !== step) continue;
-      if (Math.random() > e.prob) continue;
+      const _laneProb = (v.prob_lane && e.dna_pos !== undefined && e.dna_pos < v.prob_lane.length && v.prob_lane[e.dna_pos] > 0)
+        ? v.prob_lane[e.dna_pos] / 100.0 : null;
+      let _finalProb = _laneProb !== null ? _laneProb : e.prob;
+      if (v.lfo && v.lfo.target === 'density') {
+        const _lp = ((step / _pattern.steps) * v.lfo.freq) % 1;
+        _finalProb = Math.max(0, Math.min(1, _finalProb * (1 - v.lfo.depth + _lfoValue(v.lfo.shape, _lp) * v.lfo.depth)));
+      }
+      if (Math.random() > _finalProb) continue;
 
-      const _vh = _pattern.vel_humanize || 0;
-      const vel = Math.max(1, Math.min(127, e.velocity + (_vh ? Math.round((Math.random() * 2 - 1) * _vh) : 0)));
-      const subOff  = (e.step - Math.floor(e.step)) * stepDurMs;  // sub-step offset ms
-      const durMs   = (e.dur ?? 1) * stepDurMs;
-      const _mt     = (_pattern.microtiming ?? 1.0);
+      const _vh  = _pattern.vel_humanize || 0;
+      const _laneVel = (v.vel_lane && e.dna_pos !== undefined && e.dna_pos < v.vel_lane.length && v.vel_lane[e.dna_pos] > 0)
+        ? v.vel_lane[e.dna_pos] : null;
+      const _baseVel = _laneVel !== null ? _laneVel : e.velocity;
+      const vel  = Math.max(1, Math.min(127, _baseVel + (_vh ? Math.round((Math.random() * 2 - 1) * _vh) : 0)));
+      const subOff    = (e.step - Math.floor(e.step)) * stepDurMs;
+      const durMs     = (e.dur ?? 1) * stepDurMs;
+      const _mt       = (_pattern.microtiming ?? 1.0);
       const _microJit = (Math.random() * 2 - 1) * stepDurMs * 0.12 * (1.0 - _mt);
-      const t0ms    = noteOnMs + subOff + _microJit;
+      const t0ms      = noteOnMs + subOff + _microJit;
       const _chordOffs = (v.type === 'markov') ? (_CHORD_OFFSETS[v.chord] || []) : [];
-      if (e.ratchet > 1) {
-        const rd = durMs / e.ratchet;
-        for (let r = 0; r < e.ratchet; r++) {
-          const t0 = t0ms + r * rd;
-          _midiOut.send([0x90 | v.channel, v.note, vel], t0);
-          _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
+
+      if (_midiOut) {
+        if (e.ratchet > 1) {
+          const rd = durMs / e.ratchet;
+          for (let r = 0; r < e.ratchet; r++) {
+            const t0 = t0ms + r * rd;
+            _midiOut.send([0x90 | v.channel, v.note, vel], t0);
+            _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
+            for (const off of _chordOffs) {
+              const cn = Math.max(0, Math.min(127, v.note + off));
+              _midiOut.send([0x90 | v.channel, cn, vel], t0);
+              _midiOut.send([0x80 | v.channel, cn, 0],   t0 + rd * 0.75);
+            }
+          }
+        } else {
+          _midiOut.send([0x90 | v.channel, v.note, vel], t0ms);
+          _midiOut.send([0x80 | v.channel, v.note, 0],   t0ms + durMs * 0.8);
           for (const off of _chordOffs) {
             const cn = Math.max(0, Math.min(127, v.note + off));
-            _midiOut.send([0x90 | v.channel, cn, vel], t0);
-            _midiOut.send([0x80 | v.channel, cn, 0],   t0 + rd * 0.75);
+            _midiOut.send([0x90 | v.channel, cn, vel], t0ms);
+            _midiOut.send([0x80 | v.channel, cn, 0],   t0ms + durMs * 0.8);
           }
         }
-      } else {
-        _midiOut.send([0x90 | v.channel, v.note, vel], t0ms);
-        _midiOut.send([0x80 | v.channel, v.note, 0],   t0ms + durMs * 0.8);
-        for (const off of _chordOffs) {
-          const cn = Math.max(0, Math.min(127, v.note + off));
-          _midiOut.send([0x90 | v.channel, cn, vel], t0ms);
-          _midiOut.send([0x80 | v.channel, cn, 0],   t0ms + durMs * 0.8);
-        }
       }
-      // Log MIDI en temps réel (setTimeout synchronisé au timestamp MIDI)
+
+      if (_useBrowserSynth) {
+        const tS = t0ms / 1000;
+        const ratchets = e.ratchet > 1 ? e.ratchet : 1;
+        const rDurS    = durMs / ratchets / 1000;
+        for (let r = 0; r < ratchets; r++)
+          _synthNote(v.note, vel, tS + r * rDurS, rDurS * 0.85, v.type);
+      }
+
       const logDelay = Math.max(0, t0ms - performance.now());
       setTimeout(() => _logMidi(e.step, v, vel, e.atom || 'x', e.ratchet, v.type === 'babka'), logDelay);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Browser drum synthesizer — Web Audio API
+// ---------------------------------------------------------------------------
+function _synthNote(note, vel, tS, durS, vtype) {
+  if (!_audioCtx || !_masterGain) return;
+  const amp = vel / 127;
+  const isDrum = vtype === 'drum' || vtype === 'babka' || vtype.startsWith('vd') || vtype === 'vk';
+  if (isDrum) {
+    if      (note === 35 || note === 36)           _synthKick(amp, tS);
+    else if (note === 38 || note === 40)           _synthSnare(amp, tS);
+    else if (note === 42 || note === 44)           _synthHH(amp, tS, false);
+    else if (note === 46)                          _synthHH(amp, tS, true);
+    else if (note >= 48 && note <= 53)             _synthTom(amp, tS, note);
+    else                                           _synthKick(amp * 0.55, tS);
+  } else {
+    _synthTone(note, amp, tS, Math.min(durS, 0.6));
+  }
+}
+
+function _synthKick(amp, tS) {
+  const osc = _audioCtx.createOscillator();
+  const g   = _audioCtx.createGain();
+  osc.connect(g); g.connect(_masterGain);
+  osc.frequency.setValueAtTime(160, tS);
+  osc.frequency.exponentialRampToValueAtTime(48, tS + 0.08);
+  g.gain.setValueAtTime(amp, tS);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + 0.38);
+  osc.start(tS); osc.stop(tS + 0.42);
+}
+
+function _synthSnare(amp, tS) {
+  const dur = 0.16;
+  const sr  = _audioCtx.sampleRate;
+  const buf = _audioCtx.createBuffer(1, Math.ceil(dur * sr), sr);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src  = _audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filt = _audioCtx.createBiquadFilter();
+  filt.type = 'bandpass'; filt.frequency.value = 800; filt.Q.value = 0.7;
+  const g    = _audioCtx.createGain();
+  src.connect(filt); filt.connect(g); g.connect(_masterGain);
+  g.gain.setValueAtTime(amp * 0.55, tS);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + dur);
+  src.start(tS); src.stop(tS + dur + 0.01);
+  // body
+  const osc = _audioCtx.createOscillator();
+  const og  = _audioCtx.createGain();
+  osc.connect(og); og.connect(_masterGain);
+  osc.frequency.value = 200;
+  og.gain.setValueAtTime(amp * 0.35, tS);
+  og.gain.exponentialRampToValueAtTime(0.001, tS + 0.055);
+  osc.start(tS); osc.stop(tS + 0.07);
+}
+
+function _synthHH(amp, tS, open) {
+  const dur  = open ? 0.22 : 0.04;
+  const sr   = _audioCtx.sampleRate;
+  const buf  = _audioCtx.createBuffer(1, Math.ceil((dur + 0.01) * sr), sr);
+  const d    = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src  = _audioCtx.createBufferSource();
+  src.buffer = buf;
+  const filt = _audioCtx.createBiquadFilter();
+  filt.type = 'highpass'; filt.frequency.value = 9000;
+  const g    = _audioCtx.createGain();
+  src.connect(filt); filt.connect(g); g.connect(_masterGain);
+  g.gain.setValueAtTime(amp * 0.3, tS);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + dur);
+  src.start(tS); src.stop(tS + dur + 0.01);
+}
+
+function _synthTom(amp, tS, note) {
+  const freq = 180 * Math.pow(2, (note - 48) / 12);
+  const osc  = _audioCtx.createOscillator();
+  const g    = _audioCtx.createGain();
+  osc.connect(g); g.connect(_masterGain);
+  osc.frequency.setValueAtTime(freq * 1.4, tS);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.65, tS + 0.07);
+  g.gain.setValueAtTime(amp * 0.65, tS);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + 0.28);
+  osc.start(tS); osc.stop(tS + 0.32);
+}
+
+function _synthTone(note, amp, tS, durS) {
+  const freq = 440 * Math.pow(2, (note - 69) / 12);
+  const osc  = _audioCtx.createOscillator();
+  osc.type   = 'sawtooth';
+  const filt = _audioCtx.createBiquadFilter();
+  filt.type  = 'lowpass'; filt.frequency.value = 1800;
+  const g    = _audioCtx.createGain();
+  osc.connect(filt); filt.connect(g); g.connect(_masterGain);
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(amp * 0.25, tS);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + Math.max(0.05, durS));
+  osc.start(tS); osc.stop(tS + Math.max(0.05, durS) + 0.01);
 }
 
 // ---------------------------------------------------------------------------
@@ -1389,6 +2045,15 @@ function _drawPlayhead() {
   const x       = PR_LEFT_MARGIN + step * PR_CELL_W;
   const ph = document.getElementById('playhead');
   if (ph) { ph.setAttribute('x1', x); ph.setAttribute('x2', x); }
+  // Scroll auto pour garder le playhead visible
+  const prEl = document.getElementById('pianoroll');
+  if (prEl) {
+    const svgW    = prEl.scrollWidth;
+    const prW     = prEl.clientWidth;
+    const scrollX = x - prW * 0.3;
+    if (scrollX > 0 && scrollX < svgW - prW)
+      prEl.scrollLeft = scrollX;
+  }
   requestAnimationFrame(_drawPlayhead);
 }
 
@@ -1642,30 +2307,188 @@ function closeExportModal() {
   document.getElementById('export-modal').classList.remove('open');
 }
 
-// ---- OSC Modal ----
-let _oscEnabled = false;
+// ---- OSC Panel ----
+let _oscEnabled = {{ 'true' if osc_enabled else 'false' }};
 
-function openOscModal() {
-  document.getElementById('osc-modal').classList.add('open');
-  _updateOscModalBtn();
+function bangToggleOscPanel() {
+  document.getElementById('osc-panel').classList.toggle('open');
 }
 
-function closeOscModal() {
-  document.getElementById('osc-modal').classList.remove('open');
+// ---- MIDI Serveur Panel ----
+let _msrvEnabled = false;
+
+function bangToggleMidiSrvPanel() {
+  const panel = document.getElementById('midi-srv-panel');
+  const open  = panel.classList.toggle('open');
+  if (open) _msrvLoadPorts();
 }
 
-function _updateOscModalBtn() {
-  const btn = document.querySelector('#osc-btn-modal button');
-  if (!btn) return;
-  if (_oscEnabled) {
-    btn.textContent = 'Arrêter OSC';
-    btn.classList.add('btn-cancel');
-    btn.classList.remove('btn-confirm');
-  } else {
-    btn.textContent = 'Démarrer OSC';
-    btn.classList.remove('btn-cancel');
-    btn.classList.add('btn-confirm');
+async function _msrvLoadPorts() {
+  const res   = await fetch('/midi/ports');
+  const data  = await res.json();
+  const sel   = document.getElementById('msrv-port-sel');
+  sel.innerHTML = '';
+  if (!data.ports.length) {
+    sel.innerHTML = '<option value="0">— aucun port MIDI —</option>';
+    return;
   }
+  data.ports.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+function _syncMsrvPanel() {
+  const btn = document.getElementById('msrv-connect-btn');
+  const dot = document.getElementById('msrv-dot');
+  const tbBtn = document.querySelector('#midi-srv-btn button');
+  if (btn) { btn.textContent = _msrvEnabled ? '◉ CONNECTÉ' : '○ CONNECTER'; btn.classList.toggle('active', _msrvEnabled); }
+  if (dot) dot.classList.toggle('active', _msrvEnabled);
+  if (tbBtn) { tbBtn.textContent = _msrvEnabled ? 'MIDI ●' : 'MIDI ○'; tbBtn.classList.toggle('active', _msrvEnabled); }
+}
+
+async function msrvToggle() {
+  const port    = parseInt(document.getElementById('msrv-port-sel').value) || 0;
+  const channel = (parseInt(document.getElementById('msrv-ch').value) || 10) - 1; // 0-based
+  await fetch('/midi/config', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `port=${port}&channel=${channel}`,
+  });
+  const resp = await fetch('/midi/toggle', { method: 'POST' });
+  const html = await resp.text();
+  _msrvEnabled = html.includes('MIDI ●');
+  _syncMsrvPanel();
+}
+
+// ---------------------------------------------------------------------------
+// MIDI Learn — Web MIDI API
+// ---------------------------------------------------------------------------
+let _midiAccess    = null;
+let _midiRecording = false;
+
+function openMidiModal() {
+  document.getElementById('midi-modal').style.display = 'flex';
+}
+function closeMidiModal() {
+  document.getElementById('midi-modal').style.display = 'none';
+}
+
+async function bangMidiInit() {
+  if (!navigator.requestMIDIAccess) {
+    document.getElementById('midi-status-bar').textContent = '⚠ Web MIDI non supporté — utiliser Chrome/Chromium';
+    return;
+  }
+  try {
+    _midiAccess = await navigator.requestMIDIAccess();
+    _midiAccess.onstatechange = bangMidiUpdatePorts;
+    bangMidiUpdatePorts();
+    document.getElementById('midi-req-btn').style.display = 'none';
+    document.getElementById('midi-port-sel').style.display = '';
+    document.getElementById('midi-status-bar').innerHTML = '✓ MIDI actif — sélectionner un port ci-dessus<br>puis cliquer ⏺ sur une voix';
+    document.getElementById('midi-top-btn').classList.add('armed');
+  } catch(e) {
+    document.getElementById('midi-status-bar').textContent = '✗ Accès MIDI refusé par le navigateur';
+  }
+}
+
+function bangMidiUpdatePorts() {
+  if (!_midiAccess) return;
+  const sel  = document.getElementById('midi-port-sel');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Port MIDI —</option>';
+  for (const [id, port] of _midiAccess.inputs) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = port.name;
+    if (id === prev) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function bangMidiRecord(voiceIdx) {
+  // No MIDI → open modal to guide setup
+  const sel    = document.getElementById('midi-port-sel');
+  const portId = sel ? sel.value : '';
+  if (!_midiAccess || !portId) { openMidiModal(); return; }
+  if (_midiRecording) return;
+
+  const steps = parseInt(document.querySelector('[name="steps"]')?.value || '16');
+  const bpm   = parseFloat(document.querySelector('[name="bpm"]')?.value  || '120');
+  const stepDurMs = 60000 / bpm / 4;   // 16th note duration
+  const totalMs   = steps * stepDurMs;
+  const beatMs    = 60000 / bpm;
+
+  const port = _midiAccess.inputs.get(portId);
+  if (!port) return;
+
+  const btn     = document.getElementById(`midi-rec-${voiceIdx}`);
+  const display = document.getElementById('midi-rec-display');
+  _midiRecording = true;
+  if (btn) btn.classList.add('recording');
+  openMidiModal();
+
+  // Count-in: 2 beats
+  for (let i = 2; i >= 1; i--) {
+    if (display) display.textContent = `Compte-à-rebours : ${i}…`;
+    await new Promise(r => setTimeout(r, beatMs));
+  }
+
+  const hits    = [];
+  const recStart = performance.now();
+  if (display) display.textContent = `⏺ REC — ${(totalMs/1000).toFixed(1)}s`;
+
+  port.onmidimessage = (msg) => {
+    const status = msg.data[0] & 0xF0;
+    const vel    = msg.data[2];
+    if (status === 0x90 && vel > 0) hits.push(performance.now() - recStart);
+  };
+
+  const tickId = setInterval(() => {
+    const left = totalMs - (performance.now() - recStart);
+    if (display && left > 0) display.textContent = `⏺ REC — ${(left/1000).toFixed(1)}s`;
+  }, 100);
+
+  await new Promise(r => setTimeout(r, totalMs));
+
+  clearInterval(tickId);
+  port.onmidimessage = null;
+  _midiRecording = false;
+  if (btn) btn.classList.remove('recording');
+
+  // Quantize
+  const dna = bangMidiQuantize(hits, steps, stepDurMs);
+  if (display) display.textContent = `✓  ${dna}`;
+
+  // Apply via existing /voice/pattern endpoint
+  const fd = new FormData();
+  fd.append('idx', voiceIdx);
+  fd.append('pattern', dna);
+  const res  = await fetch('/voice/pattern', { method: 'POST', body: fd });
+  const html = await res.text();
+
+  // Parse HTMX OOB response: voices part + pianoroll OOB
+  const oobMarker = '<div id="pianoroll" hx-swap-oob="innerHTML">';
+  const split = html.indexOf(oobMarker);
+  const voicesEl = document.getElementById('voices');
+  if (split >= 0) {
+    voicesEl.innerHTML = html.substring(0, split);
+    document.getElementById('pianoroll').innerHTML =
+      html.substring(split + oobMarker.length, html.lastIndexOf('</div>'));
+  } else {
+    voicesEl.innerHTML = html;
+  }
+  htmx.process(voicesEl);
+}
+
+function bangMidiQuantize(hits, steps, stepDurMs) {
+  const dna = Array(steps).fill('-');
+  for (const t of hits) {
+    const idx = Math.min(steps - 1, Math.max(0, Math.round(t / stepDurMs) % steps));
+    dna[idx] = 'x';
+  }
+  return dna.join('');
 }
 
 function _syncOscBtn() {
@@ -1682,7 +2505,17 @@ function _syncOscBtn() {
   }
 }
 
-async function oscApplyAndToggle() {
+function _syncOscPanel() {
+  const btn = document.getElementById('osc-connect-btn');
+  const dot = document.getElementById('osc-dot');
+  if (btn) {
+    btn.textContent = _oscEnabled ? '◉ CONNECTÉ' : '○ CONNECTER';
+    btn.classList.toggle('active', _oscEnabled);
+  }
+  if (dot) dot.classList.toggle('active', _oscEnabled);
+}
+
+async function oscPanelToggle() {
   const host   = document.getElementById('osc-host').value.trim() || '127.0.0.1';
   const port   = parseInt(document.getElementById('osc-port').value) || 57120;
   const rxPort = parseInt(document.getElementById('osc-rx-port').value) || 57121;
@@ -1695,8 +2528,8 @@ async function oscApplyAndToggle() {
   const resp = await fetch('/osc/toggle', { method: 'POST' });
   const html = await resp.text();
   _oscEnabled = html.includes('OSC ●');
-  _updateOscModalBtn();
   _syncOscBtn();
+  _syncOscPanel();
 }
 
 function confirmExport() {
@@ -1758,6 +2591,78 @@ document.getElementById('archive-modal').addEventListener('click', function(e) {
 });
 
 // ---------------------------------------------------------------------------
+// Strudel / TidalCycles export
+// ---------------------------------------------------------------------------
+function bangToggleSeqPanel(btn) {
+  const panel = document.getElementById('seq-panel');
+  const open  = panel.classList.toggle('open');
+  btn.classList.toggle('active', open);
+}
+
+function bangToggleSeqAuto(btn) {
+  _seqAutoActive = !_seqAutoActive;
+  btn.classList.toggle('active', _seqAutoActive);
+  _seqCycleCount = 0;
+}
+
+async function _doSeqAdvance() {
+  htmx.ajax('POST', '/seq/advance', {target: '#voices', swap: 'innerHTML'});
+  setTimeout(async () => {
+    try {
+      const pr  = await fetch('/pattern');
+      const pat = await pr.json();
+      if (pat.ok) _pattern = pat;
+    } catch(e) {}
+  }, 250);
+}
+
+function openAbletonModal()  { document.getElementById('ableton-modal').classList.add('open'); }
+function closeAbletonModal() { document.getElementById('ableton-modal').classList.remove('open'); }
+
+async function ablSaveConfig() {
+  const fd = new FormData();
+  fd.append('host',         document.getElementById('abl-host').value);
+  fd.append('port',         document.getElementById('abl-port').value);
+  fd.append('track_offset', document.getElementById('abl-track').value);
+  fd.append('slot',         document.getElementById('abl-slot').value);
+  const res = await fetch('/ableton/config', { method: 'POST', body: fd });
+  document.getElementById('abl-status').innerHTML = await res.text();
+}
+
+async function ablSend() {
+  const statusEl = document.getElementById('abl-status');
+  statusEl.innerHTML = '<span style="color:var(--muted)">Envoi en cours…</span>';
+  // Sauver la config d'abord
+  await ablSaveConfig();
+  const res = await fetch('/ableton/send', { method: 'POST' });
+  statusEl.innerHTML = await res.text();
+}
+
+async function openStrudelModal() {
+  const r = await fetch('/export/strudel');
+  const d = await r.json();
+  document.getElementById('strudel-code').value = d.code;
+  document.getElementById('strudel-modal').classList.add('open');
+}
+
+function closeStrudelModal() {
+  document.getElementById('strudel-modal').classList.remove('open');
+}
+
+async function bangCopyStrudel() {
+  const code = document.getElementById('strudel-code').value;
+  try {
+    await navigator.clipboard.writeText(code);
+    const btn = event.currentTarget;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copié';
+    setTimeout(() => btn.textContent = orig, 1500);
+  } catch(e) {
+    document.getElementById('strudel-code').select();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Pianoroll zoom
 // ---------------------------------------------------------------------------
 const _PR_ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3];
@@ -1774,9 +2679,687 @@ function _applyPrZoom() {
   const lbl = document.getElementById('pr-zoom-label');
   if (lbl) lbl.textContent = '×' + scale;
 }
-document.body.addEventListener('htmx:afterSwap', function(e) {
-  if (e.detail && e.detail.target && e.detail.target.id === 'pianoroll') _applyPrZoom();
+let _expandState = {};  // idx → active tab name
+
+document.body.addEventListener('htmx:beforeSwap', function(e) {
+  const id = e.detail?.target?.id;
+  if (id === 'voices' || id === 'pianoroll') e.detail.target.style.opacity = '0';
+  if (id === 'voices') {
+    _expandState = {};
+    document.querySelectorAll('.voice-row[data-voice-idx]').forEach(row => {
+      const idx   = row.dataset.voiceIdx;
+      const panel = row.querySelector('.vr-expand');
+      if (panel && panel.style.display !== 'none') {
+        const activeTab = row.querySelector('.vr-tab.active');
+        _expandState[idx] = activeTab ? activeTab.textContent.trim().toLowerCase() : 'dna';
+      }
+    });
+  }
 });
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  const id = e.detail?.target?.id;
+  if (id === 'pianoroll') { e.detail.target.style.opacity = '1'; _applyPrZoom(); }
+  if (id === 'voices') {
+    e.detail.target.style.opacity = '1';
+    const path = e.detail?.requestConfig?.path || '';
+    if (path === '/generate') { _mutedVoices.clear(); _soloVoice = null; }
+    _syncMuteState();
+    bangInitAllGrids();
+    bangInitVelLanes();
+    bangInitProbLanes();
+    document.querySelectorAll('.btn-paste-dna').forEach(b => b.disabled = !_copiedDNA);
+    // Restaurer les panneaux ouverts
+    Object.entries(_expandState).forEach(([idx, tab]) => {
+      const row   = document.querySelector(`.voice-row[data-voice-idx="${idx}"]`);
+      const panel = row?.querySelector('.vr-expand');
+      if (!panel) return;
+      panel.style.display = '';
+      row?.querySelector('.btn-expand')?.classList.add('active');
+      const tabBtn = [...(row?.querySelectorAll('.vr-tab') || [])].find(b => b.textContent.trim().toLowerCase() === tab);
+      if (tabBtn) bangSetTab(tabBtn, tab);
+    });
+    _expandState = {};
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Tap Tempo
+// ---------------------------------------------------------------------------
+let _tapTimes = [];
+let _tapTimeout = null;
+
+function bangTap() {
+  const now = performance.now();
+  if (_tapTimeout) clearTimeout(_tapTimeout);
+  _tapTimeout = setTimeout(() => { _tapTimes = []; document.getElementById('tap-btn').classList.remove('active'); }, 3000);
+
+  _tapTimes.push(now);
+  if (_tapTimes.length > 5) _tapTimes.shift();
+  document.getElementById('tap-btn').classList.add('active');
+
+  if (_tapTimes.length < 2) return;
+
+  const intervals = [];
+  for (let i = 1; i < _tapTimes.length; i++) intervals.push(_tapTimes[i] - _tapTimes[i - 1]);
+  intervals.sort((a, b) => a - b);
+  const median = intervals[Math.floor(intervals.length / 2)];
+  const bpm = Math.round(Math.min(240, Math.max(40, 60000 / median)));
+
+  const inp = document.getElementById('bpm-input');
+  if (inp) { inp.value = bpm; inp.dispatchEvent(new Event('input')); }
+}
+
+// ---------------------------------------------------------------------------
+// Mute / Solo par voix
+// ---------------------------------------------------------------------------
+let _mutedVoices   = new Set();
+let _soloVoice     = null;
+let _droppedVoices = new Set();
+let _seqCycleCount = 0;
+let _seqAutoActive = false;
+
+function bangToggleExpand(idx) {
+  const row   = document.querySelector(`.voice-row[data-voice-idx="${idx}"]`);
+  const panel = row?.querySelector('.vr-expand');
+  if (!panel) return;
+  const open  = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  row?.querySelector('.btn-expand')?.classList.toggle('active', !open);
+  if (!open) _prScrollToRow(idx);
+}
+
+function _prScrollToRow(voiceIdx) {
+  const pr = document.getElementById('pianoroll');
+  if (!pr) return;
+  const rect = pr.querySelector(`rect[data-name]`);
+  if (!rect) return;
+  // Trouver la ligne SVG correspondant à ce voice_idx
+  // Les rects data-row sont dans l'ordre des rows (CC exclus)
+  // On compte la position de voiceIdx dans les voice-rows non-CC
+  const allRows = document.querySelectorAll('.voice-row');
+  let rowIdx = 0;
+  for (const r of allRows) {
+    const ri = parseInt(r.dataset.voiceIdx);
+    if (ri === voiceIdx) break;
+    // Compter seulement si pas CC (pas de .btn-expand = CC)
+    if (r.querySelector('.btn-expand')) rowIdx++;
+  }
+  const CH = 20;
+  const targetY = rowIdx * CH;
+  const panelH  = pr.clientHeight;
+  pr.scrollTo({ top: Math.max(0, targetY - panelH / 2 + CH), behavior: 'smooth' });
+}
+
+function bangSetTab(btn, panelName) {
+  const expand = btn.closest('.vr-expand');
+  expand?.querySelectorAll('.vr-tab').forEach(b => b.classList.remove('active'));
+  expand?.querySelectorAll('.vr-panel').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  const target = expand?.querySelector(`.vr-panel[data-panel="${panelName}"]`);
+  if (target) target.style.display = '';
+}
+
+function bangMute(idx) {
+  if (_soloVoice === idx) return; // la voix solo ne peut pas être mutée directement
+  _mutedVoices.has(idx) ? _mutedVoices.delete(idx) : _mutedVoices.add(idx);
+  _syncMuteState();
+}
+
+function bangSolo(idx) {
+  _soloVoice = (_soloVoice === idx) ? null : idx;
+  _syncMuteState();
+}
+
+let _copiedDNA = null;
+
+function bangCopyDNA(idx, btn) {
+  const input = document.querySelector(`.dna-edit[data-idx="${idx}"]`);
+  if (!input) return;
+  _copiedDNA = input.value;
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 600);
+  document.querySelectorAll('.btn-paste-dna').forEach(b => b.disabled = false);
+}
+
+function bangPasteDNA(idx) {
+  if (!_copiedDNA) return;
+  const input = document.querySelector(`.dna-edit[data-idx="${idx}"]`);
+  if (!input) return;
+  input.value = _copiedDNA;
+  htmx.trigger(input, 'change');
+}
+
+function _syncMuteState() {
+  document.querySelectorAll('.btn-mute').forEach(btn => {
+    const i = parseInt(btn.dataset.idx);
+    btn.classList.toggle('active', _mutedVoices.has(i) && _soloVoice === null);
+  });
+  document.querySelectorAll('.btn-solo').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.idx) === _soloVoice);
+  });
+  document.querySelectorAll('.voice-row[data-voice-idx]').forEach(row => {
+    const i = parseInt(row.dataset.voiceIdx);
+    const muted = _soloVoice !== null ? i !== _soloVoice : _mutedVoices.has(i);
+    row.classList.toggle('v-muted', muted);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Randomize params
+// ---------------------------------------------------------------------------
+function bangRandomize() {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const rnd  = (lo, hi, step) => {
+    const n = Math.round((lo + Math.random() * (hi - lo)) / step) * step;
+    return Math.round(n * 1000) / 1000;
+  };
+
+  const steps = pick([16, 32, 64, 64, 64, 128]);
+  const bpm   = pick([60,70,75,80,85,90,95,100,105,110,115,120,125,130,140,150,160,170,180]);
+  const chaos = rnd(0.10, 0.80, 0.05);
+  const grav  = rnd(0.30, 1.00, 0.05);
+  const swing = rnd(0.00, 0.45, 0.05);
+  const micro = rnd(0.50, 1.00, 0.05);
+
+  const q = sel => document.querySelector(sel);
+  q('[name="steps"]').value   = steps;
+  q('[name="chaos"]').value   = chaos;
+  q('[name="gravity"]').value = grav;
+
+  const bpmEl = document.getElementById('bpm-input');
+  if (bpmEl) bpmEl.value = bpm;
+
+  const swingEl = document.getElementById('swing-range');
+  if (swingEl) { swingEl.value = swing; document.getElementById('swing-val').textContent = Math.round(swing * 100) + '%'; }
+
+  const microEl = document.getElementById('micro-range');
+  if (microEl) { microEl.value = micro; document.getElementById('micro-val').textContent = Math.round(micro * 100) + '%'; }
+
+  // Flash visuel
+  const btn = document.getElementById('rng-btn');
+  if (btn) { btn.style.opacity = '0.3'; setTimeout(() => btn.style.opacity = '', 120); }
+}
+
+// ---------------------------------------------------------------------------
+// MIDI Clock Sync
+// ---------------------------------------------------------------------------
+let _clockEnabled = false;
+let _clockTicks   = 0;
+let _clockLast    = null;
+let _clockBeats   = [];   // intervals entre beats (ms), médiane sur 4
+
+async function toggleMidiSync() {
+  _clockEnabled = !_clockEnabled;
+  const btn = document.getElementById('sync-btn');
+  if (_clockEnabled) {
+    if (!navigator.requestMIDIAccess) {
+      alert('Web MIDI non supporté (Chrome/Chromium requis)');
+      _clockEnabled = false; return;
+    }
+    if (!_midiAccess) {
+      try {
+        _midiAccess = await navigator.requestMIDIAccess();
+        _midiAccess.onstatechange = bangMidiUpdatePorts;
+        bangMidiUpdatePorts();
+      } catch(e) {
+        alert('Accès MIDI refusé'); _clockEnabled = false; return;
+      }
+    }
+    _attachClockListeners();
+    btn.classList.add('active');
+  } else {
+    _detachClockListeners();
+    _clockTicks = 0; _clockLast = null; _clockBeats = [];
+    btn.classList.remove('active');
+  }
+}
+
+function _attachClockListeners() {
+  if (!_midiAccess) return;
+  for (const [, port] of _midiAccess.inputs) port.onmidimessage = _onClockMsg;
+}
+
+function _detachClockListeners() {
+  if (!_midiAccess) return;
+  for (const [, port] of _midiAccess.inputs) port.onmidimessage = null;
+}
+
+function _onClockMsg(msg) {
+  const s = msg.data[0];
+  if (s === 0xF8) {  // Timing clock — 24 par quarter note
+    _clockTicks++;
+    if (_clockTicks % 24 === 0) {
+      const now = performance.now();
+      if (_clockLast !== null) {
+        _clockBeats.push(now - _clockLast);
+        if (_clockBeats.length > 4) _clockBeats.shift();
+        const sorted = [..._clockBeats].sort((a, b) => a - b);
+        const med    = sorted[Math.floor(sorted.length / 2)];
+        const bpm    = Math.round(Math.min(240, Math.max(40, 60000 / med)));
+        const inp    = document.getElementById('bpm-input');
+        if (inp) inp.value = bpm;
+        // Met à jour le step_ms en live si le player tourne
+        if (_playing && _pattern) _pattern.step_ms = 60000 / bpm / 4;
+        // Flash visuel sur le beat
+        const btn = document.getElementById('sync-btn');
+        if (btn) { btn.classList.add('beat'); setTimeout(() => btn.classList.remove('beat'), 80); }
+      }
+      _clockLast = now;
+    }
+  } else if (s === 0xFA || s === 0xFB) {  // Start / Continue
+    if (_clockEnabled && !_playing) togglePlay();
+  } else if (s === 0xFC) {                 // Stop
+    if (_clockEnabled && _playing) _stop();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Export audio WebM — MediaRecorder sur le synthé browser
+// ---------------------------------------------------------------------------
+let _recording  = false;
+let _recDest    = null;
+let _recorder   = null;
+let _recChunks  = [];
+
+async function toggleRec() {
+  _recording ? _stopRec() : await _startRec();
+}
+
+async function _startRec() {
+  _audioCtx = _audioCtx || new AudioContext();
+  if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+
+  _recDest   = _audioCtx.createMediaStreamDestination();
+  _recChunks = [];
+
+  // Forcer le synthé browser — l'enregistrement n'a de sens qu'avec la sortie Web Audio
+  if (!_masterGain) {
+    _masterGain = _audioCtx.createGain();
+    _masterGain.gain.value = 0.65;
+    _masterGain.connect(_audioCtx.destination);
+    _useBrowserSynth = true;
+    document.getElementById('synth-btn').classList.add('active');
+    _forceBrowserSynth = true;
+  }
+  _masterGain.connect(_recDest);
+
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus' : 'audio/webm';
+  _recorder = new MediaRecorder(_recDest.stream, { mimeType: mime });
+  _recorder.ondataavailable = e => { if (e.data.size > 0) _recChunks.push(e.data); };
+  _recorder.onstop = _downloadRec;
+  _recorder.start();
+  _recording = true;
+  document.getElementById('rec-btn').classList.add('recording');
+}
+
+function _stopRec() {
+  if (!_recorder || _recorder.state === 'inactive') return;
+  _recorder.stop();
+  _recording = false;
+  document.getElementById('rec-btn').classList.remove('recording');
+}
+
+function _downloadRec() {
+  if (!_recChunks.length) return;
+  const blob = new Blob(_recChunks, { type: 'audio/webm' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  a.href     = url;
+  a.download = `bang-${ts}.webm`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// DNA grid editor
+// ---------------------------------------------------------------------------
+const _DNA_GRID_CYCLE = ['-', 'x', '?', '↺', '░'];
+const _DNA_GRID_CLASS = {'-':'dd','x':'dx','?':'dq','↺':'dr','░':'db'};
+
+function bangInitAllGrids() {
+  document.querySelectorAll('.dna-grid[data-idx]').forEach(grid => {
+    const inp = document.querySelector(`.dna-edit[data-idx="${grid.dataset.idx}"]`);
+    if (!inp) return;
+    _bangRenderGrid(grid, inp.value);
+    inp.addEventListener('input', () => _bangRenderGrid(grid, inp.value));
+  });
+}
+
+function _bangRenderGrid(grid, dna) {
+  grid.innerHTML = '';
+  for (let i = 0; i < dna.length; i++) {
+    const ch  = dna[i] || '-';
+    const cls = _DNA_GRID_CLASS[ch] || 'dd';
+    const cell = document.createElement('span');
+    cell.className = `dna-cell ${cls}`;
+    cell.textContent = ch;
+    cell.title = `Step ${i+1} : ${ch}`;
+    cell.addEventListener('click', () => _bangCellCycle(grid, i));
+    grid.appendChild(cell);
+  }
+}
+
+function _bangCellCycle(grid, pos) {
+  const inp = document.querySelector(`.dna-edit[data-idx="${grid.dataset.idx}"]`);
+  if (!inp) return;
+  const dna = inp.value.split('');
+  const cur = dna[pos] || '-';
+  const ni  = (_DNA_GRID_CYCLE.indexOf(cur) + 1) % _DNA_GRID_CYCLE.length;
+  dna[pos] = _DNA_GRID_CYCLE[ni];
+  inp.value = dna.join('');
+  _bangRenderGrid(grid, inp.value);
+  inp.dispatchEvent(new Event('change', {bubbles: true}));
+}
+
+// ---------------------------------------------------------------------------
+// Velocity lane editor
+// ---------------------------------------------------------------------------
+let _velDragLane = null;
+let _velDragData = null;
+
+function bangInitVelLanes() {
+  document.querySelectorAll('.vel-lane[data-idx]').forEach(lane => _bangRenderVelLane(lane));
+}
+
+function _bangRenderVelLane(lane) {
+  const data  = JSON.parse(lane.dataset.lane || '[]');
+  const idx   = lane.dataset.idx;
+  const inp   = document.querySelector(`.dna-edit[data-idx="${idx}"]`);
+  const dnaLen = inp ? inp.value.length : data.length;
+  lane.innerHTML = '';
+  for (let i = 0; i < dnaLen; i++) {
+    const vel  = (i < data.length) ? (data[i] || 0) : 0;
+    const bar  = document.createElement('div');
+    bar.className = 'vel-bar';
+    bar.style.height  = Math.max(1, Math.round(vel / 127 * 20)) + 'px';
+    bar.style.opacity = vel > 0 ? (0.3 + vel / 127 * 0.7) : 0.12;
+    bar.title = `Step ${i+1} vel:${vel || '—'}`;
+    lane.appendChild(bar);
+  }
+  lane.onpointerdown = e => _bangVelDown(e, lane);
+}
+
+function _bangVelDown(e, lane) {
+  e.preventDefault();
+  lane.setPointerCapture(e.pointerId);
+  lane.classList.add('active');
+  _velDragLane = lane;
+  _velDragData = JSON.parse(lane.dataset.lane || '[]');
+  const inp = document.querySelector(`.dna-edit[data-idx="${lane.dataset.idx}"]`);
+  const dnaLen = inp ? inp.value.length : _velDragData.length;
+  while (_velDragData.length < dnaLen) _velDragData.push(0);
+  _bangVelSetFromEvent(e);
+  lane.onpointermove = _bangVelMove;
+  lane.onpointerup   = _bangVelUp;
+}
+
+function _bangVelMove(e) { if (_velDragLane) _bangVelSetFromEvent(e); }
+
+function _bangVelSetFromEvent(e) {
+  const lane    = _velDragLane;
+  const bars    = lane.querySelectorAll('.vel-bar');
+  const laneRect = lane.getBoundingClientRect();
+  const relX    = e.clientX - laneRect.left;
+  const barW    = laneRect.width / bars.length;
+  const i       = Math.max(0, Math.min(bars.length - 1, Math.floor(relX / barW)));
+  const relY    = Math.max(0, Math.min(1, (e.clientY - laneRect.top) / laneRect.height));
+  const vel     = Math.round((1 - relY) * 127);
+  _velDragData[i] = vel;
+  const bar = bars[i];
+  if (bar) {
+    bar.style.height  = Math.max(1, Math.round(vel / 127 * 20)) + 'px';
+    bar.style.opacity = vel > 0 ? (0.3 + vel / 127 * 0.7) : 0.12;
+    bar.title = `Step ${i+1} vel:${vel || '—'}`;
+  }
+}
+
+async function _bangVelUp(e) {
+  const lane = _velDragLane;
+  if (!lane) return;
+  lane.classList.remove('active');
+  lane.onpointermove = null;
+  lane.onpointerup   = null;
+  lane.releasePointerCapture(e.pointerId);
+  const fd = new FormData();
+  fd.append('name', lane.dataset.name);
+  fd.append('lane', JSON.stringify(_velDragData));
+  await fetch('/voice/vel_lane', {method: 'POST', body: fd});
+  lane.dataset.lane = JSON.stringify(_velDragData);
+  _velDragLane = null;
+  _velDragData = null;
+}
+
+// ---------------------------------------------------------------------------
+// Pattern morphing A→B
+// ---------------------------------------------------------------------------
+let _morphActive   = false;
+let _morphProgress = 0;
+let _morphCycles   = 8;
+let _morphFromEvents = null;
+let _morphToEvents   = null;
+let _morphBlended    = null;
+
+function _computeBlendedEvents(p) {
+  if (!_morphFromEvents || !_morphToEvents) return null;
+  return _morphFromEvents.map((fromV, vi) => {
+    const toV   = _morphToEvents[vi] || {events: []};
+    const fromM = new Map(), toM = new Map();
+    for (const e of (fromV.events || [])) fromM.set(e.step, e);
+    for (const e of (toV.events   || [])) toM.set(e.step, e);
+    const allSteps = new Set([...fromM.keys(), ...toM.keys()]);
+    const merged = [];
+    for (const s of allSteps) {
+      const eA = fromM.get(s), eB = toM.get(s);
+      const blended = (eA ? eA.prob : 0) * (1 - p) + (eB ? eB.prob : 0) * p;
+      if (blended < 0.001) continue;
+      const base = eA || eB;
+      const vel  = eA && eB ? Math.round(eA.velocity * (1-p) + eB.velocity * p) : base.velocity;
+      merged.push({...base, step: s, prob: Math.round(blended * 100) / 100, velocity: vel});
+    }
+    merged.sort((a, b) => a.step - b.step);
+    return merged;
+  });
+}
+
+async function bangMorphToggle() {
+  if (_morphActive) { bangMorphStop(); return; }
+  const fromSlot = parseInt(document.getElementById('morph-from')?.value ?? 0);
+  const toSlot   = parseInt(document.getElementById('morph-to')?.value   ?? 1);
+  const cycles   = parseInt(document.getElementById('morph-cycles-inp')?.value ?? 8);
+  if (fromSlot === toSlot) { alert('Slots identiques'); return; }
+  const res  = await fetch(`/morph/prepare?from_slot=${fromSlot}&to_slot=${toSlot}`);
+  const data = await res.json();
+  if (!data.ok) { alert(data.error); return; }
+  _morphFromEvents = data.from;
+  _morphToEvents   = data.to;
+  _morphCycles     = Math.max(1, cycles);
+  _morphProgress   = 0;
+  _morphBlended    = _computeBlendedEvents(0);
+  _morphActive     = true;
+  document.getElementById('morph-start-btn')?.classList.add('active');
+  const fill = document.getElementById('morph-progress-fill');
+  if (fill) fill.style.width = '0%';
+}
+
+function bangMorphStop() {
+  _morphActive  = false;
+  _morphBlended = null;
+  document.getElementById('morph-start-btn')?.classList.remove('active');
+  const fill = document.getElementById('morph-progress-fill');
+  if (fill) fill.style.width = '0%';
+}
+
+// ---------------------------------------------------------------------------
+// LFO per-voice
+// ---------------------------------------------------------------------------
+function _lfoValue(shape, phase) {
+  switch (shape) {
+    case 'sin':  return 0.5 + 0.5 * Math.sin(2 * Math.PI * phase);
+    case 'tri':  return phase < 0.5 ? 2 * phase : 2 * (1 - phase);
+    case 'ramp': return phase;
+    case 'rnd':  return Math.random();
+    default:     return 0.5;
+  }
+}
+
+function bangToggleLfo(btn) {
+  const wrap   = btn.closest('.lfo-wrap');
+  const config = wrap.querySelector('.lfo-config');
+  const visible = config.style.display !== 'none';
+  if (visible) {
+    config.style.display = 'none';
+  } else {
+    config.style.display = '';
+    if (!btn.classList.contains('active')) {
+      bangLfoChange(wrap.dataset.name, btn);
+    }
+  }
+}
+
+function bangLfoChange(name, el) {
+  const wrap   = el.closest('.lfo-wrap') || document.querySelector(`.lfo-wrap[data-name="${name}"]`);
+  const shape  = wrap.querySelector('.lfo-shape').value;
+  const target = wrap.querySelector('.lfo-target').value;
+  const freq   = parseFloat(wrap.querySelector('.lfo-freq').value);
+  const depth  = parseFloat(wrap.querySelector('.lfo-depth').value) / 100;
+  wrap.querySelector('.btn-lfo').classList.add('active');
+  wrap.querySelector('.lfo-config').style.display = '';
+  const fd = new FormData();
+  fd.append('name', name); fd.append('shape', shape);
+  fd.append('target', target); fd.append('freq', freq); fd.append('depth', depth);
+  fetch('/voice/lfo', {method: 'POST', body: fd});
+}
+
+function bangLfoClear(name, el) {
+  const wrap = el.closest('.lfo-wrap');
+  const fd = new FormData();
+  fd.append('name', name); fd.append('shape', 'off');
+  fetch('/voice/lfo', {method: 'POST', body: fd});
+  wrap.querySelector('.btn-lfo').classList.remove('active');
+  wrap.querySelector('.lfo-config').style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Probability lane editor
+// ---------------------------------------------------------------------------
+let _probDragLane = null;
+let _probDragData = null;
+
+function bangInitProbLanes() {
+  document.querySelectorAll('.prob-lane[data-idx]').forEach(lane => _bangRenderProbLane(lane));
+}
+
+function _bangRenderProbLane(lane) {
+  const data   = JSON.parse(lane.dataset.lane || '[]');
+  const idx    = lane.dataset.idx;
+  const inp    = document.querySelector(`.dna-edit[data-idx="${idx}"]`);
+  const dnaLen = inp ? inp.value.length : data.length;
+  lane.innerHTML = '';
+  for (let i = 0; i < dnaLen; i++) {
+    const pct = (i < data.length) ? (data[i] || 0) : 0;
+    const bar = document.createElement('div');
+    bar.className = 'prob-bar';
+    bar.style.height  = Math.max(1, Math.round(pct / 100 * 14)) + 'px';
+    bar.style.opacity = pct > 0 ? (0.3 + pct / 100 * 0.7) : 0.12;
+    bar.title = `Step ${i+1} prob:${pct > 0 ? pct + '%' : '—'}`;
+    lane.appendChild(bar);
+  }
+  lane.onpointerdown = e => _bangProbDown(e, lane);
+}
+
+function _bangProbDown(e, lane) {
+  _probDragLane = lane;
+  _probDragData = JSON.parse(lane.dataset.lane || '[]');
+  const inp = document.querySelector(`.dna-edit[data-idx="${lane.dataset.idx}"]`);
+  const dnaLen = inp ? inp.value.length : _probDragData.length;
+  while (_probDragData.length < dnaLen) _probDragData.push(0);
+  lane.classList.add('active');
+  lane.setPointerCapture(e.pointerId);
+  lane.onpointermove = _bangProbMove;
+  lane.onpointerup   = _bangProbUp;
+  _bangProbSetFromEvent(e, lane);
+}
+
+function _bangProbMove(e) {
+  if (_probDragLane) _bangProbSetFromEvent(e, _probDragLane);
+}
+
+function _bangProbSetFromEvent(e, lane) {
+  const bars = lane.querySelectorAll('.prob-bar');
+  if (!bars.length) return;
+  const rect  = lane.getBoundingClientRect();
+  const barW  = rect.width / bars.length;
+  const barIdx = Math.max(0, Math.min(bars.length - 1, Math.floor((e.clientX - rect.left) / barW)));
+  const pct   = Math.max(0, Math.min(100, Math.round((1 - (e.clientY - rect.top) / rect.height) * 100)));
+  _probDragData[barIdx] = pct;
+  const bar = bars[barIdx];
+  bar.style.height  = Math.max(1, Math.round(pct / 100 * 14)) + 'px';
+  bar.style.opacity = pct > 0 ? (0.3 + pct / 100 * 0.7) : 0.12;
+  bar.title = `Step ${barIdx+1} prob:${pct > 0 ? pct + '%' : '—'}`;
+}
+
+async function _bangProbUp(e) {
+  const lane = _probDragLane;
+  if (!lane) return;
+  lane.classList.remove('active');
+  lane.onpointermove = null;
+  lane.onpointerup   = null;
+  lane.releasePointerCapture(e.pointerId);
+  const fd = new FormData();
+  fd.append('name', lane.dataset.name);
+  fd.append('lane', JSON.stringify(_probDragData));
+  await fetch('/voice/prob_lane', {method: 'POST', body: fd});
+  lane.dataset.lane = JSON.stringify(_probDragData);
+  _probDragLane = null;
+  _probDragData = null;
+}
+
+// ---------------------------------------------------------------------------
+// Groove presets
+// ---------------------------------------------------------------------------
+async function bangLoadGrooves() {
+  const res = await fetch('/grooves');
+  const data = await res.json();
+  const sel = document.getElementById('groove-select');
+  for (const name of data.grooves) {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  }
+}
+bangLoadGrooves();
+
+function bangApplyGroove(name) {
+  if (!name) return;
+  htmx.ajax('POST', '/groove/apply', {target: '#voices', swap: 'innerHTML', values: {name}});
+  setTimeout(() => { document.getElementById('groove-select').value = ''; }, 100);
+}
+
+async function ablSyncBpm() {
+  const statusEl = document.getElementById('abl-status');
+  statusEl.innerHTML = '<span style="color:var(--muted)">Lecture du BPM…</span>';
+  const res = await fetch('/ableton/sync_bpm');
+  const data = await res.json();
+  if (data.ok) {
+    const bpmInput = document.getElementById('bpm-input');
+    if (bpmInput) bpmInput.value = data.bpm;
+    statusEl.innerHTML = `<span style="color:var(--success)">BPM Live : ${data.bpm}</span>`;
+  } else {
+    statusEl.innerHTML = `<span style="color:#f87171">${data.error || 'Erreur connexion Ableton'}</span>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Auto-évolve
+// ---------------------------------------------------------------------------
+function _doAutoEvolve() {
+  htmx.ajax('POST', '/vary', {target: '#voices', swap: 'innerHTML'});
+}
 
 // ---------------------------------------------------------------------------
 // Voice pattern — click-to-edit + live preview pianoroll
@@ -1796,6 +3379,22 @@ function bangCancelEdit(inp) {
 }
 
 function bangToggleEuclid(btn) {
+  const inp = btn.nextElementSibling;
+  if (!inp) return;
+  const visible = inp.style.display !== 'none';
+  inp.style.display = visible ? 'none' : 'inline-block';
+  if (!visible) { inp.focus(); inp.select(); }
+}
+
+function bangToggleSteps(btn) {
+  const inp = btn.nextElementSibling;
+  if (!inp) return;
+  const visible = inp.style.display !== 'none';
+  inp.style.display = visible ? 'none' : 'inline-block';
+  if (!visible) { inp.focus(); inp.select(); }
+}
+
+function bangToggleOffset(btn) {
   const inp = btn.nextElementSibling;
   if (!inp) return;
   const visible = inp.style.display !== 'none';

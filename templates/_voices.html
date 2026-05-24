@@ -1,130 +1,90 @@
 {% if voices %}
 <form id="voice-notes" onsubmit="return false">
   {% for note, dna, raw, vtype, name in voices %}
-  {% set idx = loop.index0 %}
-  {% set thin = voice_thin[name] if name in voice_thin else 1 %}
-  {% set is_locked = idx in locked_voices %}
-  <div class="voice-row{% if is_locked %} voice-locked{% endif %}">
-    <div class="vr-controls">
-      {% if vtype.startswith('vd') %}
-        <span class="note vd-ch" title="Canal MIDI {{ vtype[2:]|int + 1 }}">ch{{ vtype[2:]|int + 1 }}</span>
-      {% elif vtype.startswith('ksp') %}
-        <span class="note vd-ch" title="Canal MIDI {{ vtype[3:] }}">ch{{ vtype[3:] }}</span>
-      {% elif vtype != "cc" and note %}
-        <input class="note-input" type="number" name="remap_{{ name }}"
-               value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
-        <span class="note-name">{{ midi_note_name(note) }}</span>
-      {% else %}
-        <span class="note">—</span>
-      {% endif %}
-      <span class="name">{{ name }}</span>
-      {% if vtype != "cc" %}
-      <div class="thin-btns">
-        {% for f, label in [(1, "×1"), (2, "÷2"), (4, "÷4")] %}
-        <button type="button"
-                class="btn-thin{% if thin == f %} active{% endif %}"
-                hx-post="/voice/thin"
-                hx-vals='{"name": "{{ name }}", "factor": {{ f }}}'
-                hx-target="#voices"
-                hx-swap="innerHTML">{{ label }}</button>
-        {% endfor %}
+  {% set cur_drop_pct  = (voice_drop[name] * 100)|int if name in voice_drop else 100 %}
+  {% set idx           = loop.index0 %}
+  {% set thin          = voice_thin[name] if name in voice_thin else 1 %}
+  {% set is_locked     = idx in locked_voices %}
+  {% set cur_lane      = voice_vel_lane[name]  if name in voice_vel_lane  else [] %}
+  {% set cur_prob_lane = voice_prob_lane[name] if name in voice_prob_lane else [] %}
+  {% set cur_lfo       = voice_lfo[name]       if name in voice_lfo       else none %}
+  {% set lfo_active    = cur_lfo is not none %}
+  {% set cur_vsteps    = voice_steps[name]  if name in voice_steps  and voice_steps[name]  > 0 else raw|length %}
+  {% set vsteps_active = name in voice_steps  and voice_steps[name]  > 0 %}
+  {% set cur_voffset   = voice_offset[name] if name in voice_offset and voice_offset[name] > 0 else 0 %}
+  {% set voffset_active= name in voice_offset and voice_offset[name] > 0 %}
+  {% set cur_chord     = voice_chords[name]   if name in voice_chords  else "mono" %}
+  {% set cur_density   = voice_density[name]  if name in voice_density else 1.0 %}
+
+  <div class="voice-row{% if is_locked %} voice-locked{% endif %}" data-voice-idx="{{ idx }}">
+
+    {# ── HEADER toujours visible ─────────────────────────────────────────── #}
+    <div class="vr-header">
+      <div class="vr-hl">
+        {% if vtype != "cc" %}
+        <button type="button" class="btn-mute" data-idx="{{ idx }}" onclick="bangMute({{ idx }})" title="Mute">M</button>
+        <button type="button" class="btn-solo" data-idx="{{ idx }}" onclick="bangSolo({{ idx }})" title="Solo">S</button>
+        {% endif %}
+        {% if vtype.startswith('vd') %}
+          <span class="note vd-ch" title="Canal MIDI {{ vtype[2:]|int + 1 }}">ch{{ vtype[2:]|int + 1 }}</span>
+        {% elif vtype.startswith('ksp') %}
+          <span class="note vd-ch" title="Canal MIDI {{ vtype[3:] }}">ch{{ vtype[3:] }}</span>
+        {% elif vtype != "cc" and note %}
+          <input class="note-input" type="number" name="remap_{{ name }}" value="{{ note }}" min="0" max="127" title="Note MIDI {{ name }}">
+          <span class="note-name">{{ midi_note_name(note) }}</span>
+        {% else %}
+          <span class="note">—</span>
+        {% endif %}
+        <span class="vr-name">{{ name }}</span>
+        {% if vtype == "markov" %}<span class="tag-pill markov">Mrk</span>
+        {% elif vtype == "cc"   %}<span class="tag-pill cc">CC</span>
+        {% elif vtype == "babka"%}<span class="tag-pill babka">Bka</span>
+        {% elif vtype == "bl"   %}<span class="tag-pill bl">Bass</span>
+        {% elif vtype == "vk"   %}<span class="tag-pill vk">VKk</span>
+        {% elif vtype.startswith("vfm") %}<span class="tag-pill vfm">VFM</span>
+        {% elif vtype.startswith("mf")  %}<span class="tag-pill mf">MFq</span>
+        {% elif vtype.startswith("ksp") %}<span class="tag-pill ksp">KSP</span>
+        {% endif %}
       </div>
-      {% endif %}
-      {% if vtype == "markov" %}
-        <span class="tag">↳ Markov</span>
-        {% set cur_chord = voice_chords[name] if name in voice_chords else "mono" %}
-        <select class="chord-select"
-                hx-post="/voice/chord"
-                hx-vals='{"name": "{{ name }}"}'
-                hx-include="this"
-                hx-target="#voices"
-                hx-swap="innerHTML"
-                hx-trigger="change"
-                name="chord_type"
-                title="Type d'accord">
-          {% for c in ["mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"] %}
-          <option value="{{ c }}"{% if cur_chord == c %} selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      {% elif vtype == "cc" %}
-        <span class="tag cc">↳ CC</span>
-      {% elif vtype == "babka" %}
-        <span class="tag babka">⚗ Babka</span>
-      {% elif vtype == "bl" %}
-        <span class="tag bl">♩ Bass</span>
-      {% elif vtype == "vk" %}
-        <span class="tag vk">★ VKick</span>
-      {% elif vtype.startswith("vfm") %}
-        <span class="tag vfm">⚡ VFM</span>
-      {% elif vtype.startswith("mf") %}
-        <span class="tag mf">◈ MFq</span>
-      {% elif vtype.startswith("ksp") %}
-        <span class="tag ksp">♜ KSP</span>
-        {% set cur_chord = voice_chords[name] if name in voice_chords else "mono" %}
-        <select class="chord-select"
-                hx-post="/voice/chord"
-                hx-vals='{"name": "{{ name }}"}'
-                hx-include="this"
-                hx-target="#voices"
-                hx-swap="innerHTML"
-                hx-trigger="change"
-                name="chord_type"
-                title="Type d'accord">
-          {% for c in ["mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"] %}
-          <option value="{{ c }}"{% if cur_chord == c %} selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      {% endif %}
-      {% if vtype != "cc" %}
-      {% set cur_density = voice_density[name] if name in voice_density else 1.0 %}
-      <input type="range" class="density-slider"
-             min="0" max="1" step="0.05"
-             value="{{ cur_density }}"
-             name="density"
-             hx-post="/voice/density"
-             hx-vals='{"name": "{{ name }}"}'
-             hx-include="this"
-             hx-target="#voices"
-             hx-swap="innerHTML"
-             hx-trigger="change"
-             title="Densité {{ name }} : {{ (cur_density * 100)|int }}%">
-      {% endif %}
-      {% if vtype != "cc" %}
-      <button type="button"
-              class="btn-lock{% if is_locked %} active{% endif %}"
-              hx-post="/lock_voice"
-              hx-vals='{"idx": {{ idx }}}'
-              hx-target="#voices"
-              hx-swap="innerHTML"
-              title="{{ '🔓 Déverrouiller' if is_locked else '🔒 Verrouiller cette voix' }}">🔒</button>
-      <span class="euclid-wrap">
-        <button type="button" class="btn-euclid"
-                onclick="bangToggleEuclid(this)"
-                title="Rythme euclidien — entrer le nombre de hits, valider avec Entrée">E</button>
-        <input class="euclid-k" type="number" min="1" max="{{ raw|length }}"
-               value="{{ (raw|length) // 2 }}"
-               style="display:none"
-               hx-post="/voice/euclidean"
-               hx-vals='{"idx": {{ idx }}}'
-               hx-include="this"
-               hx-target="#voices"
-               hx-swap="innerHTML"
-               hx-trigger="keydown[key=='Enter']"
-               name="k"
-               title="Nombre de hits (1–{{ raw|length }})">
-      </span>
-      {% endif %}
+      <div class="vr-hr">
+        {% if vtype != "cc" %}
+        {% if vtype not in ("cc", "babka") %}
+        <label class="drop-label{% if cur_drop_pct < 100 %} active{% endif %}"
+               title="Drop — 100% = toujours joue, 50% = 1 cycle sur 2">
+          <input class="drop-pct" type="number" min="0" max="100" step="5"
+                 value="{{ cur_drop_pct }}" name="pct"
+                 hx-post="/voice/drop" hx-vals='{"name": "{{ name }}"}'
+                 hx-include="this" hx-target="#voices" hx-swap="innerHTML"
+                 hx-trigger="change">%
+        </label>
+        {% endif %}
+        <button type="button" class="btn-lock{% if is_locked %} active{% endif %}"
+                hx-post="/lock_voice" hx-vals='{"idx": {{ idx }}}'
+                hx-target="#voices" hx-swap="innerHTML"
+                title="{{ '🔓 Déverrouiller' if is_locked else '🔒 Verrouiller' }}">🔒</button>
+        <button type="button" class="btn-expand" onclick="bangToggleExpand({{ idx }})" title="Éditer / outils">▾</button>
+        {% endif %}
+      </div>
     </div>
+
+    {# ── DENSITY — barre pleine largeur sous le header ───────────────────── #}
+    {% if vtype != "cc" %}
+    <input type="range" class="density-slider"
+           min="0" max="1" step="0.05" value="{{ cur_density }}" name="density"
+           hx-post="/voice/density" hx-vals='{"name": "{{ name }}"}'
+           hx-include="this" hx-target="#voices" hx-swap="innerHTML"
+           hx-trigger="change"
+           title="Densité : {{ (cur_density * 100)|int }}%">
+    {% endif %}
+
+    {# ── DNA VIEW toujours visible ────────────────────────────────────────── #}
     {% if vtype != "cc" %}
     <div class="vr-pattern">
       <div class="dna-view" onclick="bangStartEdit(this)" title="Cliquer pour éditer">{{ dna | safe }}</div>
       <input class="dna-edit" type="text" value="{{ raw }}"
-             name="pattern"
-             hx-post="/voice/pattern"
-             hx-vals='{"idx": {{ idx }}}'
-             hx-include="this"
-             hx-target="#voices"
-             hx-swap="innerHTML"
+             data-idx="{{ idx }}" name="pattern"
+             hx-post="/voice/pattern" hx-vals='{"idx": {{ idx }}}'
+             hx-include="this" hx-target="#voices" hx-swap="innerHTML"
              hx-trigger="change, keydown[key=='Enter'] delay:100ms"
              oninput="bangPreviewPr(this, {{ idx }})"
              onkeydown="if(event.key==='Escape'){bangCancelEdit(this);}"
@@ -132,16 +92,149 @@
              title="Enter ou Escape pour valider/annuler">
     </div>
     {% endif %}
+
+    {# ── PANNEAU EXPANSIBLE (tabbed) ─────────────────────────────────────── #}
+    {% if vtype != "cc" %}
+    <div class="vr-expand" style="display:none">
+      <div class="vr-tabs">
+        <button type="button" class="vr-tab active" onclick="bangSetTab(this,'dna')">DNA</button>
+        <button type="button" class="vr-tab" onclick="bangSetTab(this,'ops')">OPS</button>
+        <button type="button" class="vr-tab" onclick="bangSetTab(this,'mod')">MOD</button>
+      </div>
+
+      {# Tab DNA : grille + velocity lane + probability lane #}
+      <div class="vr-panel" data-panel="dna">
+        <div class="dna-editor-wrap">
+          <div class="dna-grid" data-idx="{{ idx }}"></div>
+          <div class="vel-lane"  data-idx="{{ idx }}" data-name="{{ name }}" data-lane="{{ cur_lane | tojson }}"></div>
+          <div class="prob-lane" data-idx="{{ idx }}" data-name="{{ name }}" data-lane="{{ cur_prob_lane | tojson }}"></div>
+        </div>
+      </div>
+
+      {# Tab OPS : thin · DNA ops · vary/copy/paste/regen · euclid · clip · MIDI rec #}
+      <div class="vr-panel" data-panel="ops" style="display:none">
+        <div class="ops-row">
+          <div class="thin-btns">
+            {% for f, label in [(1, "×1"), (2, "÷2"), (4, "÷4")] %}
+            <button type="button" class="btn-thin{% if thin == f %} active{% endif %}"
+                    hx-post="/voice/thin" hx-vals='{"name": "{{ name }}", "factor": {{ f }}}'
+                    hx-target="#voices" hx-swap="innerHTML">{{ label }}</button>
+            {% endfor %}
+          </div>
+          <div class="dna-ops">
+            <button type="button" class="btn-dna-rot" hx-post="/voice/rotate" hx-vals='{"idx": {{ idx }}, "n": -1}' hx-target="#voices" hx-swap="innerHTML" title="Décaler ←">◀</button>
+            <button type="button" class="btn-dna-rot" hx-post="/voice/rotate" hx-vals='{"idx": {{ idx }}, "n": 1}'  hx-target="#voices" hx-swap="innerHTML" title="Décaler →">▶</button>
+            <button type="button" class="btn-dna-rev" hx-post="/voice/reverse" hx-vals='{"idx": {{ idx }}}'          hx-target="#voices" hx-swap="innerHTML" title="Rétrograde">↔</button>
+            <button type="button" class="btn-dna-sz"  hx-post="/voice/double"  hx-vals='{"idx": {{ idx }}}'          hx-target="#voices" hx-swap="innerHTML" title="Doubler ×2">×2</button>
+            <button type="button" class="btn-dna-sz"  hx-post="/voice/halve"   hx-vals='{"idx": {{ idx }}}'          hx-target="#voices" hx-swap="innerHTML" title="Réduire ÷2">÷2</button>
+            <button type="button" class="btn-dna-rot" hx-post="/voice/invert"  hx-vals='{"idx": {{ idx }}}'          hx-target="#voices" hx-swap="innerHTML" title="Inverser hits">¬</button>
+          </div>
+        </div>
+        <div class="ops-row">
+          <span class="euclid-wrap">
+            <button type="button" class="btn-euclid" onclick="bangToggleEuclid(this)" title="Rythme euclidien">E</button>
+            <input class="euclid-k" type="number" min="1" max="{{ raw|length }}" value="{{ (raw|length) // 2 }}"
+                   style="display:none"
+                   hx-post="/voice/euclidean" hx-vals='{"idx": {{ idx }}}' hx-include="this"
+                   hx-target="#voices" hx-swap="innerHTML" hx-trigger="keydown[key=='Enter']" name="k"
+                   title="Hits (1–{{ raw|length }})">
+          </span>
+          {% if not is_locked %}
+          <button type="button" class="btn-vary-voice" hx-post="/voice/vary"  hx-vals='{"idx": {{ idx }}}' hx-target="#voices" hx-swap="innerHTML" title="Muter légèrement">~</button>
+          <button type="button" class="btn-copy-dna"   onclick="bangCopyDNA({{ idx }}, this)"               title="Copier DNA">C</button>
+          <button type="button" class="btn-paste-dna"  onclick="bangPasteDNA({{ idx }})"                    title="Coller DNA">P</button>
+          <button type="button" class="btn-vary-voice" hx-post="/voice/regen" hx-vals='{"idx": {{ idx }}}' hx-target="#voices" hx-swap="innerHTML" title="Régénérer">⟳</button>
+          {% endif %}
+          <a class="btn-clip-dl" href="/export/clip?idx={{ idx }}" download="{{ name }}.mid"
+             draggable="true"
+             ondragstart="event.dataTransfer.setData('DownloadURL','audio/midi:{{ name }}.mid:'+window.location.origin+'/export/clip?idx={{ idx }}')"
+             title="↓ clip MIDI / Drag → Ableton">↓</a>
+          <button type="button" class="btn-midi-rec" id="midi-rec-{{ idx }}"
+                  onclick="bangMidiRecord({{ idx }})" title="Capturer depuis MIDI">⏺</button>
+        </div>
+      </div>
+
+      {# Tab MOD : steps · offset · LFO · accord #}
+      <div class="vr-panel" data-panel="mod" style="display:none">
+        <div class="ops-row">
+          {% if vtype not in ("babka",) %}
+          <span class="steps-wrap">
+            <button type="button" class="btn-steps{% if vsteps_active %} active{% endif %}"
+                    onclick="bangToggleSteps(this)"
+                    title="Cycle indépendant (polymetrie)">{{ cur_vsteps }}s</button>
+            <input class="steps-n" type="number" min="1" max="256" value="{{ cur_vsteps }}"
+                   style="display:none"
+                   hx-post="/voice/steps" hx-vals='{"name": "{{ name }}"}'
+                   hx-include="this" hx-target="#voices" hx-swap="innerHTML"
+                   hx-trigger="keydown[key=='Enter']" name="n"
+                   title="Steps (1–256) — Entrée / 0 = reset">
+          </span>
+          <span class="offset-wrap">
+            <button type="button" class="btn-offset{% if voffset_active %} active{% endif %}"
+                    onclick="bangToggleOffset(this)"
+                    title="Phase offset">+{{ cur_voffset }}s</button>
+            <input class="offset-n" type="number" min="0" max="255" value="{{ cur_voffset }}"
+                   style="display:none"
+                   hx-post="/voice/offset" hx-vals='{"name": "{{ name }}"}'
+                   hx-include="this" hx-target="#voices" hx-swap="innerHTML"
+                   hx-trigger="keydown[key=='Enter']" name="n"
+                   title="Offset steps (0 = reset)">
+          </span>
+          {% endif %}
+          <span class="lfo-wrap" data-name="{{ name }}">
+            <button type="button" class="btn-lfo{% if lfo_active %} active{% endif %}"
+                    onclick="bangToggleLfo(this)" title="LFO">LFO</button>
+            <span class="lfo-config"{% if not lfo_active %} style="display:none"{% endif %}>
+              <select class="lfo-shape"  onchange="bangLfoChange('{{ name }}', this)" title="Forme">
+                {% for s in ["sin","tri","ramp","rnd"] %}
+                <option value="{{ s }}"{% if cur_lfo and cur_lfo.shape == s %} selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+              <select class="lfo-target" onchange="bangLfoChange('{{ name }}', this)" title="Cible">
+                <option value="density"{% if cur_lfo and cur_lfo.target == "density" %} selected{% endif %}>dens</option>
+                <option value="drop"{% if cur_lfo and cur_lfo.target == "drop" %} selected{% endif %}>drop</option>
+              </select>
+              <select class="lfo-freq" onchange="bangLfoChange('{{ name }}', this)" title="Fréquence">
+                {% for f in [0.25, 0.5, 1.0, 2.0, 4.0, 8.0] %}
+                <option value="{{ f }}"{% if cur_lfo and (cur_lfo.freq | round(2)) == f %} selected{% endif %}>
+                  {%- if f < 1.0 %}÷{{ (1/f)|int }}{% elif f == 1.0 %}×1{% else %}×{{ f|int }}{% endif -%}
+                </option>
+                {% endfor %}
+              </select>
+              <input class="lfo-depth" type="range" min="0" max="100" step="5"
+                     value="{{ (cur_lfo.depth * 100)|int if cur_lfo else 50 }}"
+                     oninput="bangLfoChange('{{ name }}', this)"
+                     title="Profondeur LFO">
+              <button type="button" class="btn-lfo-off" onclick="bangLfoClear('{{ name }}', this)" title="Désactiver">×</button>
+            </span>
+          </span>
+        </div>
+        {% if vtype == "markov" or vtype.startswith("ksp") %}
+        <div class="ops-row">
+          <span class="mod-label">accord</span>
+          <select class="chord-select"
+                  hx-post="/voice/chord" hx-vals='{"name": "{{ name }}"}'
+                  hx-include="this" hx-target="#voices" hx-swap="innerHTML"
+                  hx-trigger="change" name="chord_type" title="Type d'accord">
+            {% for c in ["mono","power","minor","major","sus2","sus4","m7","M7","dom7","dim","aug"] %}
+            <option value="{{ c }}"{% if cur_chord == c %} selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
+
   <div class="remap-row">
     <button type="button" class="btn-remap"
-            hx-post="/notes"
-            hx-include="#voice-notes"
-            hx-target="#voices"
-            hx-swap="innerHTML">
-      ↳ Appliquer notes
-    </button>
+            hx-post="/notes" hx-include="#voice-notes"
+            hx-target="#voices" hx-swap="innerHTML">↳ Appliquer notes</button>
+    <a class="btn-remap" href="/export/clips" download
+       title="Télécharger toutes les voix comme clips MIDI séparés (zip)">↓ Tous les clips</a>
   </div>
 </form>
 {% else %}

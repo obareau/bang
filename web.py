@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-APP_VERSION = "0.5.1"
+APP_VERSION = "0.9.0-beta"
 
 import io
 import json
@@ -49,7 +49,28 @@ PRESETS_FILE     = BASE_DIR / "bang_presets.json"
 KSP_PRESETS_FILE = BASE_DIR / "bang_ksp_presets.json"
 FAVORITES_FILE   = BASE_DIR / "bang_favorites.json"
 SONG_PARAMS_FILE = BASE_DIR / "bang_song_params.json"
+STATE_FILE       = BASE_DIR / "bang_state.json"
 EXPORT_DIR.mkdir(exist_ok=True)
+
+# Groove presets — DNA 16 steps par voix (kick, snare, hh, perc)
+GROOVE_PRESETS: dict[str, list[str]] = {
+    "MPC Boom Bap":    ["x---x---x---x---", "----x-------x---", "x-x-x-x-x-x-x-x", "---x-----------x"],
+    "Trap":            ["x-----------x---", "----x-----x-x---", "xxxxxxxxxxxxxxxx", "x-x-x-----------"],
+    "Bossa Nova":      ["x--x--x-x--x--x-", "---x-----x------", "x-x-x-x-x-x-x-x", "x---x---x---x---"],
+    "Reggae":          ["--------x-------", "x---x---x---x---", "x-x-x-x-x-x-x-x", "----x-------x---"],
+    "Afrobeat":        ["x--x--x--x--x--x", "--x---x---x---x-", "x-x-x-x-x-x-x-x", "x--x-x--x--x-x--"],
+    "Techno":          ["x---x---x---x---", "----x-------x---", "-x-x-x-x-x-x-x-", "x-----------x---"],
+    "Drum'n'Bass":     ["x-----------x-x-", "----x-----------", "x-x-x-x-x-x-x-x", "x--x--x--x--x---"],
+    "Hip-Hop Swing":   ["x---x--x----x---", "----x-------x---", "x--x--x-x--x--x-", "--x---x-------x-"],
+    "Breakbeat":       ["x-x---x-x-x---x-", "---x-----x------", "x-x-x-x-x-x-x-x", "--x---x-------x-"],
+    "Cumbia":          ["x--x-x--x--x-x--", "----x-------x---", "-x-x-x-x-x-x-x-", "x---x---x---x---"],
+    "Soca":            ["x---x---x---x---", "--x---x---x---x-", "x-x-x-x-x-x-x-x", "x-x---x-x-x---x-"],
+    "Clave 3-2":       ["x--x--x---------", "--------x--x-x--", "x-x-x-x-x-x-x-x", "x--x--x--x-x-x--"],
+    "Waltz 3/4":       ["x-----x-----x---", "--x-----x-----x-", "x-x-x-x-x-x-x-x", "x---x---x---x---"],
+    "Shuffle":         ["x---x---x---x---", "----x-------x---", "x--x--x--x--x--x", "--------x-------"],
+    "Minimal Techno":  ["x-----------x---", "----x-----------", "-x-x-x-x-x-x-x-", "x---------------"],
+    "Straight":        ["x---x---x---x---", "----x-------x---", "x---x---x---x---", ""],
+}
 
 # ---------------------------------------------------------------------------
 # Drum machine presets  (voice_name -> MIDI note)
@@ -377,11 +398,135 @@ def _load_song_params() -> dict:
 def _save_song_params(p: dict) -> None:
     SONG_PARAMS_FILE.write_text(json.dumps(p, indent=2))
 
+
+# ---------------------------------------------------------------------------
+# Persistance de session (bang_state.json)
+# ---------------------------------------------------------------------------
+
+def _snap_to_dict(snap: dict | None) -> dict | None:
+    if not snap:
+        return None
+    return {
+        "voices": [[n, d, t] for n, d, t in (snap.get("voices") or [])],
+        "plocks": snap.get("plocks", []),
+        "last_p": snap.get("last_p"),
+    }
+
+def _dict_to_snap(data: dict | None) -> dict | None:
+    if not data:
+        return None
+    return {
+        "voices": [(n, d, t) for n, d, t in (data.get("voices") or [])],
+        "plocks": data.get("plocks", []),
+        "last_p": data.get("last_p"),
+    }
+
+def _save_state() -> None:
+    try:
+        data = {
+            "bang_version":      APP_VERSION,
+            "last_p":            _state.get("last_p"),
+            "last_seed":         _state.get("last_seed"),
+            "voices":            [[n, d, t] for n, d, t in (_state.get("voices") or [])],
+            "plocks":            _state.get("plocks", []),
+            "note_remap":        _state.get("note_remap", {}),
+            "voice_thin":        _state.get("voice_thin", {}),
+            "voice_density":     _state.get("voice_density", {}),
+            "voice_chords":      _state.get("voice_chords", {}),
+            "voice_steps":       _state.get("voice_steps", {}),
+            "voice_offset":      _state.get("voice_offset", {}),
+            "voice_drop":        _state.get("voice_drop", {}),
+            "voice_vel_lane":    _state.get("voice_vel_lane", {}),
+            "voice_prob_lane":   _state.get("voice_prob_lane", {}),
+            "voice_lfo":         _state.get("voice_lfo", {}),
+            "seq_weights":       _state.get("seq_weights", [1]*8),
+            "ableton_host":         _state.get("ableton_host", "127.0.0.1"),
+            "ableton_port":         _state.get("ableton_port", 11000),
+            "ableton_track_offset": _state.get("ableton_track_offset", 0),
+            "ableton_slot":         _state.get("ableton_slot", 0),
+            "seq_slots":   [(_snap_to_dict(s) if s else None) for s in _state.get("seq_slots", [None]*8)],
+            "seq_current": _state.get("seq_current", 0),
+            "seq_cycles":  _state.get("seq_cycles", 2),
+            "locked_voices":     sorted(_state.get("locked_voices", set())),
+            "current_preset":    _state.get("current_preset", ""),
+            "current_ksp_preset":_state.get("current_ksp_preset", ""),
+            "max_poly":          _state.get("max_poly", 0),
+            "osc_host":          _state.get("osc_host", "127.0.0.1"),
+            "osc_port":          _state.get("osc_port", 57120),
+            "osc_rx_port":       _state.get("osc_rx_port", 57121),
+            "slot_a":            _snap_to_dict(_state.get("slot_a")),
+            "slot_b":            _snap_to_dict(_state.get("slot_b")),
+        }
+        STATE_FILE.write_text(json.dumps(data, indent=2))
+    except Exception as e:
+        print(f"[state] save error: {e}")
+
+def _load_state() -> None:
+    if not STATE_FILE.exists():
+        return
+    try:
+        data = json.loads(STATE_FILE.read_text())
+        voices = [(n, d, t) for n, d, t in (data.get("voices") or [])]
+        _state["voices"]             = voices
+        _state["last_p"]             = data.get("last_p")
+        _state["last_seed"]          = data.get("last_seed")
+        _state["plocks"]             = data.get("plocks", [])
+        _state["note_remap"]         = data.get("note_remap", {})
+        _state["voice_thin"]         = data.get("voice_thin", {})
+        _state["voice_density"]      = data.get("voice_density", {})
+        _state["voice_chords"]       = data.get("voice_chords", {})
+        _state["voice_steps"]        = data.get("voice_steps", {})
+        _state["voice_offset"]       = data.get("voice_offset", {})
+        _state["voice_drop"]         = data.get("voice_drop", {})
+        _state["voice_vel_lane"]     = data.get("voice_vel_lane", {})
+        _state["voice_prob_lane"]    = data.get("voice_prob_lane", {})
+        _state["voice_lfo"]          = data.get("voice_lfo", {})
+        _state["seq_weights"]        = data.get("seq_weights", [1]*8)
+        _state["ableton_host"]         = data.get("ableton_host", "127.0.0.1")
+        _state["ableton_port"]         = data.get("ableton_port", 11000)
+        _state["ableton_track_offset"] = data.get("ableton_track_offset", 0)
+        _state["ableton_slot"]         = data.get("ableton_slot", 0)
+        raw_slots = data.get("seq_slots", [None]*8)
+        _state["seq_slots"]   = [(_dict_to_snap(s) if s else None) for s in raw_slots]
+        _state["seq_current"] = data.get("seq_current", 0)
+        _state["seq_cycles"]  = data.get("seq_cycles", 2)
+        _state["locked_voices"]      = set(data.get("locked_voices", []))
+        _state["current_preset"]     = data.get("current_preset", "")
+        _state["current_ksp_preset"] = data.get("current_ksp_preset", "")
+        _state["max_poly"]           = data.get("max_poly", 0)
+        _state["osc_host"]           = data.get("osc_host", "127.0.0.1")
+        _state["osc_port"]           = data.get("osc_port", 57120)
+        _state["osc_rx_port"]        = data.get("osc_rx_port", 57121)
+        _state["slot_a"]             = _dict_to_snap(data.get("slot_a"))
+        _state["slot_b"]             = _dict_to_snap(data.get("slot_b"))
+        if voices and _state["last_p"]:
+            try:
+                _state["engine"] = _assemble_engine(_state["last_p"], voices)
+            except Exception:
+                pass
+        print(f"[state] restauré ({len(voices)} voix)")
+    except Exception as e:
+        print(f"[state] load error: {e}")
+
+
 app      = App = FastAPI(title="BANG — Dark Umbrae")
 jinja    = Environment(
     loader=FileSystemLoader(str(BASE_DIR / "templates")),
     autoescape=select_autoescape(["html"]),
 )
+
+
+@app.middleware("http")
+async def autosave_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "POST":
+        _save_state()
+    return response
+
+
+@app.on_event("startup")
+async def on_startup():
+    _load_state()
 
 
 def render(template_name: str, **ctx) -> HTMLResponse:
@@ -409,6 +554,20 @@ _state: dict = {
     "voice_thin":      {},  # voice_name -> factor (1 / 2 / 4)
     "voice_density":   {},  # voice_name -> float (0.0–1.0, défaut 1.0)
     "voice_chords":    {},  # voice_name -> chord_type str (défaut "mono")
+    "voice_steps":     {},  # voice_name -> int override (0 = natural / disabled)
+    "voice_offset":    {},  # voice_name -> int phase offset in steps (0 = none)
+    "voice_drop":      {},  # voice_name -> float 0.0–1.0 (proba de jouer ce cycle, défaut 1.0)
+    "voice_vel_lane":  {},  # voice_name -> list[int] 0-127, indexé par position DNA
+    "voice_prob_lane": {},  # voice_name -> list[int] 0-100, indexé par position DNA (0 = no override)
+    "voice_lfo":       {},  # voice_name -> {shape, target, freq, depth}
+    "seq_weights":     [1] * 8,  # poids de sélection aléatoire par slot SEQ (1-9)
+    "ableton_host":         "127.0.0.1",
+    "ableton_port":         11000,
+    "ableton_track_offset": 0,
+    "ableton_slot":         0,
+    "seq_slots":            [None] * 8,
+    "seq_current":          0,
+    "seq_cycles":           2,
     "osc_enabled":     False,
     "osc_host":        "127.0.0.1",
     "osc_port":        57120,
@@ -416,6 +575,10 @@ _state: dict = {
     "osc_rx_port":     57121,
     "osc_rx_thread":   None,
     "osc_rx_server":   None,
+    "midi_srv_enabled": False,
+    "midi_srv_port":    0,      # index dans rtmidi.get_ports()
+    "midi_srv_thread":  None,
+    "midi_srv_channel": 9,      # 0-based (9 = MIDI ch10 drums)
     "max_poly":        0,   # 0 = illimité
 }
 
@@ -466,10 +629,25 @@ _KSP_OCTAVE_SHIFT = [24, 0, 12, 24]    # décalage en demi-tons par rapport à r
 # Notes MIDI customisables par l'utilisateur (remplace _NOTE_NAMES pour les voix)
 _custom_notes: dict[int, int] = {}  # slot_index -> note MIDI
 
+# Strudel / TidalCycles export
+_STRUDEL_SAMPLES = {
+    35: "bd", 36: "bd",
+    38: "sd", 39: "cp", 40: "sd",
+    42: "hh", 44: "hh", 46: "oh",
+    37: "rim",
+    41: "lt", 43: "mt", 45: "ht", 47: "ht", 48: "mt", 50: "ht",
+    49: "cr", 55: "cr", 57: "cr",
+    51: "rd", 53: "rd", 59: "rd",
+}
+_STRUDEL_NOTE_NAMES = ["c","cs","d","ds","e","f","fs","g","gs","a","as","b"]
+
+def _midi_to_strudel_note(n: int) -> str:
+    return f"{_STRUDEL_NOTE_NAMES[n % 12]}{(n // 12) - 1}"
+
 
 def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) -> list:
     rows = []
-    for note, dna, vtype in voices:
+    for voice_idx, (note, dna, vtype) in enumerate(voices):
         if vtype == "cc":
             continue
 
@@ -493,7 +671,8 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             name = _NOTE_NAMES.get(note, f"n{note}")
             cells = _thin_cells(cells, _state["voice_thin"].get(name + " ⚗", 1))
             rows.append({"name": name + " ⚗", "cells": cells, "dna_len": int(tot_dur),
-                         "color": "#e879f9", "boundaries": [], "plocks": []})
+                         "color": "#e879f9", "boundaries": [], "plocks": [],
+                         "voice_idx": voice_idx})
             continue
 
         compiled = compile_dna(dna)
@@ -505,9 +684,11 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             prob    = float(step[2])
             ratchet = int(step[3])
             jitter  = int(step[4])
+            vel     = int(step[1])
             atom    = _atom_label(prob, ratchet, jitter) if trigger else "-"
             cells.append({
                 "trigger": trigger,
+                "vel":     vel,
                 "opacity": round(0.35 + prob * 0.65, 2) if trigger else 0.0,
                 "ratchet": ratchet,
                 "atom":    atom,
@@ -547,6 +728,7 @@ def _build_pianoroll_rows(voices: list, steps: int, plocks: list | None = None) 
             "boundaries": boundaries,
             "plocks": voice_plocks,
             "vtype": vtype,
+            "voice_idx": voice_idx,
         })
     return rows
 
@@ -606,6 +788,12 @@ def _apply_poly_to_events(voices_data: list, max_poly: int) -> list:
 def _build_pr_html(voices: list, steps: int, plocks: list | None = None) -> str:
     rows = _build_pianoroll_rows(voices, steps, plocks)
     rows = _apply_poly_to_rows(rows, _state["max_poly"])
+    vel_lane  = _state.get("voice_vel_lane",  {})
+    prob_lane = _state.get("voice_prob_lane", {})
+    for row in rows:
+        name = row["name"]
+        row["vel_lane"]  = vel_lane.get(name,  [])
+        row["prob_lane"] = prob_lane.get(name, [])
     return jinja.get_template("_pianoroll.html").render(rows=rows, steps=steps)
 
 
@@ -615,7 +803,22 @@ def _build_voices_html(voices: list) -> str:
         voice_thin=_state["voice_thin"],
         voice_density=_state["voice_density"],
         voice_chords=_state.get("voice_chords", {}),
+        voice_steps=_state.get("voice_steps", {}),
+        voice_offset=_state.get("voice_offset", {}),
+        voice_drop=_state.get("voice_drop", {}),
+        voice_vel_lane=_state.get("voice_vel_lane", {}),
+        voice_prob_lane=_state.get("voice_prob_lane", {}),
+        voice_lfo=_state.get("voice_lfo", {}),
         locked_voices=_state.get("locked_voices", set()),
+    )
+
+
+def _build_seq_html() -> str:
+    return jinja.get_template("_seq.html").render(
+        slots=_state.get("seq_slots", [None]*8),
+        current=_state.get("seq_current", 0),
+        cycles=_state.get("seq_cycles", 2),
+        weights=_state.get("seq_weights", [1]*8),
     )
 
 
@@ -885,6 +1088,28 @@ def _apply_note_remap(voices: list) -> list:
     ]
 
 
+def _resize_dna(dna: str, n: int) -> str:
+    if not dna or n <= 0 or len(dna) == n:
+        return dna
+    if len(dna) > n:
+        return dna[:n]
+    return (dna * (n // len(dna) + 1))[:n]
+
+
+def _apply_voice_steps(voices: list) -> list:
+    overrides = _state.get("voice_steps", {})
+    if not overrides:
+        return voices
+    result = []
+    for note, dna, vtype in voices:
+        if vtype != "cc":
+            n = overrides.get(_voice_label(note, vtype), 0)
+            if n > 0:
+                dna = _resize_dna(dna, n)
+        result.append((note, dna, vtype))
+    return result
+
+
 def _assemble_engine(p: dict, voices: list[tuple[int, str, str]]) -> BangEngine:
     engine      = BangEngine(
         bpm=p["bpm"],
@@ -1054,7 +1279,7 @@ def _sync_generate() -> None:
         return
     if _state["voices"]:
         _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(p)))
-    voices = _apply_note_remap(_apply_locks(_build_voices(p)))
+    voices = _apply_voice_steps(_apply_note_remap(_apply_locks(_build_voices(p))))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
     if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak"):
@@ -1275,6 +1500,152 @@ def _osc_stop() -> None:
 
 
 # ---------------------------------------------------------------------------
+# MIDI serveur (rtmidi)
+# ---------------------------------------------------------------------------
+
+def _midi_srv_ports() -> list[str]:
+    try:
+        import rtmidi
+        m = rtmidi.MidiOut()
+        return m.get_ports()
+    except Exception:
+        return []
+
+
+def _midi_srv_clock_loop() -> None:
+    try:
+        import rtmidi
+    except ImportError:
+        print("MIDI: python-rtmidi non installé.")
+        _state["midi_srv_enabled"] = False
+        return
+
+    midi_out = rtmidi.MidiOut()
+    port_idx = int(_state.get("midi_srv_port", 0))
+    ports = midi_out.get_ports()
+    if not ports:
+        print("MIDI: aucun port disponible.")
+        _state["midi_srv_enabled"] = False
+        return
+    port_idx = min(port_idx, len(ports) - 1)
+
+    try:
+        midi_out.open_port(port_idx)
+    except Exception as e:
+        print(f"MIDI: impossible d'ouvrir le port {port_idx}: {e}")
+        _state["midi_srv_enabled"] = False
+        return
+
+    step = 0
+    markov_notes: dict[str, list[int]] = {}
+    pending_off: list[tuple[float, int, int]] = []  # (time, channel, note)
+
+    while _state.get("midi_srv_enabled"):
+        p      = _state.get("last_p")
+        voices = _state.get("voices") or []
+
+        if not p or not voices:
+            time.sleep(0.05)
+            continue
+
+        bpm      = p["bpm"]
+        n_steps  = p["steps"]
+        step_dur = 60.0 / (bpm * 4)
+        gate_dur = step_dur * 0.75
+        ch_drums    = int(_state.get("midi_srv_channel", 9))
+        ch_melodic  = 0 if ch_drums != 0 else 1
+
+        t0 = time.perf_counter()
+
+        # Envoyer les note-off en attente
+        still = []
+        for off_t, ch, n in pending_off:
+            if t0 >= off_t:
+                try: midi_out.send_message([0x80 | ch, n, 0])
+                except Exception: pass
+            else:
+                still.append((off_t, ch, n))
+        pending_off = still
+
+        # Régénération Markov au début du cycle
+        if step == 0:
+            markov_notes = {}
+            engine = _state.get("engine")
+            if engine:
+                mk_idx = 0
+                for note, dna, vtype in voices:
+                    if vtype == "cc":
+                        continue
+                    if (vtype in ("markov", "bl") or vtype.startswith("ksp")) and mk_idx < len(engine.voices):
+                        ev = engine.voices[mk_idx]
+                        if ev.get("type") == "markov":
+                            name = _voice_label(note, vtype)
+                            markov_notes[name] = ev["chain"].generate(n_steps)
+                    mk_idx += 1
+
+        # Triggers MIDI
+        for note, dna, vtype in voices:
+            if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
+                continue
+            name    = _voice_label(note, vtype)
+            density = _state["voice_density"].get(name, 1.0)
+            if vtype == "babka":
+                continue
+            compiled = compile_dna(dna)
+            row      = compiled[step % len(compiled)]
+            trig, vel, prob, ratch, jit = row
+            if trig and random.random() < prob * density:
+                is_melodic = vtype in ("markov", "bl") or vtype.startswith(("ksp", "vd", "vfm", "mf"))
+                ch         = ch_melodic if is_melodic else ch_drums
+                midi_note  = markov_notes.get(name, [note] * n_steps)[step] if is_melodic else note
+                try:
+                    midi_out.send_message([0x90 | ch, int(midi_note) & 0x7F, int(vel) & 0x7F])
+                    pending_off.append((t0 + gate_dur, ch, int(midi_note) & 0x7F))
+                except Exception:
+                    pass
+
+        step = (step + 1) % n_steps
+        elapsed   = time.perf_counter() - t0
+        remaining = step_dur - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
+    # Note-off sur tous les sons en cours à l'arrêt
+    for _, ch, n in pending_off:
+        try: midi_out.send_message([0x80 | ch, n, 0])
+        except Exception: pass
+    midi_out.close_port()
+
+
+def _midi_srv_start() -> None:
+    if _state.get("midi_srv_thread") and _state["midi_srv_thread"].is_alive():
+        return
+    _state["midi_srv_enabled"] = True
+    t = threading.Thread(target=_midi_srv_clock_loop, daemon=True, name="midi-srv")
+    t.start()
+    _state["midi_srv_thread"] = t
+
+
+def _midi_srv_stop() -> None:
+    _state["midi_srv_enabled"] = False
+    t = _state.get("midi_srv_thread")
+    if t and t.is_alive():
+        t.join(timeout=2.0)
+    _state["midi_srv_thread"] = None
+
+
+def _build_midi_srv_btn() -> str:
+    enabled = _state.get("midi_srv_enabled", False)
+    ports   = _midi_srv_ports()
+    port_i  = int(_state.get("midi_srv_port", 0))
+    port_n  = ports[port_i] if ports and port_i < len(ports) else "—"
+    cls     = "btn-midi-srv active" if enabled else "btn-midi-srv"
+    label   = f"MIDI ●" if enabled else "MIDI ○"
+    tip     = f"MIDI serveur — {port_n} ({'actif' if enabled else 'inactif'})"
+    return f'<span id="midi-srv-btn"><button class="{cls}" onclick="bangToggleMidiSrvPanel(this)" title="{tip}">{label}</button></span>'
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -1289,9 +1660,24 @@ async def index(request: Request):
         last_seed=_state["last_seed"],
         last_p=_state["last_p"],
         app_version=APP_VERSION,
+        osc_enabled=_state.get("osc_enabled", False),
         osc_host=_state.get("osc_host", "127.0.0.1"),
         osc_port=_state.get("osc_port", 57120),
         osc_rx_port=_state.get("osc_rx_port", 57121),
+        ableton_host=_state.get("ableton_host", "127.0.0.1"),
+        ableton_port=_state.get("ableton_port", 11000),
+        ableton_track_offset=_state.get("ableton_track_offset", 0),
+        ableton_slot=_state.get("ableton_slot", 0),
+        seq_html=_build_seq_html(),
+        voice_density=_state.get("voice_density", {}),
+        voice_chords=_state.get("voice_chords", {}),
+        voice_steps=_state.get("voice_steps", {}),
+        voice_offset=_state.get("voice_offset", {}),
+        voice_drop=_state.get("voice_drop", {}),
+        voice_vel_lane=_state.get("voice_vel_lane", {}),
+        voice_prob_lane=_state.get("voice_prob_lane", {}),
+        voice_lfo=_state.get("voice_lfo", {}),
+        locked_voices=_state.get("locked_voices", set()),
     )
 
 
@@ -1325,7 +1711,7 @@ async def generate(
 
     _state["last_p"]     = p
     _state["ab_current"] = None  # nouvelle génération = hors slot A/B
-    voices = _apply_note_remap(_apply_locks(_build_voices(p)))
+    voices = _apply_voice_steps(_apply_note_remap(_apply_locks(_build_voices(p))))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(p, voices)
 
@@ -1720,14 +2106,11 @@ async def notes_remap(request: Request):
     if not _state["voices"] or not _state["last_p"]:
         return HTMLResponse("")
 
-    voices = _apply_note_remap(_build_voices(_state["last_p"]))
+    voices = _apply_voice_steps(_apply_note_remap(_build_voices(_state["last_p"])))
     _state["voices"] = voices
     _state["engine"] = _assemble_engine(_state["last_p"], voices)
 
-    voices_html = jinja.get_template("_voices.html").render(
-        voices=[(n, dna_html(d), d, t, _NOTE_NAMES.get(n, f"n{n}")) for n, d, t in voices],
-        voice_thin=_state["voice_thin"],
-    )
+    voices_html = _build_voices_html(voices)
     pr_rows = _build_pianoroll_rows(voices, _state["last_p"]["steps"])
     pr_html = jinja.get_template("_pianoroll.html").render(rows=pr_rows, steps=_state["last_p"]["steps"])
     oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
@@ -1740,6 +2123,187 @@ async def download(filename: str):
     if not path.exists():
         return HTMLResponse("<p>Fichier introuvable</p>", status_code=404)
     return FileResponse(str(path), filename=filename, media_type="audio/midi")
+
+
+def _export_single_voice(idx: int) -> tuple[str, str] | None:
+    """Génère un clip MIDI pour une seule voix. Retourne (fpath, fname) ou None."""
+    if not _state["voices"] or not _state["last_p"]:
+        return None
+    if not (0 <= idx < len(_state["voices"])):
+        return None
+    note, dna, vtype = _state["voices"][idx]
+    if vtype == "cc":
+        return None
+    name = _voice_label(note, vtype)
+    p    = _state["last_p"]
+    engine = _assemble_engine(p, [(note, dna, vtype)])
+    safe_name = re.sub(r"[^\w\-]", "_", name)
+    fname = f"{safe_name}-clip.mid"
+    fpath = str(EXPORT_DIR / fname)
+    engine.export_midi(
+        num_steps=p["steps"],
+        filename=fpath,
+        swing=p.get("swing", 0.0),
+        microtiming=p.get("microtiming", 1.0),
+        densities=[_state["voice_density"].get(name, 1.0)],
+        voice_chords=[_state.get("voice_chords", {}).get(name, "mono")],
+        weather=_state["weather"],
+    )
+    return fpath, fname
+
+
+@app.get("/export/clip")
+async def export_clip(idx: int = 0):
+    """Clip MIDI mono-voix — pour drag-to-Ableton."""
+    result = _export_single_voice(idx)
+    if result is None:
+        return HTMLResponse("No voice", status_code=404)
+    fpath, fname = result
+    return FileResponse(fpath, filename=fname, media_type="audio/midi")
+
+
+@app.get("/export/clips")
+async def export_clips():
+    """Toutes les voix en clips MIDI séparés — archive zip."""
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("No voices", status_code=404)
+    ts      = datetime.now().strftime("%Y%m%d-%H%M%S")
+    zip_name = f"bang-clips-{ts}.zip"
+    zip_path = EXPORT_DIR / zip_name
+    zip_buf  = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for idx in range(len(_state["voices"])):
+            result = _export_single_voice(idx)
+            if result:
+                fpath, fname = result
+                zf.write(fpath, fname)
+    zip_path.write_bytes(zip_buf.getvalue())
+    return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip")
+
+
+@app.get("/export/strudel")
+async def export_strudel():
+    """Convertit le pattern courant en mini-notation Strudel/TidalCycles."""
+    if not _state["voices"] or not _state["last_p"]:
+        return {"ok": False, "code": "// Générez un pattern d'abord"}
+    p   = _state["last_p"]
+    bpm = p["bpm"]
+    lines = []
+    for note, dna, vtype in _state["voices"]:
+        if vtype in ("cc", "babka"):
+            continue
+        name       = _voice_label(note, vtype)
+        is_melodic = vtype in ("markov", "bl") or vtype.startswith("ksp")
+        sample     = (_midi_to_strudel_note(note) if is_melodic
+                      else _STRUDEL_SAMPLES.get(note,
+                           re.sub(r"[^\w]", "", name.lower())[:8]))
+        compiled   = compile_dna(dna)
+        tokens     = []
+        for cell in compiled:
+            if cell[0] <= 0:
+                tokens.append("~")
+            elif int(cell[3]) > 1:
+                tokens.append(f"{sample}*{int(cell[3])}")
+            elif float(cell[2]) < 0.75:
+                tokens.append(f"{sample}?{float(cell[2]):.1f}")
+            elif float(cell[2]) < 0.95:
+                tokens.append(f"{sample}?")
+            else:
+                tokens.append(sample)
+        fn   = "note" if is_melodic else "s"
+        lines.append(f'  {fn}("{" ".join(tokens)}") // {name}')
+    cps_val = round(bpm / 60 / 4, 4)
+    code    = f"// BANG! {APP_VERSION} — {bpm} BPM\nsetcps({cps_val})\nstack(\n" + ",\n".join(lines) + "\n)"
+    return {"ok": True, "code": code}
+
+
+@app.get("/touchosc/minimal")
+async def download_touchosc_minimal():
+    """Fichier TouchOSC minimal pour tester la compatibilité du format."""
+    import tempfile, zipfile, uuid
+    u = lambda: str(uuid.uuid4()).upper()
+    xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<lexml version="3.0.0">
+  <connections>
+    <connection type="OSC" host="192.168.1.100" sendPort="57121" receivePort="57120" enabled="1" />
+  </connections>
+  <node ID="{u()}" type="GROUP">
+    <properties>
+      <property name="frame" type="r"><x>0.000000</x><y>0.000000</y><w>1366.000000</w><h>1024.000000</h></property>
+      <property name="name" type="s"><value>bang</value></property>
+      <property name="visible" type="b"><value>1</value></property>
+      <property name="interactive" type="b"><value>1</value></property>
+      <property name="color" type="c"><r>0.05</r><g>0.05</g><b>0.03</b><a>1.0</a></property>
+    </properties>
+  </node>
+</lexml>'''
+    out = Path(tempfile.mktemp(suffix=".tosc"))
+    with zipfile.ZipFile(str(out), "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("index.xml", xml.encode("utf-8"))
+    return FileResponse(str(out), filename="bang_minimal.tosc", media_type="application/zip",
+                        headers={"Content-Disposition": 'attachment; filename="bang_minimal.tosc"'})
+
+
+@app.get("/touchosc")
+async def download_touchosc(host: str = ""):
+    """Télécharge le fichier TouchOSC pré-configuré pour BANG!
+    ?host=lan       → 192.168.1.100
+    ?host=tailscale → 100.64.201.127
+    ?host=<ip>      → IP custom
+    """
+    import subprocess, tempfile, sys
+    _HOST_ALIASES = {"lan": "192.168.1.100", "tailscale": "100.64.201.127"}
+    resolved = _HOST_ALIASES.get(host.lower(), host) or "192.168.1.100"
+    gen = BASE_DIR / "tools" / "gen_touchosc.py"
+    rx  = _state.get("osc_rx_port", 57121)
+    tx  = _state.get("osc_port", 57120)
+    out = Path(tempfile.mktemp(suffix=".tosc"))
+    subprocess.run([sys.executable, str(gen),
+                    "--host", resolved, "--tx-port", str(tx), "--rx-port", str(rx),
+                    "--out", str(out)], check=True)
+    label = host.lower() if host else "lan"
+    return FileResponse(str(out), filename=f"bang_control_{label}.tosc",
+                        media_type="application/zip",
+                        headers={"Content-Disposition": f'attachment; filename="bang_control_{label}.tosc"'})
+
+
+@app.get("/morph/prepare")
+async def morph_prepare(from_slot: int, to_slot: int):
+    slots  = _state.get("seq_slots", [None]*8)
+    snap_a = slots[from_slot] if 0 <= from_slot < 8 else None
+    snap_b = slots[to_slot]   if 0 <= to_slot   < 8 else None
+    if not snap_a:
+        return {"ok": False, "error": f"Slot {from_slot+1} vide"}
+    if not snap_b:
+        return {"ok": False, "error": f"Slot {to_slot+1} vide"}
+
+    def _snap_events(snap):
+        p    = snap.get("last_p") or _state.get("last_p") or {}
+        steps = p.get("steps", 16)
+        vf, vc, vcu = p.get("vel_floor", 40), p.get("vel_ceil", 110), p.get("vel_curve", 0.5)
+        result = []
+        for note, dna, vtype in snap.get("voices", []):
+            if vtype == "cc":
+                result.append({"events": []})
+                continue
+            compiled = compile_dna(dna)
+            dna_len  = len(compiled)
+            evts     = []
+            for i in range(steps):
+                row = compiled[i % dna_len]
+                if row[0] <= 0:
+                    continue
+                evts.append({
+                    "step":     i,
+                    "dna_pos":  i % dna_len,
+                    "velocity": _vel_map(int(row[1]), vf, vc, vcu),
+                    "prob":     round(float(row[2]), 2),
+                    "ratchet":  int(row[3]),
+                })
+            result.append({"events": evts})
+        return result
+
+    return {"ok": True, "from": _snap_events(snap_a), "to": _snap_events(snap_b)}
 
 
 @app.get("/pattern")
@@ -1807,11 +2371,13 @@ async def get_pattern():
         dna_len  = len(compiled)
         events   = []
         for i in range(steps):
-            row = compiled[i % dna_len]
+            dna_pos = i % dna_len
+            row = compiled[dna_pos]
             if row[0] <= 0:
                 continue
             events.append({
                 "step":     i,
+                "dna_pos":  dna_pos,
                 "velocity": _vel_map(int(row[1]), vf, vc, vcu),
                 "prob":     round(float(row[2]), 2),
                 "ratchet":  int(row[3]),
@@ -1848,15 +2414,27 @@ async def get_pattern():
         density = _state["voice_density"].get(name, 1.0)
         if density < 1.0:
             events = [{**e, "prob": round(e["prob"] * density, 3)} for e in events]
+        offset = _state.get("voice_offset", {}).get(name, 0)
+        if offset:
+            events = [{**e, "step": (e["step"] + offset) % steps} for e in events]
+            events.sort(key=lambda e: e["step"])
         voice_plocks = _state["plocks"][len(voices_data)] if len(voices_data) < len(_state["plocks"]) else []
+        vel_lane  = _state.get("voice_vel_lane",  {}).get(name, [])
+        prob_lane = _state.get("voice_prob_lane", {}).get(name, [])
         voices_data.append({
-            "note":    note,
-            "name":    name,
-            "channel": channel,
-            "type":    vtype,
-            "events":  events,
-            "plocks":  voice_plocks,
-            "chord":   _state["voice_chords"].get(name, "mono"),
+            "note":      note,
+            "name":      name,
+            "channel":   channel,
+            "type":      vtype,
+            "events":    events,
+            "plocks":    voice_plocks,
+            "chord":     _state["voice_chords"].get(name, "mono"),
+            "offset":    offset,
+            "drop":      _state.get("voice_drop", {}).get(name, 1.0),
+            "vel_lane":  vel_lane,
+            "prob_lane": prob_lane,
+            "lfo":       _state.get("voice_lfo", {}).get(name),
+            "dna_len":   dna_len,
         })
 
     # Appliquer le filtre de polyphonie globale
@@ -1930,6 +2508,216 @@ async def voice_chord(name: Annotated[str, Form()], chord_type: Annotated[str, F
     return HTMLResponse(_build_voices_html(_state["voices"]))
 
 
+@app.post("/voice/steps", response_class=HTMLResponse)
+async def voice_steps_set(name: Annotated[str, Form()], n: Annotated[int, Form()] = 0):
+    if n <= 0:
+        _state["voice_steps"].pop(name, None)
+    else:
+        _state["voice_steps"][name] = n
+        for idx, (note, dna, vtype) in enumerate(_state["voices"]):
+            if _voice_label(note, vtype) == name and vtype != "cc":
+                _state["voices"][idx] = (note, _resize_dna(dna, n), vtype)
+                break
+    if _state["last_p"]:
+        _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"])
+        pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state["plocks"] or None)
+        oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    else:
+        oob = ""
+    return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/voice/offset", response_class=HTMLResponse)
+async def voice_offset_set(name: Annotated[str, Form()], n: Annotated[int, Form()] = 0):
+    vo = _state.setdefault("voice_offset", {})
+    if n <= 0:
+        vo.pop(name, None)
+    else:
+        vo[name] = n
+    return HTMLResponse(_build_voices_html(_state["voices"]))
+
+
+@app.post("/voice/invert", response_class=HTMLResponse)
+async def voice_invert(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    inv = {"x": "-", "-": "x"}
+    new_dna = "".join(inv.get(c, c) for c in dna)
+    voices = list(_state["voices"])
+    voices[idx] = (note, new_dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/voice/drop", response_class=HTMLResponse)
+async def voice_drop_set(name: Annotated[str, Form()], pct: Annotated[int, Form()] = 100):
+    vd = _state.setdefault("voice_drop", {})
+    val = max(0, min(100, pct)) / 100.0
+    if val >= 1.0:
+        vd.pop(name, None)
+    else:
+        vd[name] = round(val, 2)
+    return HTMLResponse(_build_voices_html(_state["voices"]))
+
+
+@app.post("/voice/vel_lane", response_class=HTMLResponse)
+async def voice_vel_lane_set(name: Annotated[str, Form()], lane: Annotated[str, Form()] = "[]"):
+    try:
+        vals = [max(0, min(127, int(round(float(v))))) for v in json.loads(lane)]
+    except Exception:
+        return HTMLResponse("")
+    vll = _state.setdefault("voice_vel_lane", {})
+    if all(v == 0 for v in vals):
+        vll.pop(name, None)
+    else:
+        vll[name] = vals
+    return HTMLResponse("")
+
+
+@app.post("/voice/prob_lane", response_class=HTMLResponse)
+async def voice_prob_lane_set(name: Annotated[str, Form()], lane: Annotated[str, Form()] = "[]"):
+    try:
+        vals = [max(0, min(100, int(round(float(v))))) for v in json.loads(lane)]
+    except Exception:
+        return HTMLResponse("")
+    vpl = _state.setdefault("voice_prob_lane", {})
+    if all(v == 0 for v in vals):
+        vpl.pop(name, None)
+    else:
+        vpl[name] = vals
+    return HTMLResponse("")
+
+
+@app.post("/voice/lfo", response_class=HTMLResponse)
+async def voice_lfo_set(
+    name:   Annotated[str,   Form()],
+    shape:  Annotated[str,   Form()] = "off",
+    target: Annotated[str,   Form()] = "density",
+    freq:   Annotated[float, Form()] = 1.0,
+    depth:  Annotated[float, Form()] = 0.5,
+):
+    vl = _state.setdefault("voice_lfo", {})
+    if shape == "off":
+        vl.pop(name, None)
+    else:
+        vl[name] = {"shape": shape, "target": target, "freq": freq, "depth": round(depth, 3)}
+    return HTMLResponse("")
+
+
+@app.post("/voice/regen", response_class=HTMLResponse)
+async def voice_regen(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    if idx in _state.get("locked_voices", set()):
+        return HTMLResponse(_build_voices_html(_state["voices"]))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    fresh = _build_voices(_state["last_p"])
+    if idx < len(fresh):
+        _, new_dna, _ = fresh[idx]
+    else:
+        new_dna = mutate_dna(dna, intensity=0.9)
+    voices = list(_state["voices"])
+    voices[idx] = (note, new_dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/voice/rotate", response_class=HTMLResponse)
+async def voice_rotate(idx: Annotated[int, Form()], n: Annotated[int, Form()] = 1):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    if not dna:
+        return HTMLResponse(_build_voices_html(_state["voices"]))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    shift = n % len(dna)
+    new_dna = dna[-shift:] + dna[:-shift] if shift else dna
+    voices = list(_state["voices"])
+    voices[idx] = (note, new_dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/voice/reverse", response_class=HTMLResponse)
+async def voice_reverse(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    voices = list(_state["voices"])
+    voices[idx] = (note, dna[::-1], vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/voice/double", response_class=HTMLResponse)
+async def voice_double(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    if not dna:
+        return HTMLResponse(_build_voices_html(_state["voices"]))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    voices = list(_state["voices"])
+    voices[idx] = (note, dna + dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/voice/halve", response_class=HTMLResponse)
+async def voice_halve(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    if not dna:
+        return HTMLResponse(_build_voices_html(_state["voices"]))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    voices = list(_state["voices"])
+    new_dna = dna[:max(1, len(dna) // 2)]
+    voices[idx] = (note, new_dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
 @app.post("/voice/preview", response_class=HTMLResponse)
 async def voice_preview(idx: Annotated[int, Form()], pattern: Annotated[str, Form()]):
     pattern = pattern.strip()
@@ -1975,6 +2763,266 @@ async def vary():
     pr_html = _build_pr_html(new_voices, _state["last_p"]["steps"], _state["plocks"] or None)
     oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
     return HTMLResponse(_build_voices_html(new_voices) + oob)
+
+
+@app.post("/voice/vary", response_class=HTMLResponse)
+async def voice_vary(idx: Annotated[int, Form()]):
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    if not (0 <= idx < len(_state["voices"])):
+        return HTMLResponse("")
+    note, dna, vtype = _state["voices"][idx]
+    if idx in _state.get("locked_voices", set()) or vtype in ("cc", "babka"):
+        return HTMLResponse(_build_voices_html(_state["voices"]))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    new_dna = mutate_dna(dna, intensity=0.15)
+    voices  = list(_state["voices"])
+    voices[idx] = (note, new_dna, vtype)
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob     = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.get("/grooves")
+async def grooves_list():
+    return {"grooves": list(GROOVE_PRESETS.keys())}
+
+
+@app.post("/groove/apply", response_class=HTMLResponse)
+async def groove_apply(name: Annotated[str, Form()]):
+    preset = GROOVE_PRESETS.get(name)
+    if not preset or not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse(_build_voices_html(_state.get("voices", [])))
+    _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    locked = _state.get("locked_voices", set())
+    voices = list(_state["voices"])
+    pi = 0
+    for vi, (note, dna, vtype) in enumerate(voices):
+        if vtype == "cc":
+            continue
+        if vi not in locked and pi < len(preset) and preset[pi]:
+            voices[vi] = (note, preset[pi], vtype)
+        pi += 1
+    _state["voices"] = voices
+    _state["engine"] = _assemble_engine(_state["last_p"], voices)
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+    _save_state()
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.get("/files", response_class=HTMLResponse)
+async def files_page(request: Request):
+    import datetime
+    host = request.headers.get("host", "localhost:7777")
+    files = []
+    if EXPORT_DIR.exists():
+        for f in sorted(EXPORT_DIR.glob("*.mid"), key=lambda x: x.stat().st_mtime, reverse=True):
+            st = f.stat()
+            files.append({
+                "name":    f.name,
+                "size_kb": round(st.st_size / 1024, 1),
+                "date":    datetime.datetime.fromtimestamp(st.st_mtime).strftime("%d/%m %H:%M"),
+            })
+    return HTMLResponse(jinja.get_template("files.html").render(
+        files=files, host=host, app_version=APP_VERSION
+    ))
+
+
+def _query_ableton_tempo(host: str, port: int, timeout: float = 0.8) -> float | None:
+    import socket as _sock
+    try:
+        from pythonosc.osc_message_builder import OscMessageBuilder
+        from pythonosc.osc_message import OscMessage
+        msg = OscMessageBuilder(address="/live/song/get/tempo").build()
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM) as s:
+            s.settimeout(timeout)
+            s.sendto(msg.dgram, (host, port))
+            data, _ = s.recvfrom(1024)
+            return float(OscMessage(data).params[0])
+    except Exception:
+        return None
+
+
+@app.get("/ableton/sync_bpm")
+async def ableton_sync_bpm():
+    host = _state.get("ableton_host", "127.0.0.1")
+    port = int(_state.get("ableton_port", 11000))
+    bpm = _query_ableton_tempo(host, port)
+    if bpm is None:
+        return {"ok": False, "error": "Pas de réponse (AbletonOSC actif ?)"}
+    bpm_int = max(20, min(300, int(round(bpm))))
+    if _state.get("last_p"):
+        _state["last_p"]["bpm"] = bpm_int
+    return {"ok": True, "bpm": bpm_int}
+
+
+@app.post("/seq/save", response_class=HTMLResponse)
+async def seq_save(idx: Annotated[int, Form()]):
+    if not (0 <= idx < 8) or not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse("")
+    slots = _state.setdefault("seq_slots", [None]*8)
+    slots[idx] = {
+        "voices": list(_state["voices"]),
+        "plocks": list(_state["plocks"]),
+        "last_p": dict(_state["last_p"]),
+    }
+    oob = f'<div id="seq-panel" hx-swap-oob="innerHTML">{_build_seq_html()}</div>'
+    return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/seq/load", response_class=HTMLResponse)
+async def seq_load(idx: Annotated[int, Form()]):
+    if not (0 <= idx < 8):
+        return HTMLResponse("")
+    slots = _state.get("seq_slots", [None]*8)
+    slot  = slots[idx]
+    if slot is None:
+        return HTMLResponse("")
+    if _state["voices"] and _state["last_p"]:
+        _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    _state["voices"]      = list(slot["voices"])
+    _state["plocks"]      = list(slot["plocks"])
+    _state["last_p"]      = dict(slot["last_p"])
+    _state["seq_current"] = idx
+    _state["engine"]      = _assemble_engine(_state["last_p"], _state["voices"])
+    voices  = _state["voices"]
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = (f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+           f'<div id="seq-panel" hx-swap-oob="innerHTML">{_build_seq_html()}</div>')
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/seq/clear", response_class=HTMLResponse)
+async def seq_clear(idx: Annotated[int, Form()]):
+    if not (0 <= idx < 8):
+        return HTMLResponse("")
+    slots = _state.setdefault("seq_slots", [None]*8)
+    slots[idx] = None
+    oob = f'<div id="seq-panel" hx-swap-oob="innerHTML">{_build_seq_html()}</div>'
+    return HTMLResponse(_build_voices_html(_state["voices"]) + oob)
+
+
+@app.post("/seq/advance", response_class=HTMLResponse)
+async def seq_advance():
+    slots   = _state.get("seq_slots", [None]*8)
+    weights = _state.get("seq_weights", [1]*8)
+    cur     = _state.get("seq_current", 0)
+    occupied = [(i, slots[i]) for i in range(8) if slots[i] is not None]
+    if not occupied:
+        return HTMLResponse("")
+    others   = [(i, s) for i, s in occupied if i != cur]
+    pool     = others if others else occupied
+    wts      = [weights[i] for i, _ in pool]
+    next_idx = random.choices([i for i, _ in pool], weights=wts, k=1)[0]
+    slot = slots[next_idx]
+    if _state["voices"] and _state["last_p"]:
+        _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
+    _state["voices"]      = list(slot["voices"])
+    _state["plocks"]      = list(slot["plocks"])
+    _state["last_p"]      = dict(slot["last_p"])
+    _state["seq_current"] = next_idx
+    _state["engine"]      = _assemble_engine(_state["last_p"], _state["voices"])
+    voices  = _state["voices"]
+    pr_html = _build_pr_html(voices, _state["last_p"]["steps"], _state["plocks"] or None)
+    oob = (f'<div id="pianoroll" hx-swap-oob="innerHTML">{pr_html}</div>'
+           f'<div id="seq-panel" hx-swap-oob="innerHTML">{_build_seq_html()}</div>')
+    return HTMLResponse(_build_voices_html(voices) + oob)
+
+
+@app.post("/seq/config", response_class=HTMLResponse)
+async def seq_config_set(cycles: Annotated[int, Form()] = 2):
+    _state["seq_cycles"] = max(1, min(64, cycles))
+    return HTMLResponse("")
+
+
+@app.post("/seq/weight", response_class=HTMLResponse)
+async def seq_weight_set(idx: Annotated[int, Form()], weight: Annotated[int, Form()] = 1):
+    weights = _state.setdefault("seq_weights", [1]*8)
+    if 0 <= idx < 8:
+        weights[idx] = max(1, min(9, weight))
+    return HTMLResponse("")
+
+
+@app.post("/ableton/config", response_class=HTMLResponse)
+async def ableton_config_set(
+    host:         Annotated[str, Form()] = "127.0.0.1",
+    port:         Annotated[int, Form()] = 11000,
+    track_offset: Annotated[int, Form()] = 0,
+    slot:         Annotated[int, Form()] = 0,
+):
+    _state["ableton_host"]         = host.strip() or "127.0.0.1"
+    _state["ableton_port"]         = max(1, min(65535, port))
+    _state["ableton_track_offset"] = max(0, track_offset)
+    _state["ableton_slot"]         = max(0, slot)
+    return HTMLResponse('<span style="color:var(--success)">Config sauvée.</span>')
+
+
+@app.post("/ableton/send", response_class=HTMLResponse)
+async def ableton_send():
+    if not _state["voices"] or not _state["last_p"]:
+        return HTMLResponse('<span style="color:var(--danger)">Aucun pattern généré.</span>')
+
+    host         = _state.get("ableton_host", "127.0.0.1")
+    port         = int(_state.get("ableton_port", 11000))
+    track_offset = int(_state.get("ableton_track_offset", 0))
+    slot         = int(_state.get("ableton_slot", 0))
+    p            = _state["last_p"]
+
+    try:
+        from pythonosc.udp_client import SimpleUDPClient
+        client = SimpleUDPClient(host, port)
+
+        client.send_message("/live/song/set/tempo", float(p["bpm"]))
+
+        steps          = p["steps"]
+        clip_len_beats = steps / 4.0
+
+        vf  = p.get("vel_floor",   0)
+        vc  = p.get("vel_ceiling", 127)
+        vcu = p.get("vel_curve",   1.0)
+        from bang_engine import vel_map as _vel_map
+
+        sent = 0
+        vi   = 0
+        for note, dna, vtype in _state["voices"]:
+            if vtype == "cc":
+                continue
+            track_id = track_offset + vi
+
+            client.send_message("/live/clip_slot/create_clip",
+                                [track_id, slot, clip_len_beats])
+
+            compiled  = compile_dna(dna)
+            dna_len   = len(compiled)
+            note_args = []
+            for i in range(steps):
+                row = compiled[i % dna_len]
+                if row[0] <= 0:
+                    continue
+                vel     = _vel_map(int(row[1]), vf, vc, vcu)
+                ratchet = max(1, int(row[3]))
+                if ratchet > 1:
+                    rd = 0.25 / ratchet
+                    for r in range(ratchet):
+                        note_args.extend([note, i / 4.0 + r * rd, rd * 0.85, vel, 0])
+                else:
+                    note_args.extend([note, i / 4.0, 0.225, vel, 0])
+
+            if note_args:
+                client.send_message("/live/clip/add_notes",
+                                    [track_id, slot] + note_args)
+            vi   += 1
+            sent += 1
+
+        last = track_offset + sent - 1
+        return HTMLResponse(
+            f'<span style="color:var(--success)">✓ {sent} voix → tracks {track_offset}–{last}, slot {slot}</span>'
+        )
+    except Exception as e:
+        return HTMLResponse(f'<span style="color:var(--danger)">Erreur : {e}</span>')
 
 
 @app.post("/undo", response_class=HTMLResponse)
@@ -2249,6 +3297,35 @@ async def ksp_preset_delete(name: str):
     if _state["current_ksp_preset"] == name:
         _state["current_ksp_preset"] = ""
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# MIDI serveur — routes
+# ---------------------------------------------------------------------------
+
+@app.get("/midi/ports")
+async def midi_ports():
+    return {"ports": _midi_srv_ports()}
+
+
+@app.post("/midi/toggle", response_class=HTMLResponse)
+async def midi_srv_toggle():
+    if _state.get("midi_srv_enabled"):
+        _midi_srv_stop()
+    else:
+        _midi_srv_start()
+    return HTMLResponse(_build_midi_srv_btn())
+
+
+@app.post("/midi/config", response_class=HTMLResponse)
+async def midi_srv_config(port: Annotated[int, Form()] = 0,
+                          channel: Annotated[int, Form()] = 9):
+    _state["midi_srv_port"]    = max(0, port)
+    _state["midi_srv_channel"] = max(0, min(15, channel))
+    if _state.get("midi_srv_enabled"):
+        _midi_srv_stop()
+        _midi_srv_start()
+    return HTMLResponse(_build_midi_srv_btn())
 
 
 # ---------------------------------------------------------------------------

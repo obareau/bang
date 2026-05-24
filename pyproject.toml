@@ -1,7 +1,7 @@
 [project]
 name = "bang-proto"
-version = "0.2.0"
-description = "Générateur MIDI algorithmique — DNA, polyrythmie, modes Noise/Ambient, song export 30 fichiers"
+version = "0.9.0-beta"
+description = "Générateur MIDI algorithmique — DNA, polyrythmie, OSC bidirectionnel, MIDI serveur rtmidi, pianoroll temps réel"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

@@ -3,38 +3,61 @@
 {% set ch = 20 %}
 {% set pl_h = 7 %}
 {% set lm = 48 %}
+{% set vel_h = 4 %}
 {% set total_w = lm + steps * cw %}
 {% set total_h = rows|length * ch %}
 
-{# SVG principal : triggers #}
+{# SVG principal : triggers + vel/prob lanes #}
 <svg xmlns="http://www.w3.org/2000/svg"
      width="{{ total_w }}" height="{{ total_h }}"
      style="display:block">
   {% for row in rows %}
   {% set ry = loop.index0 * ch %}
+  {% set vel_lane  = row.vel_lane  if row.vel_lane  else [] %}
+  {% set prob_lane = row.prob_lane if row.prob_lane else [] %}
+  <a href="/export/clip?idx={{ row.voice_idx }}" download="{{ row.name }}.mid"
+     title="Clic : télécharger clip {{ row.name }} — Drag → Ableton"
+     style="cursor:pointer">
   <text x="{{ lm - 3 }}" y="{{ ry + ch - 4 }}"
-        text-anchor="end" font-size="9" style="fill:var(--muted)"
+        text-anchor="end" font-size="9"
+        style="fill:var(--muted)"
         font-family="monospace">{{ row.name }}</text>
-  <rect x="{{ lm }}" y="{{ ry }}" width="{{ steps * cw }}" height="{{ ch - 1 }}" style="fill:var(--surface)"/>
+  </a>
+  <rect data-row="{{ loop.index0 }}" data-name="{{ row.name }}"
+        x="{{ lm }}" y="{{ ry }}" width="{{ steps * cw }}" height="{{ ch - 1 }}"
+        style="fill:var(--surface)"/>
   {% for cell in row.cells %}
-  {% set cx = lm + loop.index0 * cw %}
+  {% set ci = loop.index0 %}
+  {% set cx = lm + ci * cw %}
+  {% set vel_raw = vel_lane[ci] if ci < vel_lane|length and vel_lane[ci] > 0 else cell.vel %}
+  {% set vel  = vel_raw if vel_raw is defined and vel_raw > 0 else 80 %}
+  {% set prob = prob_lane[ci] if ci < prob_lane|length and prob_lane[ci] > 0 else 0 %}
+  {# Opacité = vélocité (0.3–1.0) × probabilité #}
+  {% set vel_opacity  = (0.3 + (vel / 127) * 0.7) | round(2) %}
+  {% set cell_opacity = (vel_opacity * cell.opacity) | round(2) %}
   {% if cell.trigger %}
   <rect x="{{ cx + 1 }}" y="{{ ry + 1 }}"
         width="{{ cw - 2 }}" height="{{ ch - 3 }}"
-        style="fill:var(--accent)" opacity="{{ cell.opacity }}"/>
+        fill="{{ row.color }}" opacity="{{ cell_opacity }}"/>
   <text x="{{ cx + cw // 2 }}" y="{{ ry + ch - 8 }}"
         text-anchor="middle" font-size="7" font-family="monospace"
-        style="fill:var(--bg)" pointer-events="none">{{ cell.atom }}</text>
+        fill="#000" opacity="0.5" pointer-events="none">{{ cell.atom }}</text>
   {% if cell.ratchet >= 2 %}
   <rect x="{{ cx + cw // 2 }}" y="{{ ry + 1 }}"
         width="1" height="{{ ch - 3 }}"
-        fill="#0f172a" opacity="0.8"/>
+        fill="#000" opacity="0.4"/>
+  {% endif %}
+  {# Probability bar (top) si override < 100% #}
+  {% if prob > 0 and prob < 100 %}
+  <rect x="{{ cx + 1 }}" y="{{ ry + 1 }}"
+        width="{{ ((prob / 100) * (cw - 2)) | int }}" height="2"
+        fill="#f59e0b" opacity="0.9"/>
   {% endif %}
   {% else %}
   <text x="{{ cx + cw // 2 }}" y="{{ ry + ch - 8 }}"
         text-anchor="middle" font-size="7" font-family="monospace"
-        style="fill:var(--accent)" opacity="0.18"
-        pointer-events="none">-</text>
+        fill="{{ row.color }}" opacity="0.15"
+        pointer-events="none">·</text>
   {% endif %}
   {% endfor %}
   {% for bx in row.boundaries %}
@@ -44,7 +67,7 @@
   {% endfor %}
   {% endfor %}
   <line id="playhead" x1="-1" y1="0" x2="-1" y2="{{ total_h }}"
-        stroke="rgba(255,255,255,0.7)" stroke-width="1.5"
+        stroke="#fff" stroke-width="1.5" opacity="0.8"
         style="pointer-events:none"/>
 </svg>
 

@@ -1,35 +1,190 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.5.1**
+> **v0.9.0-beta** · Dark Umbrae / Robōtariis
 
-BANG! génère des fichiers `.mid` — c'est tout ce qu'il fait, et c'est tout ce qu'il fera.
-
-Pas de séquenceur temps réel. Pas de timeline. Pas de mixage. BANG produit des patterns MIDI exportés vers Logic, Ableton, ou n'importe quel DAW. Le workflow est clair : générer → écouter → ajuster → exporter.
+BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
 
 ---
 
 ## Ce que BANG! est
 
-- Un **générateur de patterns** selon des modes qui correspondent à des usages prédéfinis : batterie algorithmique, ligne de basse Markov, synths dédiés (Volca Drum, Volca Kick, Volca FM, MicroFreak), ambient, noise, babka euclidien
+- Un **générateur de patterns** selon des modes qui correspondent à des usages prédéfinis : batterie algorithmique, ligne de basse Markov, synths dédiés (Volca Drum, Volca Kick, Volca FM, MicroFreak, Keystep Pro), ambient, noise, babka euclidien
 - Des **presets qui collent au matériel** : notes MIDI et canaux câblés pour Volca Drum (6 canaux split), Volca Kick, Volca FM, MicroFreak, TR-808/909, GM, MPC60, etc.
 - Des **gammes configurables** pour les modes mélodiques (Markov, Phase 2, Bassline) : 12 toniques × 8 modes (pentatonique, mineur, dorian, phrygien, majeur, mixolydien, lydien)
-- Un **swing** réglable (0–100%) — décalage des steps impairs, appliqué à l'export MIDI et au player Web MIDI
-- Une **seed fixe** optionnelle — reproduire exactement un pattern en collant sa seed dans le formulaire. La seed est **cliquable dans le log** : cliquer dessus la copie directement dans le champ.
-- Une **fonction Play** intégrée dans l'interface — lecture MIDI du pattern courant dans le navigateur, avec pianoroll synchronisé, sans export
-- Une **fonction Preview** live — toute modification de pattern DNA met à jour le pianoroll en temps réel, avant d'exporter quoi que ce soit
-- Des **P-locks par step** pour les synths hardware (Volca Drum, Volca Kick, Volca FM, MicroFreak) — automation CC générée algorithmiquement, incluse dans l'export MIDI multi-piste
+- Un **swing** réglable (0–100%) — décalage des steps impairs, appliqué à l'export MIDI et au player
+- Une **seed fixe** optionnelle — reproduire exactement un pattern en collant sa seed dans le formulaire
+- Un **player intégré** — lecture du pattern dans le navigateur via synthé Web Audio ou MIDI serveur
+- Un **synthé navigateur** — preview audio sans matériel MIDI : kick, snare, hihat, tom, mélodie Markov
+- Un **MIDI serveur server-side** (`python-rtmidi`) — sortie MIDI sans dépendance Chrome, fonctionne depuis n'importe quel navigateur ou en headless
+- Des **clips Ableton** par voix — bouton ↓ drag-and-drop vers la session view d'Ableton
+- De la **polymétrie** par voix — cycle indépendant configurable par bouton `Ns` dans le panneau DNA
+- Du **MIDI Learn** — capture de pattern depuis un clavier/pad MIDI physique via Web MIDI API (Chrome)
+- Des **P-locks par step** pour les synths hardware — automation CC générée algorithmiquement, incluse dans l'export MIDI multi-piste et visualisée dans le pianoroll
+- Un **OSC bidirectionnel** — émission et réception UDP depuis un panneau slide-down (SuperCollider, TouchDesigner, Max/MSP, TouchOSC)
+- Un **séquenceur de presets** (SEQ) — 8 slots mémoire, avance automatique configurable, poids par slot
+- Des **groove presets** — 16 presets musicaux (MPC Boom Bap, Trap, Bossa Nova, Techno, D'n'B…)
+- Une **intégration Ableton Live** (AbletonOSC) — push direct des voix comme clips dans la session Ableton, sync BPM
+- Un **export Strudel/TidalCycles** — conversion DNA → mini-notation Strudel copiable
+- Une **persistance de session** — état complet sauvegardé dans `bang_state.json`, restauré au redémarrage
+- Un **tap tempo** et une **synchronisation MIDI clock** — tempo libre (TAP, médiane 5 taps) ou horloge MIDI entrante (SYNC, 24 ppq, transport Start/Stop auto)
+- Un **pianoroll temps réel** — SVG avec playhead animé, couleurs par vélocité, P-locks visuels, auto-scroll horizontal
+- Une **variation par voix** (`~`) et un **auto-évolve** (×1/×2/×4/×8 cycles)
 
 ## Ce que BANG! n'est pas
 
-- Un séquenceur temps réel — les patterns ne tournent pas en live dans BANG
 - Un DAW — aucune gestion de clips, de timeline, de routing audio
 - Un plugin — c'est une app web locale, servie par FastAPI sur le réseau local
 
-Le rendu final se fait dans le DAW. BANG s'occupe uniquement de générer des `.mid` intéressants.
+---
+
+## Installation
+
+### Prérequis
+
+- Python 3.12+
+- [uv](https://github.com/astral-sh/uv) — gestionnaire de paquets Python ultra-rapide
+
+```bash
+# Installer uv si absent
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Installation
+
+```bash
+git clone git@github.com:obareau/bang.git
+cd bang
+uv sync
+```
+
+### Lancement
+
+```bash
+uv run python web.py
+# → http://localhost:7777
+
+BANG_PORT=8888 uv run python web.py
+```
+
+### Service systemd (production)
+
+```bash
+sudo cp bang.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now bang
+# → http://bang.lan (avec reverse proxy Caddy)
+```
+
+Exemple de fichier `bang.service` :
+```ini
+[Unit]
+Description=BANG! MIDI Sequencer
+After=network.target
+
+[Service]
+User=olivier
+WorkingDirectory=/home/olivier/DEV/bang-proto/bang
+ExecStart=/home/olivier/.local/bin/uv run python web.py
+Environment=BANG_PORT=7777
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ---
 
-![Workflow BANG](workflow.png)
+## Dépendances
+
+| Paquet | Usage |
+|--------|-------|
+| `fastapi` | Framework web ASGI |
+| `uvicorn` | Serveur ASGI |
+| `jinja2` | Templates HTML |
+| `python-multipart` | Upload fichiers (session import) |
+| `mido` | Génération et export des fichiers `.mid` |
+| `python-osc` | OSC UDP bidirectionnel (émission + réception) |
+| `python-rtmidi` | MIDI serveur server-side (sans Chrome) |
+| `numpy` | Calculs probabilistes, Markov, distributions |
+| `httpx` | Requête météo Scaër (open-meteo.com) |
+
+**Côté navigateur (CDN, pas d'installation) :**
+
+| Bibliothèque | Usage |
+|--------------|-------|
+| HTMX | Requêtes partielles sans rechargement de page |
+| Web MIDI API | Player MIDI + MIDI Learn (Chrome/Chromium uniquement) |
+| Web Audio API | Synthé navigateur (tous navigateurs modernes) |
+
+---
+
+## Compatibilité navigateur
+
+| Fonctionnalité | Chrome/Chromium | Firefox | Safari | Edge |
+|----------------|----------------|---------|--------|------|
+| Interface HTMX | ✅ | ✅ | ✅ | ✅ |
+| Player Web Audio (synthé) | ✅ | ✅ | ✅ | ✅ |
+| **MIDI serveur rtmidi** | ✅ | ✅ | ✅ | ✅ |
+| Web MIDI (player MIDI) | ✅ | ❌ | ❌ | ✅ |
+| Web MIDI (MIDI Learn) | ✅ | ❌ | ❌ | ✅ |
+| Drag → Ableton (DownloadURL) | ✅ | ❌ | ❌ | ✅ |
+
+> **MIDI serveur (bouton SRV)** fonctionne dans tous les navigateurs — le MIDI est envoyé depuis Python sur le serveur. Web MIDI (player direct + MIDI Learn) requiert Chrome/Chromium.
+
+---
+
+## Résolution de problèmes
+
+### Le player ne démarre pas / "No MIDI output"
+
+- **Avec Chrome/Chromium** : cliquer `🎹 MIDI` → sélectionner un port de sortie MIDI dans la liste. Si la liste est vide, vérifier que le port MIDI est connecté avant d'ouvrir le navigateur.
+- **Sans port MIDI** : le player utilise automatiquement le synthé navigateur (Web Audio). Cliquer directement `▶ Play`. Si ça ne démarre pas, cliquer d'abord n'importe où sur la page (contrainte autoplay navigateur) puis relancer.
+- **Avec Firefox/Safari** : Web MIDI non supporté → le player utilise toujours le synthé navigateur. Fonctionnalités MIDI Learn et drag Ableton indisponibles.
+
+### MIDI Learn ne capte rien
+
+- Web MIDI n'est disponible que sur Chrome/Chromium — Firefox et Safari ne le supportent pas.
+- Vérifier que le port MIDI entrant est sélectionné dans le modal `🎹 MIDI` (port IN, pas OUT).
+- Le mode armé attend un signal MIDI : jouer une note sur le clavier pour déclencher le count-in.
+
+### Drag vers Ableton ne fonctionne pas
+
+- La fonction `DownloadURL` est Chrome/Chromium only. Sur Firefox, utiliser le bouton ↓ pour télécharger puis importer manuellement dans Ableton.
+- Dans Ableton, glisser dans la Session View ou l'Arrangement View (pas dans le navigateur de fichiers).
+- Ableton doit être visible à l'écran pendant le drag (glisser directement sur une piste MIDI ou une cellule vide).
+
+### `uv sync` échoue — dépendances
+
+```bash
+# python-osc peut nécessiter des outils de build
+sudo apt install python3-dev build-essential
+
+# Relancer
+uv sync
+```
+
+### Port 7777 déjà utilisé
+
+```bash
+# Lancer sur un autre port
+BANG_PORT=8888 uv run python web.py
+
+# Ou trouver ce qui utilise le port
+sudo lsof -i :7777
+```
+
+### OSC ne reçoit pas de messages
+
+- Le port d'écoute par défaut est `57121` (UDP). Vérifier le firewall :
+  ```bash
+  sudo ufw allow 57121/udp
+  ```
+- Le serveur RX redémarre à chaud quand le port change dans le modal OSC — pas besoin de relancer BANG.
+
+### Export `.mid` vide ou silencieux
+
+- Cliquer `Générer` avant `Export` — BANG ne génère pas automatiquement au démarrage.
+- Pour le mode `weather` : si la météo est indisponible (pas d'internet), BANG utilise des valeurs par défaut. Cliquer `W` pour forcer le refresh.
 
 ---
 
@@ -54,48 +209,75 @@ Le rendu final se fait dans le DAW. BANG s'occupe uniquement de générer des `.
 
 ---
 
-## Presets hardware
+## Contrôles par voix
 
-Les presets mappent les noms de voix aux notes MIDI du matériel cible. Sélectionnable depuis l'interface.
+Chaque voix dispose de contrôles individuels dans le panneau central.
 
-| Preset | Cible | Notes |
-|--------|-------|-------|
-| GM | Batterie GM standard | Kick 36, Snare 38, HH 42… |
-| TR-808 / TR-909 | Roland TR-8 | Mapping authentique |
-| MPC60 | Akai MPC60/3000 | — |
-| Battery 4 | NI Battery 4 | GM-compatible |
-| Tekno | Baby Audio Tekno | C1→F2 séquentiel |
-| LinnDrum | LinnDrum | — |
-| Volca Kick | Korg Volca Kick | VKick 60 (C3) |
-| Volca FM | Korg Volca FM | FM1 36, FM2 43, FM3 48 |
-| MicroFreak | Arturia MicroFreak | MF1 45, MF2 40, MF3 36 |
+### Lock 🔒
+
+Verrouille une voix : elle ne sera **pas régénérée** lors des prochains clics sur `Generate`. Bordure colorée = voix verrouillée.
+
+### Densité (0–1)
+
+Slider par voix qui multiplie la probabilité de déclenchement. `1.0` = normal · `0.5` = moitié des triggers · `0.0` = silence.
+
+### Euclidien — bouton E
+
+Remplace le DNA par un rythme euclidien E(n, k). Entrer k (hits), valider avec Entrée.
+
+### Polymétrie — bouton `Ns`
+
+Définit un cycle indépendant de N steps pour cette voix. Le DNA est tronqué ou répété pour correspondre à N. `0` = reset. Le pianoroll affiche les marqueurs de frontière. Survive aux `∿ Varier`.
+
+### MIDI Learn — bouton ⏺
+
+Lance la capture de pattern depuis MIDI entrant. Count-in 2 steps, puis capture d'un cycle complet quantifié sur la grille. Chrome/Chromium uniquement.
+
+### Clips Ableton — bouton ↓
+
+Télécharge le clip MIDI de cette voix uniquement. Draggable vers la session Ableton (Chrome/Chromium). Le label dans le pianoroll est aussi cliquable.
+
+### Chord selector (voix Markov / KSP)
+
+Transforme chaque note en accord : mono, power, minor, major, sus2, sus4, m7, M7, dom7, dim, aug.
 
 ---
 
-## Installation
+## Player intégré
 
-```bash
-git clone git@github.com:obareau/bang.git
-cd bang
-uv sync
-```
+### Modes de lecture
 
-Python 3.12+ · [uv](https://github.com/astral-sh/uv)
+Le player bas de page lit le pattern courant en temps réel, synchronisé avec le pianoroll.
+
+- **Web MIDI** (Chrome) : sélectionner un port de sortie dans le modal `🎹 MIDI`. Toutes les voix sont envoyées sur le port sélectionné.
+- **Synthé navigateur** : actif automatiquement si aucun port MIDI. Aussi accessible via le bouton `🔊` même quand un port MIDI est connecté.
+
+### Toggle 🔊 Synth
+
+Force le synthé navigateur même en présence d'un port MIDI connecté. Le MIDI physique reste actif en parallèle — les deux jouent simultanément. Utile pour monitorer sans casque sur le matériel.
 
 ---
 
-## Interface Web
+## Toolbar
 
-```bash
-uv run python web.py
-# → http://localhost:7777
-
-BANG_PORT=8888 uv run python web.py
-```
-
-### Thèmes TUI
-
-5 thèmes couleur mémorisés dans `localStorage` : AMB (amber), GRN, RED, TRQ, WHT.
+| Bouton | Description |
+|--------|-------------|
+| `⚡ Générer` | Génère un nouveau pattern complet |
+| `Export` | Exporte le `.mid` courant |
+| `∿ Varier` | Mutation légère sans régénération (raccourci `V`) |
+| `↩` | Undo — restaure l'état précédent (ring buffer 5 snapshots) |
+| `🎲` | Randomize BPM + tous les paramètres en un clic |
+| `▸A` / `▸B` | Store — sauvegarde l'état dans le slot A ou B |
+| `A○` / `B○` | Load — charge le slot A ou B (● = slot rempli) |
+| `SEQ` | Panneau séquenceur de presets (8 slots, avance auto) |
+| `OSC ○` | Panneau OSC slide-down — HOST / TX / RX / connect |
+| `SRV` | Panneau MIDI serveur rtmidi — port physique/virtuel |
+| `🎹 MIDI` | Modal sélection port MIDI (Web MIDI, Chrome uniquement) |
+| `TAP` | Tap tempo (médiane 5 taps) |
+| `SYNC` | Synchronisation MIDI clock entrant (24 ppq) |
+| `→ Abl` | Push vers Ableton Live via AbletonOSC |
+| `Strudel` | Export pattern en mini-notation Strudel/TidalCycles |
+| `📁` | Page `/files` — liste et téléchargement des exports MIDI |
 
 ### Raccourcis clavier
 
@@ -103,207 +285,71 @@ BANG_PORT=8888 uv run python web.py
 |--------|--------|
 | `G` | Générer |
 | `E` | Exporter MIDI |
+| `V` | Varier (mutation légère) |
 | `W` | Rafraîchir météo |
 
-### Toolbar
-
-| Bouton | Description |
-|--------|-------------|
-| `Generate` | Génère un nouveau pattern |
-| `Export` | Exporte le `.mid` courant |
-| `↩` | Undo — restaure l'état précédent (ring buffer 5 snapshots) |
-| `▸A` / `▸B` | Store — sauvegarde l'état courant dans le slot A ou B |
-| `A○` / `B○` | Load — charge le slot A ou B (● = slot rempli) |
-| `OSC ○` | Active/désactive l'émission OSC temps réel |
-
-### Édition inline
-
-Cliquer sur la représentation DNA d'une voix ouvre un champ d'édition. Le pianoroll se met à jour en temps réel (debounce 350ms). `Enter` valide, `Escape` annule.
-
 ---
 
-## Contrôles par voix
+## OSC Bidirectionnel
 
-Chaque voix dispose de contrôles individuels dans le panneau de gauche.
-
-### Lock 🔒
-
-Verrouille une voix : elle ne sera **pas régénérée** lors des prochains clics sur `Generate`. Indiqué par une bordure colorée sur la ligne de voix. Utile pour fixer le groove et explorer les variations sur les autres voix.
-
-```
-[🔒] → voix figée, survive aux régénérations
-[ 🔓] → voix libre (comportement par défaut)
-```
-
-**Undo** préserve les locks : le ring buffer stocke l'état complet incluant quelles voix étaient verrouillées.
-
-### Densité (0–1)
-
-Slider par voix qui multiplie la probabilité de déclenchement de chaque step. 
-
-- `1.0` = comportement normal (pas de filtrage)
-- `0.5` = moitié des triggers supprimés aléatoirement
-- `0.0` = voix silencieuse
-
-La densité est appliquée au player JS et à l'export MIDI. Elle est persistée dans la session.
-
-### Chord selector (voix Markov / KSP)
-
-Pour les voix de type `markov` et `ksp`, un sélecteur d'accord est disponible. Il transforme chaque note déclenchée en accord en ajoutant des intervalles fixes.
-
-| Type | Intervalles (demi-tons) |
-|------|------------------------|
-| `mono` | — (note seule) |
-| `power` | +7 |
-| `minor` | +3, +7 |
-| `major` | +4, +7 |
-| `sus2` | +2, +7 |
-| `sus4` | +5, +7 |
-| `m7` | +3, +7, +10 |
-| `M7` | +4, +7, +11 |
-| `dom7` | +4, +7, +10 |
-| `dim` | +3, +6 |
-| `aug` | +4, +8 |
-
-Les accords sont appliqués à l'export MIDI **et** au player JS en temps réel.
-
----
-
-## Undo — Ring buffer
-
-Le bouton `↩` dans le toolbar restaure le snapshot précédent. BANG conserve les **5 derniers états** (voix + p-locks + paramètres). Chaque `Generate` empile un nouveau snapshot.
-
-```
-snapshot[0] ← état courant
-snapshot[1] ← avant dernière génération
-...
-snapshot[4] ← il y a 5 générations
-```
-
-`↩` remonte d'un cran et restaure l'état complet : DNA de toutes les voix, p-locks, paramètres chaos/bpm/swing, locks actifs.
-
----
-
-## Comparaison A/B
-
-Deux slots indépendants pour comparer des variantes d'un pattern.
-
-```
-▸A   → sauvegarde l'état courant dans le slot A
-▸B   → sauvegarde dans le slot B
-A●   → charge le slot A (● = slot rempli, ○ = vide)
-B●   → charge le slot B
-```
-
-Workflow typique :
-
-1. Générer un pattern qui semble intéressant → `▸A`
-2. Générer une variation → `▸B`
-3. `A●` / `B●` pour écouter et comparer
-4. Exporter le meilleur
-
-Les slots A et B sont inclus dans l'export/import de session JSON.
-
----
-
-## Multi-canal Markov
-
-Le paramètre `markov_channel` (1–16) route la voix mélodique Markov sur un canal MIDI spécifique. Par défaut : canal 1.
-
-Utile pour router vers un synth externe précis dans le DAW, ou pour séparer basse/mélodie sur des canaux différents.
-
-```bash
-# Via l'interface : sélecteur "MIDI CH" visible en mode markov/phase2/bassline
-# Via l'API Python :
-e.add_markov_voice(chain, "x-?-", channel=4)   # canal 5 (0-indexé)
-```
-
----
-
-## Mode Keystep Pro ♜
-
-Mode dédié à l'Arturia Keystep Pro. Génère **7 voix** :
-
-| Voix | Canal MIDI | Registre | Description |
-|------|-----------|----------|-------------|
-| Kick | ch10 | C2 | Kick drum |
-| Snare | ch10 | D2 | Snare |
-| HiHat | ch10 | F#2 | Hi-hat |
-| KSP Lead | ch1 | 2 octaves, medium-high | Mélodie principale |
-| KSP Bass | ch2 | 1 octave, grave | Ligne de basse |
-| KSP Chord | ch3 | 2 octaves, medium | Harmonie |
-| KSP Arp | ch4 | 2 octaves, medium-high | Arpège |
-
-Les 4 pistes mélodiques utilisent des chaînes de Markov indépendantes avec des registres différenciés. Chaque piste KSP a son propre **chord selector**.
-
-L'export MIDI produit un fichier **type 1 multi-piste**, directement importable dans le Keystep Pro via MIDI SysEx ou drag-and-drop DAW.
-
-```
-Steps auto-fixés à 16 en mode keystep_pro (cohérence KSP natif)
-```
-
----
-
-## Export MIDI multi-piste
-
-L'export génère un fichier **MidiFile type 1** : une track par voix + une track tempo.
-
-| Track | Contenu |
-|-------|---------|
-| Track 0 | Tempo (BPM) + seed embedée dans les métadonnées |
-| Track 1..N | Une piste par voix, nommée d'après le type de voix |
-| Track CC | P-locks : automation CC step-par-step par voix concernée |
-
-Les **P-locks** sont inclus dans l'export comme événements CC avant chaque `note_on`. Les DAWs les lisent comme de l'automation de clip.
-
-Les **accords Markov** (chord selector) sont inclus dans l'export : chaque note déclenchée émet les tons de l'accord sur la même track MIDI.
-
----
-
-## OSC Output
-
-BANG émet des messages OSC en UDP en temps réel, synchronisés au BPM du pattern courant.
+BANG émet et reçoit des messages OSC UDP.
 
 ### Activer
 
-Cliquer sur `OSC ○` dans le toolbar → modal de configuration (host:port) → `Start`. Le bouton passe à `OSC ●` quand actif.
+`OSC ○` → modal config → Host + PORT ↑ (TX) + PORT ↓ (RX) → Start.
 
-Défaut : `127.0.0.1:57120` (SuperCollider).
+Défaut TX : `127.0.0.1:57120` · Défaut RX : `0.0.0.0:57121`
 
-### Format des messages
+### Messages sortants (↑ TX)
 
-| Message | Arguments | Description |
-|---------|-----------|-------------|
-| `/bang/clock` | `[step, total_steps]` | Émis à chaque step |
-| `/bang/{NomVoix}` | `[step, velocity, note]` | Par trigger, par voix |
+| Message | Arguments |
+|---------|-----------|
+| `/bang/clock` | `[step, total_steps]` |
+| `/bang/{NomVoix}` | `[step, velocity, note]` |
 
-`NomVoix` correspond au label de la voix (`Kick`, `Snare`, `HH`, `Markov`, `KSP Lead`, etc.).
+### Messages entrants (↓ RX)
 
-### Exemples d'utilisation
+| Message | Arguments |
+|---------|-----------|
+| `/bang/param/bpm` | `int` (40–240) |
+| `/bang/param/chaos` | `float` (0–1) |
+| `/bang/param/gravity` | `float` (0–1) |
+| `/bang/param/swing` | `float` (0–1) |
+| `/bang/param/microtiming` | `float` (0–1) |
+| `/bang/param/steps` | `int` (8–256) |
+| `/bang/param/cc_depth` | `float` (0–1) |
+| `/bang/generate` | — |
+| `/bang/vary` | — |
+| `/bang/density/{NomVoix}` | `float` (0–1) |
+| `/bang/lock/{idx}` | `int` (0 ou 1) |
 
-**SuperCollider** :
+---
 
-```supercollider
-OSCdef(\bangClock, { |msg|
-    var step = msg[1], total = msg[2];
-    ("step " ++ step ++ "/" ++ total).postln;
-}, '/bang/clock');
+## MIDI serveur (rtmidi)
 
-OSCdef(\bangKick, { |msg|
-    var step = msg[1], vel = msg[2], note = msg[3];
-    Synth(\kick, [\amp, vel/127]);
-}, '/bang/Kick');
-```
+Depuis v0.9.0, BANG! peut envoyer le MIDI directement depuis le serveur Python, sans dépendance Web MIDI / Chrome.
 
-**Max/MSP** : utiliser un objet `udpreceive 57120` + `route /bang/clock /bang/Kick /bang/Markov`
+### Activer
 
-**TouchDesigner** : OSC In DAT sur port 57120, filtrer par address `/bang/*`
+`SRV` dans le toolbar → sélectionner un port MIDI (physique ou virtuel) → toggle ON.
 
 ### Comportement
 
-- Les notes Markov sont **régénérées au début de chaque cycle** (step 0) depuis la même chaîne de Markov, donc elles évoluent au fil des cycles.
-- Les voix Babka sont **exclues** de l'OSC (timing fractionnel incompatible avec le tick step-par-step).
-- L'OSC s'arrête automatiquement si on clique `OSC ●` ou si l'interface est fermée.
+- Drums (mode batterie) → canal 9 (GM standard)
+- Voix mélodiques (Markov, Bass, KSP) → canal 0
+- Gate : 75% de la durée du step
+- Horloge synchronisée sur le BPM courant de BANG!
+- Fonctionne en parallèle du player Web Audio (les deux peuvent jouer simultanément)
+
+### Prérequis
+
+```bash
+# Vérifier que python-rtmidi est installé
+uv sync
+
+# Lister les ports MIDI disponibles sur le serveur
+curl http://localhost:7777/midi/ports
+```
 
 ---
 
@@ -317,62 +363,6 @@ OSCdef(\bangKick, { |msg|
 | `↺` | Ratchet ×3 |
 | `░` | Ghost — jitter ±25ms |
 
-## Humanisation velocity
-
-Le paramètre `vel_humanize` (0–40) ajoute un décalage aléatoire ±N à la velocity de chaque note. Appliqué à l'export MIDI et au player JS.
-
-- `0` = velocities exactes (comportement machine)
-- `10` = légère humanisation (recommandé)
-- `40` = variations importantes
-
-## Gammes (modes Markov, Phase 2, Bassline, Keystep Pro)
-
-Sélectionnables depuis l'interface (sélecteurs ROOT + SCALE, visibles uniquement sur les modes mélodiques).
-
-| Gamme | Intervalles |
-|-------|-------------|
-| `penta_min` | 0 3 5 7 10 |
-| `penta_maj` | 0 2 4 7 9 |
-| `minor` | 0 2 3 5 7 8 10 |
-| `dorian` | 0 2 3 5 7 9 10 |
-| `phrygian` | 0 1 3 5 7 8 10 |
-| `major` | 0 2 4 5 7 9 11 |
-| `mixo` | 0 2 4 5 7 9 10 |
-| `lydian` | 0 2 4 6 7 9 11 |
-
-La chaîne de Markov est construite algorithmiquement (distance de degré, gravité tonique/quinte) via `build_markov_chain(root_note, intervals, num_octaves)`.
-
----
-
-## Syntaxe Babka ⚗
-
-| Opérateur | Syntaxe | Comportement |
-|-----------|---------|-------------|
-| `[ ]` | `[a b c]` | Subdivision — n atomes dans 1 step |
-| `< >` | `<a b c>` | Alternance par cycle |
-| `( )` | `x(n,k)` | Euclidien inline (Bresenham) |
-
----
-
-## CLI
-
-```bash
-uv run bang --mode morph --chaos 0.4 --bpm 120 --steps 64 --out session.mid
-uv run bang --mode weather --weather --temporal
-uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
-```
-
-| Paramètre | Défaut | Description |
-|-----------|--------|-------------|
-| `--mode` | `morph` | Mode de génération |
-| `--chaos` | `0.30` | Taux de mutation (0.0–1.0) |
-| `--bpm` | `110` | Tempo |
-| `--steps` | `64` | Nombre de pas |
-| `--gravity` | `0.70` | Attraction graves (Markov) |
-| `--seed` | auto | Graine fixe pour reproduire |
-| `--weather` | off | Entropie météo |
-| `--temporal` | off | Jitter nanoseconde (non-reproductible) |
-
 ---
 
 ## API HTTP
@@ -381,56 +371,30 @@ uv run bang --controller "Launchpad" --cc-map "80:chaos,81:bpm" --capture 4
 |---------|-------|-------------|
 | GET | `/` | Interface principale |
 | POST | `/generate` | Génère patterns + pianoroll |
-| POST | `/export` | Exporte le fichier `.mid` |
-| POST | `/export/song` | Song complète multi-fichiers |
-| GET | `/pattern` | JSON état courant |
-| POST | `/voice/preview` | Preview pianoroll sans validation |
+| POST | `/export` | Exporte le `.mid` courant |
+| GET | `/export/clip?idx=N` | Clip MIDI mono-voix (voix N) |
+| GET | `/export/clips` | Zip de tous les clips MIDI |
 | POST | `/voice/pattern` | Valide pattern édité |
 | POST | `/voice/thin` | Thinning ×1/÷2/÷4 |
-| POST | `/voice/chord` | Change le type d'accord d'une voix Markov/KSP |
-| POST | `/voice/density` | Change la densité (0–1) d'une voix |
-| POST | `/lock_voice` | Verrouille/déverrouille une voix |
-| POST | `/undo` | Restaure le snapshot précédent |
-| POST | `/ab/store` | Sauvegarde l'état dans le slot A ou B |
-| POST | `/ab/load` | Charge le slot A ou B |
-| POST | `/osc/toggle` | Active/désactive l'émission OSC |
+| POST | `/voice/chord` | Change accord voix Markov/KSP |
+| POST | `/voice/density` | Change densité (0–1) |
+| POST | `/voice/euclidean` | Applique E(n,k) |
+| POST | `/voice/steps` | Cycle indépendant (polymetrie) |
+| POST | `/lock_voice` | Toggle lock voix |
+| POST | `/undo` | Restaure snapshot précédent |
+| POST | `/ab/store` | Sauvegarde slot A ou B |
+| POST | `/ab/load` | Charge slot A ou B |
+| POST | `/osc/toggle` | Active/désactive OSC |
 | POST | `/osc/config` | Configure host:port OSC |
+| GET | `/midi/ports` | Liste les ports MIDI disponibles (rtmidi) |
+| POST | `/midi/toggle` | Active/désactive MIDI serveur |
+| POST | `/midi/config` | Configure port MIDI serveur |
 | POST | `/notes` | Remap notes MIDI |
 | GET | `/session/export` | Exporte session JSON |
 | POST | `/session/import` | Charge session JSON |
-| GET | `/presets` | Liste presets |
-| POST | `/preset/apply` | Applique preset |
+| GET | `/files` | Liste les exports MIDI du serveur |
+| GET | `/export/strudel` | Pattern en notation Strudel/TidalCycles |
 | GET | `/doc` | Documentation complète |
-
----
-
-## BangEngine — API Python
-
-```python
-from bang_engine import BangEngine, build_markov_chain, SCALE_INTERVALS
-
-e = BangEngine(bpm=120, vel_floor=20, vel_ceiling=110, vel_curve=0.7)
-e.add_voice(36, "x---x---")
-e.add_voice(42, ["x-x-", "x--x"])                          # polyrythmie
-
-chain = build_markov_chain(root_note=50, intervals=SCALE_INTERVALS["dorian"], num_octaves=2)
-e.add_markov_voice(chain, "x-?-", channel=0)               # mélodie Markov D dorian 2 octaves, ch1
-
-bass = build_markov_chain(root_note=26, intervals=SCALE_INTERVALS["penta_min"], num_octaves=2)
-e.add_markov_voice(bass, "x---x-", channel=1)              # basse pentatonique mineure, ch2
-
-e.add_babka_voice(38, "x(3,8)")
-e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
-
-# voice_chords : dict nom_voix → type d'accord pour l'export
-e.export_midi(
-    num_steps=64,
-    filename="out.mid",
-    swing=0.3,
-    seed="abc123",
-    voice_chords={"markov-ch1": "minor", "markov-ch2": "power"},
-)
-```
 
 ---
 
@@ -443,11 +407,34 @@ bang/
 ├── cli.py              # CLI + contrôleurs MIDI
 ├── web.py              # Interface Web FastAPI+HTMX
 ├── templates/
-│   ├── index.html
-│   ├── _voices.html
-│   ├── _pianoroll.html
-│   └── doc.html
+│   ├── index.html      # UI principale (HTMX + player Web MIDI/Audio)
+│   ├── _voices.html    # Panneau voix (partiel HTMX)
+│   ├── _pianoroll.html # Pianoroll SVG (partiel HTMX)
+│   └── doc.html        # Documentation in-app
 └── exports/            # Fichiers .mid générés
+```
+
+---
+
+## BangEngine — API Python
+
+```python
+from bang_engine import BangEngine, build_markov_chain, SCALE_INTERVALS
+
+e = BangEngine(bpm=120, vel_floor=20, vel_ceiling=110, vel_curve=0.7)
+e.add_voice(36, "x---x---")
+e.add_voice(42, ["x-x-", "x--x"])  # polyrythmie
+
+chain = build_markov_chain(root_note=50, intervals=SCALE_INTERVALS["dorian"], num_octaves=2)
+e.add_markov_voice(chain, "x-?-", channel=0)
+
+e.add_babka_voice(38, "x(3,8)")
+e.add_cc_drone(control=74, breakpoints=[20, 100, 20])
+
+e.export_midi(
+    num_steps=64, filename="out.mid", swing=0.3, seed="abc123",
+    voice_chords={"markov-ch1": "minor"},
+)
 ```
 
 ---

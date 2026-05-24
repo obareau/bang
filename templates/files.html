@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>BANG! — Exports MIDI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --bg:#0e0f11; --surface:#1a1b1e; --border:#2a2b2e; --text:#e0e0e0; --muted:#666; --primary:#7c6aff; --success:#4caf50; --accent:#ff9e44; }
+    * { box-sizing: border-box; }
+    body { background:var(--bg); color:var(--text); font-family:monospace; margin:0; padding:1.2rem 1.5rem; }
+    .top { display:flex; align-items:baseline; gap:1rem; margin-bottom:1rem; }
+    .back { color:var(--primary); text-decoration:none; font-size:12px; }
+    h1 { font-size:13px; color:var(--muted); margin:0; letter-spacing:.08em; }
+    .version { font-size:10px; color:var(--border); }
+    .info { font-size:11px; color:var(--muted); margin-bottom:1rem; line-height:1.6; }
+    .info code { color:var(--accent); background:var(--surface); padding:1px 4px; border-radius:3px; }
+    .file-list { display:flex; flex-direction:column; gap:.35rem; max-width:800px; }
+    .file-row { display:grid; grid-template-columns:1fr 80px 70px 40px; align-items:center; gap:.6rem; padding:.4rem .7rem; background:var(--surface); border:1px solid var(--border); border-radius:4px; }
+    .file-name { font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .file-meta { font-size:10px; color:var(--muted); text-align:right; }
+    .file-url-cell { display:flex; align-items:center; gap:.4rem; }
+    .btn-dl { font-size:11px; padding:3px 10px; background:none; color:var(--primary); border:1px solid var(--primary); border-radius:3px; text-decoration:none; white-space:nowrap; }
+    .btn-dl:hover { background:var(--primary); color:#000; }
+    .btn-copy { font-size:10px; padding:2px 6px; background:none; color:var(--muted); border:1px solid var(--border); border-radius:3px; cursor:pointer; white-space:nowrap; }
+    .btn-copy:hover { color:var(--text); border-color:var(--muted); }
+    .btn-copy.done { color:var(--success); border-color:var(--success); }
+    .empty { color:var(--muted); font-size:12px; margin-top:1rem; }
+    .refresh { font-size:11px; color:var(--muted); text-decoration:none; margin-left:auto; }
+    .refresh:hover { color:var(--text); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <a class="back" href="/">← BANG! {{ app_version }}</a>
+    <h1>EXPORTS MIDI</h1>
+    <a class="refresh" href="/files">↻</a>
+  </div>
+  <p class="info">
+    Depuis une autre machine sur le même réseau :<br>
+    <code>http://{{ host }}/files</code> &nbsp;·&nbsp;
+    Téléchargement direct : <code>http://{{ host }}/download/fichier.mid</code>
+  </p>
+
+  {% if files %}
+  <div class="file-list">
+    {% for f in files %}
+    <div class="file-row">
+      <span class="file-name" title="{{ f.name }}">{{ f.name }}</span>
+      <span class="file-meta">{{ f.size_kb }} KB</span>
+      <span class="file-meta">{{ f.date }}</span>
+      <a class="btn-dl" href="/download/{{ f.name }}" download="{{ f.name }}">↓</a>
+    </div>
+    <div style="max-width:800px;padding:0 .7rem .3rem;display:flex;align-items:center;gap:.5rem">
+      <span style="font-size:10px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">http://{{ host }}/download/{{ f.name }}</span>
+      <button class="btn-copy" onclick="copyUrl(this, 'http://{{ host }}/download/{{ f.name }}')">copier</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">Aucun fichier MIDI exporté. Utilisez ↓ dans l'interface pour générer des clips.</p>
+  {% endif %}
+
+  <script>
+  function copyUrl(btn, url) {
+    navigator.clipboard.writeText(url).then(() => {
+      btn.textContent = '✓ copié';
+      btn.classList.add('done');
+      setTimeout(() => { btn.textContent = 'copier'; btn.classList.remove('done'); }, 2000);
+    });
+  }
+  </script>
+</body>
+</html>
