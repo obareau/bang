@@ -2269,6 +2269,7 @@ async def download_touchosc(host: str = ""):
 
 @app.get("/morph/prepare")
 async def morph_prepare(from_slot: int, to_slot: int):
+    from bang_engine import vel_map as _vel_map
     slots  = _state.get("seq_slots", [None]*8)
     snap_a = slots[from_slot] if 0 <= from_slot < 8 else None
     snap_b = slots[to_slot]   if 0 <= to_slot   < 8 else None
@@ -2278,13 +2279,14 @@ async def morph_prepare(from_slot: int, to_slot: int):
         return {"ok": False, "error": f"Slot {to_slot+1} vide"}
 
     def _snap_events(snap):
-        p    = snap.get("last_p") or _state.get("last_p") or {}
+        p     = snap.get("last_p") or _state.get("last_p") or {}
         steps = p.get("steps", 16)
-        vf, vc, vcu = p.get("vel_floor", 40), p.get("vel_ceil", 110), p.get("vel_curve", 0.5)
+        vf  = p.get("vel_floor",   0)
+        vc  = p.get("vel_ceiling", 127)
+        vcu = p.get("vel_curve",   1.0)
         result = []
         for note, dna, vtype in snap.get("voices", []):
-            if vtype == "cc":
-                result.append({"events": []})
+            if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
                 continue
             compiled = compile_dna(dna)
             dna_len  = len(compiled)
