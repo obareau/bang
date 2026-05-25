@@ -2438,7 +2438,18 @@ async def get_pattern():
                 "breakpoints": drone.get("breakpoints", []),
             })
 
-    for note, dna, vtype in _state["voices"]:
+    # Associer chaque voix à son éventuelle chaîne de Markov dans l'engine
+    # engine.voices et _state["voices"] sont construits dans le même ordre (cc exclus)
+    _ev_iter = iter(engine.voices if engine else [])
+    _voices_chains: list[object | None] = []
+    for _n, _d, _vt in _state["voices"]:
+        if _vt == "cc" or (_n == 0 and not _vt.startswith("ksp")):
+            _voices_chains.append(None)
+        else:
+            _ev = next(_ev_iter, None)
+            _voices_chains.append(_ev.get("chain") if _ev else None)
+
+    for (note, dna, vtype), _chain in zip(_state["voices"], _voices_chains):
         if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
             continue
 
@@ -2493,6 +2504,10 @@ async def get_pattern():
         elif vtype == "bl":
             channel = 0
             name    = "Bass ♩"
+            if _chain and events:
+                _mnotes = _chain.generate(len(events))
+                for _i, _evt in enumerate(events):
+                    _evt["note"] = _mnotes[_i]
         elif vtype == "vk":
             channel = 0
             name    = "VKick"
@@ -2505,6 +2520,10 @@ async def get_pattern():
         elif vtype == "markov":
             channel = p.get("markov_channel", 9)
             name    = _NOTE_NAMES.get(note, f"n{note}")
+            if _chain and events:
+                _mnotes = _chain.generate(len(events))
+                for _i, _evt in enumerate(events):
+                    _evt["note"] = _mnotes[_i]
         elif vtype.startswith("ksp"):
             ch      = int(vtype[3:]) - 1
             channel = ch

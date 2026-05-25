@@ -1900,25 +1900,26 @@ function _scheduleStep(step, timeS) {
       const _microJit = (Math.random() * 2 - 1) * stepDurMs * 0.12 * (1.0 - _mt);
       const t0ms      = noteOnMs + subOff + _microJit;
       const _chordOffs = (v.type === 'markov') ? (_CHORD_OFFSETS[v.chord] || []) : [];
+      const evNote    = e.note ?? v.note;
 
       if (_midiOut && !_demoMode) {
         if (e.ratchet > 1) {
           const rd = durMs / e.ratchet;
           for (let r = 0; r < e.ratchet; r++) {
             const t0 = t0ms + r * rd;
-            _midiOut.send([0x90 | v.channel, v.note, vel], t0);
-            _midiOut.send([0x80 | v.channel, v.note, 0],   t0 + rd * 0.75);
+            _midiOut.send([0x90 | v.channel, evNote, vel], t0);
+            _midiOut.send([0x80 | v.channel, evNote, 0],   t0 + rd * 0.75);
             for (const off of _chordOffs) {
-              const cn = Math.max(0, Math.min(127, v.note + off));
+              const cn = Math.max(0, Math.min(127, evNote + off));
               _midiOut.send([0x90 | v.channel, cn, vel], t0);
               _midiOut.send([0x80 | v.channel, cn, 0],   t0 + rd * 0.75);
             }
           }
         } else {
-          _midiOut.send([0x90 | v.channel, v.note, vel], t0ms);
-          _midiOut.send([0x80 | v.channel, v.note, 0],   t0ms + durMs * 0.8);
+          _midiOut.send([0x90 | v.channel, evNote, vel], t0ms);
+          _midiOut.send([0x80 | v.channel, evNote, 0],   t0ms + durMs * 0.8);
           for (const off of _chordOffs) {
-            const cn = Math.max(0, Math.min(127, v.note + off));
+            const cn = Math.max(0, Math.min(127, evNote + off));
             _midiOut.send([0x90 | v.channel, cn, vel], t0ms);
             _midiOut.send([0x80 | v.channel, cn, 0],   t0ms + durMs * 0.8);
           }
@@ -1930,7 +1931,7 @@ function _scheduleStep(step, timeS) {
         const ratchets = e.ratchet > 1 ? e.ratchet : 1;
         const rDurS    = durMs / ratchets / 1000;
         for (let r = 0; r < ratchets; r++)
-          _synthNote(v.note, vel, tS + r * rDurS, rDurS * 0.85, v.type);
+          _synthNote(evNote, vel, tS + r * rDurS, rDurS * 0.85, v.type);
       }
 
       const logDelay = Math.max(0, t0ms - performance.now());
