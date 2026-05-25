@@ -1,97 +1,103 @@
-# 🗺️ BANG : Roadmap & Visions
-Ce document consigne les évolutions futures du séquenceur algorithmique pour la **Dark Umbrae**.
+# BANG! — Roadmap
+
+Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ---
 
-## 🌀 Phase 1 : Sources d'Entropie (En cours)
-L'objectif est de remplacer le hasard pur par des données systémiques ou environnementales.
-- [x] **Entropie Temporelle :** Utiliser l'heure système (microsecondes) pour influencer le Jitter.
-- [x] **Entropie Cryptographique :** Utiliser des fragments de clés SSH ou de Hash (SHA-256) pour générer des patterns uniques et non-reproductibles.
-- [x] **Lien Local :** Injecter les données météo de Scaër (température, vent) pour moduler la densité des séquences.
+## Phase 1 — Sources d'entropie ✅
 
-## 🎛️ Phase 2 : Moteurs de Génération
-- [x] **Implémentation Markovienne avancée :** Créer des tableaux de probabilités de transition entre les notes (ex: si Do est joué, 70% de chance d'aller vers Ré#).
-- [x] **Mode Drone :** Génération de messages MIDI CC (Control Change) pour piloter des filtres de synthés en continu.
-- [x] **Polyrythmie Dynamique :** Permettre au script de changer la longueur des boucles (ex: passer de 5 à 7 pas) de manière organique.
+- [x] Entropie temporelle — microsecondes système → jitter
+- [x] Entropie cryptographique — fragments SSH / SHA-256 → seeds non-reproductibles
+- [x] Entropie météo — température + vent de Scaër (open-meteo) → densité / CC
 
-## 💻 Phase 3 : Interface & Workflow
-- [x] **CLI Interactive :** Pouvoir choisir le "degré de chaos" (0.1 à 1.0) via une commande au lancement.
-- [x] **Mode Live Controller :** Utiliser le Zoom R8 pour modifier certains paramètres d'entropie en temps réel pendant la génération.
-- [x] **Système de Logs :** Chaque fichier MIDI exporté contient en méta-donnée la "graine" (seed) utilisée pour pouvoir le régénérer si besoin.
+## Phase 2 — Moteurs de génération ✅
 
----
-*Dernière mise à jour : Mai 2026 - Cadre Robōtariis*
----
+- [x] Chaînes de Markov — tableaux de probabilités de transition inter-notes
+- [x] Mode Drone — messages CC continus pour filtres / LFO hardware
+- [x] Polyrythmie dynamique — cycle indépendant configurable par voix
 
-## 🎹 Phase 4 : Hardware Synth Control
+## Phase 3 — Interface & workflow ✅
 
-### P-locks & Synthés natifs
+- [x] CLI interactive — degré de chaos 0.1–1.0 au lancement
+- [x] MIDI Learn — capture pattern depuis clavier/pad via Web MIDI
+- [x] Logs de session — seed embarquée dans les métadonnées `.mid`
 
-**NTS-1 mode** (priorité haute)
-- [ ] Profil p-locks  dans  : Cutoff CC43, OscShp CC53, OscAlt CC54, LFOInt CC25, Reso CC44, RevMix CC38
-- [ ] Panel NTS-1 dédié (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps réel, indicateur p-lock actif
-- [ ] P-lock interpolation : option  par piste CC, MIDI SRV envoie CCs intermédiaires → glissé fluide entre steps
+## Phase 4 — Séquenceur live (v0.5–v0.9) ✅
 
-**Microfreak mode**
-- [ ] Profil p-locks  : Timbre CC28, Wave CC9, Cutoff CC74, Resonance CC71, LFO Rate CC76, LFO Amount CC77, Env Attack CC73, Env Release CC72
-- [ ] Oscillateur  : phonème contrôlé via CC28 (Timbre) + CC9 (Wave) → articulation formantique par step
-- [ ] CC14 (OSC Type) comme p-lock → change d'oscillateur mid-séquence (Microfreak a ~20 types)
+- [x] Interface web FastAPI + HTMX — accessible depuis tout le LAN
+- [x] DNA grid editor — grille cliquable par voix, cycle `-/x/?/↺/░`
+- [x] Velocity lane — drawbar par step, drag pointer events
+- [x] Probability lane — override probabilité par step (barre ambre)
+- [x] SEQ 8 slots — mémorisation presets, avance automatique, poids par slot
+- [x] Pattern morphing A→B — interpolation douce sur N cycles entre deux slots
+- [x] Groove presets — 16 grooves (Boom Bap, Trap, Techno, D'n'B…)
+- [x] Euclidien par voix — Bresenham, paramètre k via UI
+- [x] Undo — ring buffer 5 snapshots
+- [x] A/B slots — comparaison instantanée deux snapshots
+- [x] Lock voix — protection lors des regénérations
+- [x] Drop probability — silence sur tout le cycle (≠ densité step)
+- [x] Densité par voix — slider 0–1, survit aux `∿ Varier`
+- [x] Polymétrie par voix — cycle indépendant N steps
+- [x] Phase offset par voix
+- [x] Thin ÷2/÷4 · Invert · Rotate · Reverse · Double · Halve DNA
+- [x] Chord mode — 11 types (mono → aug)
+- [x] Export MIDI multi-piste (type 1, P-locks inclus)
+- [x] Clips Ableton par voix — ↓ + drag-and-drop session view
+- [x] Export Strudel / TidalCycles
+- [x] Player Web MIDI + Web Audio + synthé intégré
+- [x] Pianoroll SVG — playhead, couleurs vélocité, P-locks, auto-scroll
+- [x] OSC bidirectionnel — SuperCollider, Max, TouchOSC
+- [x] TouchOSC — génération `.tosc` LAN + Tailscale
+- [x] Ableton Live sync — push clips + BPM via AbletonOSC
+- [x] MIDI Clock IN (SYNC) — 24 ppq, transport Start/Stop auto
+- [x] Tap tempo — médiane 5 taps
+- [x] Swing global — décalage steps impairs 0–100%
 
-### Ratchet / Step repeat
+## Phase 5 — Contrôle par voix (v0.9.x) ✅
 
-- [ ] **Ratchet par step** : champ repeat count (1–8) par step, subdivise la durée du step en N hits égaux
-  - Repeat 1 = normal · 2 = double · 4 = quad (trémolo) · 8 = buzz/roll
-  - Affiché dans le pianoroll comme mini-barres verticales à l'intérieur du step
-  - Combiné avec p-locks phonème Speak → stutter speech : 
-- [ ] Ratchet avec decay : amplitude décroît sur les hits successifs d'un même ratchet (roll naturel)
-- [ ] Ratchet avec variation Markov : pitch/velocity dérivent légèrement sur les répétitions internes
+- [x] **Copy / paste DNA entre voix** — presse-papier JS, htmx.ajax explicite
+- [x] **LFO par voix** — sin / tri / ramp / rnd · cibles : density / drop · fréquence en cycles
+- [x] **MIDI output routing par voix** — canal MIDI 1–16 ou auto (drums ch10 / mélo ch1)
 
-### P-lock randomizer borné
-- [ ] Bouton 🎲 par piste CC dans le pianoroll : génère des p-locks aléatoires bornés (min/max) avec density (0–100%)
+## Phase 6 — Performance live (à venir)
 
----
-
-## 🔭 Phase 5 : Visions long terme
-- Song mode (intro / couplet / break / outro — enchaîner des patterns)
-- MIDI Clock IN (sync externe : Ableton, hardware)
-- Triggers conditionnels (joue ce step si N-ième fois, si random < x%)
-- Transposition globale (shift scale pendant play)
-- Export multi-piste (.mid séparé par voix)
+- [ ] **#5 Swing per voice** — offset microtiming par voix en % de step_dur, indépendant du swing global
+- [ ] **#6 Song mode** — séquencer les 8 slots SEQ dans un ordre défini (A×4 → B×2 → C×1)
+- [ ] **#7 MIDI Clock IN externe par port** — sync BPM à hardware (Zoom R8, boîte à rythme, DAW master)
+- [ ] **#8 Conditional triggers** — conditions type Elektron : every N bars / first only / fill
+- [ ] **#9 Transposition globale** — ±24 demi-tons appliqués à toutes les voix mélodiques en live
+- [ ] **#10 Multi-port MIDI** — plusieurs ports rtmidi.MidiOut en parallèle, routage port par voix
+- [ ] **#11 Voice groups** — grouper des voix (ex : "drums", "mélo") pour mute / solo collectif
+- [ ] **#12 Export projet complet** — save / restore état complet comme fichier `.bang` nommé
 
 
----
+## Phase 7 : Hardware Synth Control
 
-## Phase 4 : Hardware Synth Control
+### NTS-1 (Korg)
 
-### P-locks et synthes natifs
-
-**NTS-1 mode** (priorite haute)
 - [ ] Profil p-locks `nts1` dans `_SYNTH_PLOCK_PROFILES` : Cutoff CC43, OscShp CC53, OscAlt CC54, LFOInt CC25, Reso CC44, RevMix CC38
-- [ ] Panel NTS-1 dedie (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps reel, indicateur p-lock actif
-- [ ] P-lock interpolation : option `linear|cosine|off` par piste CC, MIDI SRV envoie CCs intermediaires entre steps -> glisse fluide
+- [ ] Panel NTS-1 dedie (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps reel, indicateur p-lock actif par param
+- [ ] P-lock interpolation : option linear/cosine/off par piste CC -> MIDI SRV envoie CCs intermediaires entre steps (glisse fluide)
 
-**Microfreak mode**
+### Microfreak (Arturia)
+
 - [ ] Profil p-locks `microfreak` : Timbre CC28, Wave CC9, Cutoff CC74, Resonance CC71, LFO Rate CC76, LFO Amount CC77, Env Attack CC73, Env Release CC72
-- [ ] Oscillateur Speak : phoneme controle via CC28 (Timbre) + CC9 (Wave) -> articulation formantique par step
-- [ ] CC14 (OSC Type) comme p-lock -> change d'oscillateur mid-sequence (Microfreak a ~20 types oscillateurs)
+- [ ] Oscillateur Speak : phoneme controle via CC28 + CC9 -> articulation formantique par step
+- [ ] CC14 (OSC Type) comme p-lock -> change d'oscillateur mid-sequence (Microfreak a ~20 types)
 
 ### Ratchet / Step repeat
 
 - [ ] **Ratchet par step** : champ "repeat count" (1-8) par step, subdivise la duree du step en N hits egaux
   - Repeat 1 = normal, 2 = double, 4 = quad (tremolo), 8 = buzz/roll
   - Affiche dans le pianoroll comme mini-barres verticales a l'interieur du step
-  - Combine avec p-locks phoneme Speak -> stutter speech : "a a a | bb | cccc | dd | eeeee"
-- [ ] Ratchet avec decay : amplitude decroit sur les hits successifs (roll naturel, comme une caisse claire qui roule)
-- [ ] Ratchet avec variation Markov : pitch/velocity derivent legerement sur les repetitions internes -> buzz organique
+  - Application cle : p-locks phoneme Speak + ratchet -> stutter speech "a a a | bb | cccc | dd | eeeee"
+- [ ] Ratchet avec decay : amplitude decroit sur les hits successifs (roll naturel)
+- [ ] Ratchet avec variation Markov : pitch/velocity derivent legerement sur les repetitions internes
 
 ### P-lock randomizer borne
+
 - [ ] Bouton par piste CC dans le pianoroll : genere des p-locks aleatoires bornes (min/max) avec density (0-100%)
 
 ---
 
-## Phase 5 : Visions long terme
-- Song mode (intro / couplet / break / outro -- enchainer des patterns)
-- MIDI Clock IN (sync externe : Ableton, hardware)
-- Triggers conditionnels (joue ce step si N-ieme fois, si random < x%)
-- Transposition globale (shift scale pendant play)
-- Export multi-piste (.mid separe par voix)
+*Dernière mise à jour : 2026-05-25 · v0.9.2*
