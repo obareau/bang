@@ -1,5 +1,15 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.9.2] — 2026-05-25
+
+### MIDI output routing par voix · LFO par voix · Copy/Paste DNA
+
+- **MIDI output routing par voix** — sélecteur `ch MIDI` dans le tab MOD de chaque voix. Permet d'assigner un canal MIDI 1–16 fixe (ou "auto" = drums ch10 / mélodique ch1). Persisté dans `bang_state.json`. Appliqué dans le MIDI serveur rtmidi. Utile pour les setups multi-timbre (un synth par canal).
+- **LFO par voix** — modulation automatique de `density` ou `drop` selon une forme d'onde (sin / tri / ramp / rnd). Fréquence configurable en cycles (÷4 à ×8). Profondeur 0–100%. Calculé JS-side au tick du player. Bouton `LFO` dans le tab MOD, panel inline sans rechargement.
+- **Copy / Paste DNA entre voix** — bouton `C` copie le DNA courant dans le presse-papier JS. Bouton `P` (grisé par défaut, activé après copie) colle sur n'importe quelle autre voix. Correction du bug HTMX : le POST `/voice/pattern` utilisait `htmx.trigger` qui sérialisait tout le formulaire `#voice-notes` (8 inputs `name="pattern"`), écrasant la valeur JS modifiée. Remplacé par `htmx.ajax` avec valeurs explicites `{ idx, pattern }`.
+
+---
+
 ## [0.9.0-beta] — 2026-05-24
 
 ### MIDI serveur · OSC panel · Pianoroll amélioré

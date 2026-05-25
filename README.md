@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.9.0-beta** · Dark Umbrae / Robōtariis
+> **v0.9.2** · Dark Umbrae / Robōtariis
 
 BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
 
@@ -29,6 +29,10 @@ BANG! génère des patterns MIDI algorithmiques et les envoie partout — export
 - Un **tap tempo** et une **synchronisation MIDI clock** — tempo libre (TAP, médiane 5 taps) ou horloge MIDI entrante (SYNC, 24 ppq, transport Start/Stop auto)
 - Un **pianoroll temps réel** — SVG avec playhead animé, couleurs par vélocité, P-locks visuels, auto-scroll horizontal
 - Une **variation par voix** (`~`) et un **auto-évolve** (×1/×2/×4/×8 cycles)
+- Un **Copy / Paste DNA entre voix** — copier le pattern d'une voix et le coller sur une autre
+- Un **LFO par voix** — modulation automatique de la densité ou du drop% selon une forme d'onde (sin/tri/ramp/rnd), fréquence en cycles
+- Un **Pattern morphing A→B** — interpolation douce sur N cycles entre deux slots SEQ, transition transparente pendant la lecture
+- Un **routing MIDI par voix** — assigner un canal MIDI 1–16 fixe par voix (ou "auto"), pour les setups multi-timbre
 
 ## Ce que BANG! n'est pas
 
@@ -335,8 +339,8 @@ Depuis v0.9.0, BANG! peut envoyer le MIDI directement depuis le serveur Python, 
 
 ### Comportement
 
-- Drums (mode batterie) → canal 9 (GM standard)
-- Voix mélodiques (Markov, Bass, KSP) → canal 0
+- Drums (mode batterie) → canal 9 (GM standard) · voix mélodiques → canal 0 (auto)
+- **Canal MIDI par voix** — tab MOD → `ch MIDI` → overrider le canal auto (1–16) pour chaque voix indépendamment
 - Gate : 75% de la durée du step
 - Horloge synchronisée sur le BPM courant de BANG!
 - Fonctionne en parallèle du player Web Audio (les deux peuvent jouer simultanément)
