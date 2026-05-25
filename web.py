@@ -440,6 +440,7 @@ def _save_state() -> None:
             "voice_prob_lane":   _state.get("voice_prob_lane", {}),
             "voice_lfo":         _state.get("voice_lfo", {}),
             "voice_midi_ch":     _state.get("voice_midi_ch", {}),
+            "voice_swing":       _state.get("voice_swing", {}),
             "seq_weights":       _state.get("seq_weights", [1]*8),
             "ableton_host":         _state.get("ableton_host", "127.0.0.1"),
             "ableton_port":         _state.get("ableton_port", 11000),
@@ -483,6 +484,7 @@ def _load_state() -> None:
         _state["voice_prob_lane"]    = data.get("voice_prob_lane", {})
         _state["voice_lfo"]          = data.get("voice_lfo", {})
         _state["voice_midi_ch"]      = data.get("voice_midi_ch", {})
+        _state["voice_swing"]        = data.get("voice_swing", {})
         _state["seq_weights"]        = data.get("seq_weights", [1]*8)
         _state["ableton_host"]         = data.get("ableton_host", "127.0.0.1")
         _state["ableton_port"]         = data.get("ableton_port", 11000)
@@ -563,6 +565,7 @@ _state: dict = {
     "voice_prob_lane": {},  # voice_name -> list[int] 0-100, indexé par position DNA (0 = no override)
     "voice_lfo":       {},  # voice_name -> {shape, target, freq, depth}
     "voice_midi_ch":   {},  # voice_name -> int 0-15 (MIDI ch 1-16), absent = auto
+    "voice_swing":     {},  # voice_name -> float 0.0–1.0 (swing offset sur steps impairs)
     "seq_weights":     [1] * 8,  # poids de sélection aléatoire par slot SEQ (1-9)
     "ableton_host":         "127.0.0.1",
     "ableton_port":         11000,
@@ -813,6 +816,7 @@ def _build_voices_html(voices: list) -> str:
         voice_prob_lane=_state.get("voice_prob_lane", {}),
         voice_lfo=_state.get("voice_lfo", {}),
         voice_midi_ch=_state.get("voice_midi_ch", {}),
+        voice_swing=_state.get("voice_swing", {}),
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -1556,9 +1560,10 @@ def _midi_srv_clock_loop() -> None:
         n_steps  = p["steps"]
         step_dur = 60.0 / (bpm * 4)
         gate_dur = step_dur * 0.75
-        ch_drums    = int(_state.get("midi_srv_channel", 9))
-        ch_melodic  = 0 if ch_drums != 0 else 1
+        ch_drums     = int(_state.get("midi_srv_channel", 9))
+        ch_melodic   = 0 if ch_drums != 0 else 1
         voice_ch_map = _state.get("voice_midi_ch", {})
+        voice_sw_map = _state.get("voice_swing", {})
 
         t0 = time.perf_counter()
 
@@ -1588,14 +1593,13 @@ def _midi_srv_clock_loop() -> None:
                             markov_notes[name] = ev["chain"].generate(n_steps)
                     mk_idx += 1
 
-        # Triggers MIDI
+        # Collecter les triggers de ce step, triés par temps de déclenchement
+        events: list[tuple[float, int, int, int]] = []  # (trigger_t, ch, midi_note, vel)
         for note, dna, vtype in voices:
-            if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
+            if vtype in ("cc", "babka") or (note == 0 and not vtype.startswith("ksp")):
                 continue
             name    = _voice_label(note, vtype)
             density = _state["voice_density"].get(name, 1.0)
-            if vtype == "babka":
-                continue
             compiled = compile_dna(dna)
             row      = compiled[step % len(compiled)]
             trig, vel, prob, ratch, jit = row
@@ -1603,11 +1607,22 @@ def _midi_srv_clock_loop() -> None:
                 is_melodic = vtype in ("markov", "bl") or vtype.startswith(("ksp", "vd", "vfm", "mf"))
                 ch         = voice_ch_map.get(name, ch_melodic if is_melodic else ch_drums)
                 midi_note  = markov_notes.get(name, [note] * n_steps)[step] if is_melodic else note
-                try:
-                    midi_out.send_message([0x90 | ch, int(midi_note) & 0x7F, int(vel) & 0x7F])
-                    pending_off.append((t0 + gate_dur, ch, int(midi_note) & 0x7F))
-                except Exception:
-                    pass
+                # Swing : décalage sur steps impairs
+                sw = voice_sw_map.get(name, 0.0)
+                swing_delay = (sw * step_dur * 0.33) if (step % 2 == 1 and sw > 0) else 0.0
+                events.append((t0 + swing_delay, ch, int(midi_note) & 0x7F, int(vel) & 0x7F))
+
+        # Envoyer les events dans l'ordre chronologique
+        events.sort(key=lambda e: e[0])
+        for trigger_t, ch, midi_note, vel in events:
+            delay = trigger_t - time.perf_counter()
+            if delay > 0:
+                time.sleep(delay)
+            try:
+                midi_out.send_message([0x90 | ch, midi_note, vel])
+                pending_off.append((time.perf_counter() + gate_dur, ch, midi_note))
+            except Exception:
+                pass
 
         step = (step + 1) % n_steps
         elapsed   = time.perf_counter() - t0
@@ -1683,6 +1698,7 @@ async def index(request: Request):
         voice_prob_lane=_state.get("voice_prob_lane", {}),
         voice_lfo=_state.get("voice_lfo", {}),
         voice_midi_ch=_state.get("voice_midi_ch", {}),
+        voice_swing=_state.get("voice_swing", {}),
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -2617,6 +2633,17 @@ async def voice_lfo_set(
         vl.pop(name, None)
     else:
         vl[name] = {"shape": shape, "target": target, "freq": freq, "depth": round(depth, 3)}
+    return HTMLResponse("")
+
+
+@app.post("/voice/swing", response_class=HTMLResponse)
+async def voice_swing_set(name: Annotated[str, Form()], pct: Annotated[int, Form()] = 0):
+    vs = _state.setdefault("voice_swing", {})
+    val = max(0, min(100, int(pct)))
+    if val == 0:
+        vs.pop(name, None)
+    else:
+        vs[name] = round(val / 100, 2)
     return HTMLResponse("")
 
 
