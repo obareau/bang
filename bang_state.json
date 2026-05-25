@@ -1,0 +1,248 @@
+{
+  "bang_version": "0.8.2",
+  "last_p": {
+    "mode": "noise",
+    "chaos": 0.3,
+    "bpm": 110,
+    "steps": 64,
+    "gravity": 0.7,
+    "cc_depth": 0.5,
+    "out": "bang_out.mid",
+    "temporal": false,
+    "vel_floor": 0,
+    "vel_ceiling": 127,
+    "vel_curve": 1.0,
+    "root": "A",
+    "scale": "penta_min",
+    "seed": "",
+    "swing": 0.2,
+    "markov_channel": 9,
+    "vel_humanize": 0,
+    "microtiming": 0.9
+  },
+  "last_seed": null,
+  "voices": [
+    [
+      36,
+      "\u2591\u21baxxx-?x-?x",
+      "drum"
+    ],
+    [
+      38,
+      "--xxx-\u2591",
+      "drum"
+    ],
+    [
+      42,
+      "--------?x---",
+      "drum"
+    ],
+    [
+      48,
+      "?--xx",
+      "drum"
+    ],
+    [
+      40,
+      "x??x?\u21bax?x",
+      "drum"
+    ],
+    [
+      43,
+      "x---\u21ba-\u2591x-x-",
+      "drum"
+    ],
+    [
+      24,
+      "-x-?-?x",
+      "drum"
+    ],
+    [
+      33,
+      "--??-xxxx?xxx",
+      "drum"
+    ]
+  ],
+  "plocks": [],
+  "note_remap": {},
+  "voice_thin": {
+    "Kick": 2,
+    "Snare": 2,
+    "HiHat": 2,
+    "Bass": 2
+  },
+  "voice_density": {
+    "HiHat": 1.0,
+    "Tom": 1.0
+  },
+  "voice_chords": {},
+  "voice_steps": {},
+  "voice_offset": {},
+  "voice_drop": {},
+  "voice_vel_lane": {},
+  "voice_prob_lane": {},
+  "voice_lfo": {},
+  "seq_weights": [
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "ableton_host": "127.0.0.1",
+  "ableton_port": 11000,
+  "ableton_track_offset": 0,
+  "ableton_slot": 0,
+  "seq_slots": [
+    {
+      "voices": [
+        [
+          36,
+          "-x-x-?x-xx?",
+          "drum"
+        ],
+        [
+          38,
+          "x-?--?x",
+          "drum"
+        ],
+        [
+          42,
+          "x------------",
+          "drum"
+        ],
+        [
+          48,
+          "-?--x",
+          "drum"
+        ],
+        [
+          40,
+          "xxx\u21bax\u21baxxx",
+          "drum"
+        ],
+        [
+          43,
+          "xx-x\u21ba-?xxxx",
+          "drum"
+        ],
+        [
+          24,
+          "x\u21bax--?x",
+          "drum"
+        ],
+        [
+          33,
+          "xx-?xx-xx?x\u21bax",
+          "drum"
+        ]
+      ],
+      "plocks": [],
+      "last_p": {
+        "mode": "noise",
+        "chaos": 0.3,
+        "bpm": 110,
+        "steps": 64,
+        "gravity": 0.7,
+        "cc_depth": 0.5,
+        "out": "bang_out.mid",
+        "temporal": false,
+        "vel_floor": 0,
+        "vel_ceiling": 127,
+        "vel_curve": 1.0,
+        "root": "A",
+        "scale": "penta_min",
+        "seed": "",
+        "swing": 0.2,
+        "markov_channel": 9,
+        "vel_humanize": 0,
+        "microtiming": 0.9
+      }
+    },
+    {
+      "voices": [
+        [
+          36,
+          "--xxxxxxxx?",
+          "drum"
+        ],
+        [
+          38,
+          "x??-x-?",
+          "drum"
+        ],
+        [
+          42,
+          "?-----?------",
+          "drum"
+        ],
+        [
+          48,
+          "x??-x",
+          "drum"
+        ],
+        [
+          40,
+          "-xx-\u21bax-x\u2591",
+          "drum"
+        ],
+        [
+          43,
+          "\u21baxx-x--x-xx",
+          "drum"
+        ],
+        [
+          24,
+          "-xxx?x-",
+          "drum"
+        ],
+        [
+          33,
+          "--??-?-?xx-x?",
+          "drum"
+        ]
+      ],
+      "plocks": [],
+      "last_p": {
+        "mode": "noise",
+        "chaos": 0.3,
+        "bpm": 110,
+        "steps": 64,
+        "gravity": 0.7,
+        "cc_depth": 0.5,
+        "out": "bang_out.mid",
+        "temporal": false,
+        "vel_floor": 0,
+        "vel_ceiling": 127,
+        "vel_curve": 1.0,
+        "root": "A",
+        "scale": "penta_min",
+        "seed": "",
+        "swing": 0.2,
+        "markov_channel": 9,
+        "vel_humanize": 0,
+        "microtiming": 0.9
+      }
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "seq_current": 1,
+  "seq_cycles": 2,
+  "locked_voices": [],
+  "current_preset": "",
+  "current_ksp_preset": "",
+  "max_poly": 0,
+  "osc_host": "192.168.1.172",
+  "osc_port": 57120,
+  "osc_rx_port": 57121,
+  "slot_a": null,
+  "slot_b": null
+}

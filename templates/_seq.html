@@ -1,0 +1,84 @@
+<div class="seq-inner">
+  <span class="seq-label">SEQ</span>
+  <div class="seq-slots">
+    {% for i in range(8) %}
+    {% set has = slots[i] is not none %}
+    <div class="seq-slot-wrap">
+      <button type="button"
+              class="btn-seq-slot{% if has %} saved{% endif %}{% if i == current and has %} current{% endif %}"
+              {% if has %}
+              hx-post="/seq/load"
+              hx-vals='{"idx": {{ i }}}'
+              hx-target="#voices"
+              hx-swap="innerHTML"
+              title="Charger slot {{ i + 1 }}"
+              {% else %}
+              disabled
+              title="Slot {{ i + 1 }} — vide"
+              {% endif %}>{{ i + 1 }}</button>
+      <div class="seq-slot-actions">
+        <button type="button"
+                class="btn-seq-save"
+                hx-post="/seq/save"
+                hx-vals='{"idx": {{ i }}}'
+                hx-target="#voices"
+                hx-swap="innerHTML"
+                title="Sauvegarder le pattern courant dans le slot {{ i + 1 }}">💾</button>
+        {% if has %}
+        <button type="button"
+                class="btn-seq-clear"
+                hx-post="/seq/clear"
+                hx-vals='{"idx": {{ i }}}'
+                hx-target="#voices"
+                hx-swap="innerHTML"
+                title="Vider le slot {{ i + 1 }}">×</button>
+        {% endif %}
+        <input type="number" class="seq-weight-inp" min="1" max="9"
+               value="{{ weights[i] }}"
+               name="weight"
+               hx-post="/seq/weight"
+               hx-vals='{"idx": {{ i }}}'
+               hx-include="this"
+               hx-trigger="change"
+               hx-swap="none"
+               title="Poids AUTO (1-9) — slot sélectionné N× plus souvent">
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="seq-morph">
+    <span class="seq-morph-label">MORPH</span>
+    <select id="morph-from" class="morph-slot-sel" title="Slot source (1-8)">
+      {% for i in range(8) %}
+      <option value="{{ i }}">{{ i+1 }}{% if slots[i] is not none %} ●{% endif %}</option>
+      {% endfor %}
+    </select>
+    <span class="seq-morph-arrow">→</span>
+    <select id="morph-to" class="morph-slot-sel" title="Slot cible (1-8)">
+      {% for i in range(8) %}
+      <option value="{{ i }}"{% if i == 1 %} selected{% endif %}>{{ i+1 }}{% if slots[i] is not none %} ●{% endif %}</option>
+      {% endfor %}
+    </select>
+    <input type="number" id="morph-cycles-inp" class="morph-cycles-inp" min="1" max="64" value="8"
+           title="Nombre de cycles pour le morphing">
+    <button type="button" id="morph-start-btn" class="btn-morph-start"
+            onclick="bangMorphToggle()" title="Démarrer / arrêter le morphing">▶</button>
+    <div class="morph-progress-wrap" title="Progression du morphing">
+      <div id="morph-progress-fill" class="morph-progress-fill"></div>
+    </div>
+  </div>
+  <div class="seq-controls">
+    <input type="number" id="seq-cycles-input" class="seq-cycles-n"
+           min="1" max="64" value="{{ cycles }}"
+           name="cycles"
+           hx-post="/seq/config"
+           hx-include="this"
+           hx-trigger="change"
+           hx-swap="none"
+           title="Cycles par slot avant avance automatique">
+    <span class="seq-cycles-label">cycles/slot</span>
+    <button type="button" id="seq-auto-btn" class="btn-seq-auto"
+            onclick="bangToggleSeqAuto(this)"
+            title="Avance automatique entre slots pendant la lecture">▶ AUTO</button>
+  </div>
+</div>

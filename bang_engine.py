@@ -11,6 +11,8 @@ import mido
 import numpy as np
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
+import babka as _babka
+
 # BANG DNA syntax: each character encodes [trigger, velocity, prob, ratchet, jitter]
 DNA_SYMBOLS = ['x', '-', '?', '↺', '░']
 
@@ -20,6 +22,20 @@ _CHAR_MAP = {
     '?': [1,  90, 0.5, 1,  0],   # hit probabiliste (50%)
     '↺': [1, 110, 1.0, 3,  0],   # ratchet x3
     '░': [1,  85, 1.0, 1, 25],   # hit avec jitter ±25 ticks
+}
+
+_CHORD_INTERVALS: dict[str, list[int]] = {
+    "mono":  [],
+    "power": [7],
+    "minor": [3, 7],
+    "major": [4, 7],
+    "sus2":  [2, 7],
+    "sus4":  [5, 7],
+    "m7":    [3, 7, 10],
+    "M7":    [4, 7, 11],
+    "dom7":  [4, 7, 10],
+    "dim":   [3, 6],
+    "aug":   [4, 8],
 }
 
 _LOG_FILE = Path(__file__).parent / "bang_sessions.jsonl"
@@ -136,7 +152,10 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
             {
                 "type": v["type"],
                 "note": v.get("note"),
-                "pattern_lengths": [len(p) for p in v["patterns"]],
+                "pattern_lengths": (
+                    [len(v["pattern"])] if v["type"] == "babka"
+                    else [len(p) for p in v["patterns"]]
+                ),
             }
             for v in engine.voices
         ],
@@ -147,6 +166,25 @@ def _log_session(filename: str, seed: str, engine: "BangEngine", weather: dict |
         entry["temporal_jitter"] = True
     with open(_LOG_FILE, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Velocity processing
+# ---------------------------------------------------------------------------
+
+def vel_map(vel: int, floor: int = 0, ceiling: int = 127, curve: float = 1.0) -> int:
+    """Map velocity to [floor, ceiling] with optional dynamics shaping.
+
+    curve < 1 : compression  (brings velocities closer together)
+    curve = 1 : linear       (just rescales to [floor, ceiling])
+    curve > 1 : expansion    (exaggerates dynamic differences)
+    """
+    if ceiling <= floor:
+        return max(1, floor)
+    t = max(0.0, min(1.0, vel / 127.0))
+    if curve != 1.0:
+        t = t ** curve
+    return max(1, int(floor + t * (ceiling - floor)))
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +277,84 @@ def dark_chain() -> MarkovChain:
     })
 
 
+def bass_chain() -> MarkovChain:
+    """
+    Ligne de basse — Am pentatonique sur 2 octaves (A1→C3).
+    Mouvement orienté groove : sauts de quarte/quinte, retour fréquent à la fondamentale.
+    A1=33, C2=36, D2=38, E2=40, G2=43, A2=45, C3=48
+    """
+    notes = [33, 36, 38, 40, 43, 45, 48]
+    return MarkovChain(notes, transitions={
+        33: {33: 0.18, 36: 0.28, 38: 0.20, 40: 0.14, 43: 0.10, 45: 0.07, 48: 0.03},
+        36: {33: 0.22, 36: 0.16, 38: 0.26, 40: 0.16, 43: 0.12, 45: 0.06, 48: 0.02},
+        38: {33: 0.14, 36: 0.22, 38: 0.16, 40: 0.24, 43: 0.14, 45: 0.08, 48: 0.02},
+        40: {33: 0.10, 36: 0.18, 38: 0.22, 40: 0.16, 43: 0.20, 45: 0.10, 48: 0.04},
+        43: {33: 0.08, 36: 0.14, 38: 0.18, 40: 0.22, 43: 0.16, 45: 0.16, 48: 0.06},
+        45: {33: 0.14, 36: 0.14, 38: 0.16, 40: 0.18, 43: 0.20, 45: 0.12, 48: 0.06},
+        48: {33: 0.20, 36: 0.22, 38: 0.18, 40: 0.16, 43: 0.14, 45: 0.08, 48: 0.02},
+    })
+
+
+# ---------------------------------------------------------------------------
+# Gammes configurables — construction algorithmique de chaînes de Markov
+# ---------------------------------------------------------------------------
+
+SCALE_INTERVALS: dict[str, list[int]] = {
+    "penta_min": [0, 3, 5, 7, 10],        # pentatonique mineure
+    "penta_maj": [0, 2, 4, 7, 9],          # pentatonique majeure
+    "minor":     [0, 2, 3, 5, 7, 8, 10],   # mineur naturel (éolien)
+    "dorian":    [0, 2, 3, 5, 7, 9, 10],   # dorien
+    "phrygian":  [0, 1, 3, 5, 7, 8, 10],   # phrygien
+    "major":     [0, 2, 4, 5, 7, 9, 11],   # majeur (ionien)
+    "mixo":      [0, 2, 4, 5, 7, 9, 10],   # mixolydien
+    "lydian":    [0, 2, 4, 6, 7, 9, 11],   # lydien
+}
+
+
+def build_markov_chain(root_note: int, intervals: list[int], num_octaves: int = 1) -> MarkovChain:
+    """
+    Construit une chaîne de Markov musicale pour n'importe quelle gamme.
+    La matrice de transitions est générée algorithmiquement :
+    - mouvement par degrés favorisé (décroissance exponentielle avec la distance)
+    - gravité vers la tonique et la quinte
+    - répétition pénalisée
+    """
+    notes: list[int] = []
+    for oct_i in range(num_octaves):
+        for iv in intervals:
+            n = root_note + oct_i * 12 + iv
+            if 21 <= n <= 108:
+                notes.append(n)
+    # Note de fermeture — octave supérieure de la fondamentale
+    closing = root_note + num_octaves * 12
+    if 21 <= closing <= 108:
+        notes.append(closing)
+    notes = sorted(set(notes))
+    if not notes:
+        notes = [root_note]
+
+    root_class  = root_note % 12
+    fifth_class = (root_note + 7) % 12
+
+    matrix: dict[int, dict[int, float]] = {}
+    for i, src in enumerate(notes):
+        weights: dict[int, float] = {}
+        for j, dst in enumerate(notes):
+            dist = abs(i - j)                    # distance en degrés de gamme
+            w    = math.exp(-dist * 0.45)        # décroissance par degrés
+            if dst % 12 == root_class:
+                w *= 1.5                          # gravité vers la tonique
+            elif dst % 12 == fifth_class:
+                w *= 1.2                          # légère attraction vers la quinte
+            if i == j:
+                w *= 0.35                         # pénalité répétition
+            weights[dst] = w
+        total = sum(weights.values())
+        matrix[src] = {n: w / total for n, w in weights.items()}
+
+    return MarkovChain(notes, matrix)
+
+
 # ---------------------------------------------------------------------------
 # Moteur
 # ---------------------------------------------------------------------------
@@ -256,9 +372,19 @@ class BangEngine:
     Chaque export est seedé de façon déterministe et loggé dans bang_sessions.jsonl.
     """
 
-    def __init__(self, bpm: int = 124, ticks_per_step: int = 120):
+    def __init__(
+        self,
+        bpm: int = 124,
+        ticks_per_step: int = 120,
+        vel_floor: int = 0,
+        vel_ceiling: int = 127,
+        vel_curve: float = 1.0,
+    ):
         self.bpm = bpm
         self.ticks_per_step = ticks_per_step
+        self.vel_floor   = vel_floor
+        self.vel_ceiling = vel_ceiling
+        self.vel_curve   = vel_curve
         self.voices: list[dict] = []
         self.cc_tracks: list[dict] = []
         self.last_seed: str | None = None
@@ -295,6 +421,15 @@ class BangEngine:
         })
         return self
 
+    def add_babka_voice(self, note: int, pattern: str, channel: int = 0) -> "BangEngine":
+        """Voix rythmique avec syntaxe Babka (DNA + mini-notation Strudel).
+
+        pattern : chaîne Babka — ex: "x-[x x]-?(3,8)" ou "<x-x- ?-?->"
+        Supporte subdivision [...], alternance <...> et euclidien x(n,k) / [x(n,k)].
+        """
+        self.voices.append({"type": "babka", "note": note, "pattern": pattern, "channel": channel})
+        return self
+
     def add_cc_drone(
         self,
         control: int = 74,
@@ -320,6 +455,12 @@ class BangEngine:
         seed: str | None = None,
         weather: dict | None = None,
         temporal_jitter: bool = False,
+        swing: float = 0.0,
+        plocks: list | None = None,
+        vel_humanize: int = 0,
+        densities: list[float] | None = None,
+        voice_chords: list[str] | None = None,
+        microtiming: float = 1.0,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -332,14 +473,52 @@ class BangEngine:
         self.last_seed = seed
 
         # Tuple: (abs_tick, priority, msg_type, channel, param, value)
-        # msg_type 'note_on'/'note_off' → param=note, value=velocity
-        # msg_type 'control_change'     → param=control, value=cc_value
-        events: list[tuple] = []
+        voice_events: list[list[tuple]] = []
 
-        # --- Voix note (drum + markov) ---
-        for voice in self.voices:
+        # --- Voix note (drum + markov + babka) ---
+        for vi, voice in enumerate(self.voices):
+            channel      = voice.get("channel", 0)
+            voice_plocks = plocks[vi] if plocks and vi < len(plocks) else []
+            v_density    = densities[vi] if densities and vi < len(densities) else 1.0
+            v_events: list[tuple] = []
+
+            # --- Babka ---
+            if voice["type"] == "babka":
+                note        = voice["note"]
+                pat_str     = voice["pattern"]
+                total_ticks = num_steps * self.ticks_per_step
+                cursor_tick = 0.0
+                cyc         = 0
+                while cursor_tick < total_ticks:
+                    bsteps = _babka.parse(pat_str, cycle=cyc)
+                    if not bsteps:
+                        break
+                    for s in bsteps:
+                        if cursor_tick >= total_ticks:
+                            break
+                        dur_ticks = s.duration * self.ticks_per_step
+                        if s.trigger and random.random() < s.prob:
+                            base_jit = int(random.uniform(-s.jitter, s.jitter))
+                            if temporal_jitter and s.jitter > 0:
+                                micro     = _time.time_ns() % 1000
+                                base_jit += int((micro / 1000 - 0.5) * s.jitter * 0.5)
+                            _max_mj   = round(self.ticks_per_step * 0.12)
+                            micro_jit = int(random.uniform(-_max_mj, _max_mj) * (1.0 - microtiming))
+                            actual_start = max(0, int(cursor_tick + base_jit + micro_jit))
+                            r_div    = int(max(1, s.ratchet))
+                            r_dur    = max(1, int(dur_ticks) // r_div)
+                            raw_vel  = s.velocity + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
+                            out_vel  = vel_map(raw_vel, self.vel_floor, self.vel_ceiling, self.vel_curve)
+                            for r in range(r_div):
+                                t_on = actual_start + r * r_dur
+                                v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
+                                v_events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        cursor_tick += dur_ticks
+                    cyc += 1
+                voice_events.append(v_events)
+                continue
+
             patterns = voice["patterns"]
-            channel  = voice.get("channel", 0)
 
             markov_notes = None
             if voice["type"] == "markov":
@@ -358,34 +537,55 @@ class BangEngine:
                 else:
                     note = voice["note"]
 
-                if trig == 1 and random.random() < prob:
-                    abs_start = i * self.ticks_per_step
+                if trig == 1 and random.random() < prob * v_density:
+                    swing_off = int(swing * self.ticks_per_step * 0.5) if i % 2 == 1 else 0
+                    abs_start = i * self.ticks_per_step + swing_off
                     base_jit  = int(random.uniform(-jit, jit))
                     # Entropie temporelle : microsecondes système → décalage supplémentaire
                     if temporal_jitter and jit > 0:
                         micro    = _time.time_ns() % 1000
                         base_jit += int((micro / 1000 - 0.5) * jit * 0.5)
-                    actual_start = max(0, abs_start + base_jit)
+                    _max_mj   = round(self.ticks_per_step * 0.12)
+                    micro_jit = int(random.uniform(-_max_mj, _max_mj) * (1.0 - microtiming))
+                    actual_start = max(0, abs_start + base_jit + micro_jit)
                     r_div = int(max(1, ratch))
                     r_dur = self.ticks_per_step // r_div
 
+                    raw_vel = int(vel) + (random.randint(-vel_humanize, vel_humanize) if vel_humanize else 0)
+                    out_vel = vel_map(raw_vel, self.vel_floor, self.vel_ceiling, self.vel_curve)
+
+                    chord_type   = (voice_chords[vi] if voice_chords and vi < len(voice_chords) else "mono") or "mono"
+                    chord_offs   = _CHORD_INTERVALS.get(chord_type, []) if voice["type"] == "markov" else []
+
                     for r in range(r_div):
                         t_on = actual_start + r * r_dur
-                        events.append((t_on,         1, 'note_on',  channel, note, int(vel)))
-                        events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        v_events.append((t_on,         1, 'note_on',  channel, note, out_vel))
+                        v_events.append((t_on + r_dur, 0, 'note_off', channel, note, 0))
+                        for off in chord_offs:
+                            cn = max(0, min(127, note + off))
+                            v_events.append((t_on,         1, 'note_on',  channel, cn, out_vel))
+                            v_events.append((t_on + r_dur, 0, 'note_off', channel, cn, 0))
 
-                # Avance dans le pattern courant, passe au suivant après un cycle complet
+                # P-locks : CC step-par-step, indépendants du trigger
+                for pl in voice_plocks:
+                    vals = pl.get("values", [])
+                    if i < len(vals) and vals[i] is not None:
+                        v_events.append((i * self.ticks_per_step, 0, 'control_change', channel, pl["cc"], vals[i]))
+
                 step_in_pattern += 1
                 if step_in_pattern >= len(pattern):
                     step_in_pattern = 0
                     pattern_idx = (pattern_idx + 1) % len(patterns)
 
-        # --- Automation CC ---
+            voice_events.append(v_events)
+
+        # --- Automation CC (drones) ---
+        cc_events: list[list[tuple]] = []
         for cc in self.cc_tracks:
             control = cc["control"]
             channel = cc["channel"]
             bps     = cc["breakpoints"]
-
+            cv: list[tuple] = []
             for i in range(num_steps):
                 if len(bps) == 1:
                     val = bps[0]
@@ -396,23 +596,52 @@ class BangEngine:
                     a    = bps[min(idx,     len(bps) - 1)]
                     b    = bps[min(idx + 1, len(bps) - 1)]
                     val  = int(a * (1 - frac) + b * frac)
-                events.append((i * self.ticks_per_step, 0, 'control_change', channel, control, max(0, min(127, val))))
+                cv.append((i * self.ticks_per_step, 0, 'control_change', channel, control, max(0, min(127, val))))
+            cc_events.append(cv)
 
-        events.sort(key=lambda e: (e[0], e[1]))
+        # --- Assemblage MIDI multi-piste (type 1) ---
+        basename = os.path.splitext(os.path.basename(filename))[0]
+        mid = MidiFile(type=1, ticks_per_beat=480)
 
-        mid   = MidiFile(ticks_per_beat=480)
-        track = MidiTrack()
-        mid.tracks.append(track)
-        track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+        # Track 0 : tempo + métadonnées
+        tempo_track = MidiTrack()
+        mid.tracks.append(tempo_track)
+        tempo_track.append(MetaMessage('track_name', name=basename, time=0))
+        tempo_track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+        tempo_track.append(MetaMessage('set_tempo', tempo=int(60_000_000 / self.bpm), time=0))
 
-        current_tick = 0
-        for abs_tick, _, msg_type, channel, param, value in events:
-            delta = abs_tick - current_tick
-            if msg_type == 'control_change':
-                track.append(Message('control_change', control=param, value=value, channel=channel, time=delta))
+        def _write_track(trk: MidiTrack, evts: list[tuple]) -> None:
+            evts.sort(key=lambda e: (e[0], e[1]))
+            cur = 0
+            for abs_tick, _, msg_type, ch, param, value in evts:
+                delta = abs_tick - cur
+                if msg_type == 'control_change':
+                    trk.append(Message('control_change', control=param, value=value, channel=ch, time=delta))
+                else:
+                    trk.append(Message(msg_type, note=param, velocity=value, channel=ch, time=delta))
+                cur = abs_tick
+
+        # Une track par voix note
+        for vi, (voice, v_events) in enumerate(zip(self.voices, voice_events)):
+            vtype = voice["type"]
+            ch    = voice.get("channel", 0)
+            if vtype == "markov":
+                tname = f"markov-ch{ch + 1}"
+            elif vtype in ("babka", "drum"):
+                tname = f"{vtype}-{voice.get('note', vi)}"
             else:
-                track.append(Message(msg_type, note=param, velocity=value, channel=channel, time=delta))
-            current_tick = abs_tick
+                tname = f"{vtype}-{vi}"
+            trk = MidiTrack()
+            mid.tracks.append(trk)
+            trk.append(MetaMessage('track_name', name=tname, time=0))
+            _write_track(trk, v_events)
+
+        # Une track par drone CC
+        for cc, cv in zip(self.cc_tracks, cc_events):
+            trk = MidiTrack()
+            mid.tracks.append(trk)
+            trk.append(MetaMessage('track_name', name=f"CC{cc['control']}", time=0))
+            _write_track(trk, cv)
 
         mid.save(filename)
         _log_session(filename, seed, self, weather=weather, temporal_jitter=temporal_jitter)

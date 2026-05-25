@@ -1,13 +1,14 @@
 [project]
 name = "bang-proto"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.9.0-beta"
+description = "Générateur MIDI algorithmique — DNA, polyrythmie, OSC bidirectionnel, MIDI serveur rtmidi, pianoroll temps réel"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.136.1",
     "mido>=1.3.3",
     "numpy>=2.4.4",
+    "python-osc>=1.10.2",
     "python-rtmidi>=1.5.8",
     "textual>=8.2.6",
 ]

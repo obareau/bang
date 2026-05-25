@@ -1,6 +1,8 @@
 .venv/
 __pycache__/
-exports/*.mid
-test_bang.mid
-bang_polyrythm.mid
-bang_corrupted.mid
+exports/
+*.mid
+bang_sessions.jsonl
+bang_favorites.json
+bang_song_params.json
+bang_presets.json
