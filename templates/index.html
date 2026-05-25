@@ -643,10 +643,13 @@
     .btn-rec { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 9px; font-size: 12px; border-radius: 3px; cursor: pointer; }
     .btn-rec:hover { color: var(--text); border-color: var(--muted); }
     .btn-rec.recording { background: #3a0000; color: #f55; border-color: #f55; animation: rec-pulse 0.8s ease-in-out infinite; }
-    .btn-demo { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 7px; font-size: 11px; border-radius: 3px; cursor: pointer; letter-spacing: .04em; }
-    .btn-demo:hover { color: var(--text); }
-    .btn-demo.active { background: #12261a; color: #4ade80; border-color: #4ade80; }
-    html[data-theme="light"] .btn-demo.active { background: #f0fdf4; color: #16a34a; border-color: #16a34a; }
+    .btn-demo { background: #0a1f1a; color: #34d399; border: 1.5px solid #1a4a38; height: 28px; padding: 0 12px; font-size: 12px; border-radius: 4px; cursor: pointer; letter-spacing: .06em; font-weight: 600; flex-shrink: 0; transition: background .15s, border-color .15s, box-shadow .15s; }
+    .btn-demo:hover { background: #0f2e23; border-color: #34d399; box-shadow: 0 0 6px #34d39940; }
+    .btn-demo.active { background: #0d2e1e; color: #4ade80; border-color: #4ade80; box-shadow: 0 0 10px #4ade8055; animation: demo-pulse 2s ease-in-out infinite; }
+    @keyframes demo-pulse { 0%,100% { box-shadow: 0 0 8px #4ade8044; } 50% { box-shadow: 0 0 16px #4ade8088; } }
+    html[data-theme="light"] .btn-demo { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    html[data-theme="light"] .btn-demo:hover { border-color: #4ade80; box-shadow: 0 0 6px #4ade8030; }
+    html[data-theme="light"] .btn-demo.active { background: #dcfce7; color: #15803d; border-color: #4ade80; box-shadow: 0 0 10px #4ade8040; }
 
     /* Piano-roll panel (right side of #main) */
     #pianoroll-panel {
@@ -1371,10 +1374,10 @@
       <option value="">— Web MIDI non initialisé —</option>
     </select>
     <button id="synth-btn" class="btn-synth" onclick="toggleForceSynth()" title="Forcer synthèse audio browser (🔊) — indépendant du MIDI">🔊</button>
-    <button id="demo-btn" class="btn-demo" onclick="toggleDemoMode()" title="Mode DEMO — joue les voix mélodiques via samples piano GM (soundfont browser, sans MIDI)">DEMO</button>
     <button id="rec-btn" class="btn-rec" onclick="toggleRec()" title="Enregistrer la sortie audio browser en WebM — activer avant ou pendant la lecture">⏺ REC</button>
     <span id="play-status" style="font-size:11px;color:var(--muted)">—</span>
   </div>
+  <button id="demo-btn" class="btn-demo" onclick="toggleDemoMode()" title="Mode DEMO — génère un pattern, charge samples piano GM et lance la lecture automatiquement">✦ DEMO</button>
   <div class="bb-sep"></div>
   <span class="dim-item"><span class="dx">x</span> hit</span>
   <span class="dim-item"><span class="dd">-</span> rest</span>
@@ -1625,29 +1628,49 @@ async function toggleDemoMode() {
   _demoMode = !_demoMode;
   const btn = document.getElementById('demo-btn');
   btn.classList.toggle('active', _demoMode);
-  if (!_demoMode) return;
+  if (!_demoMode) {
+    if (_playing) _stop();
+    btn.textContent = '✦ DEMO';
+    return;
+  }
 
   _forceBrowserSynth = true;
   document.getElementById('synth-btn').classList.add('active');
 
-  if (_sfPiano || _sfLoading) return;
-  _sfLoading = true;
-  btn.textContent = 'DEMO…';
-  try {
-    _audioCtx = _audioCtx || new AudioContext();
-    if (!_masterGain) {
-      _masterGain = _audioCtx.createGain();
-      _masterGain.gain.value = 0.65;
-      _masterGain.connect(_audioCtx.destination);
-    }
-    _sfPiano = await Soundfont.instrument(_audioCtx, 'acoustic_grand_piano', {
-      soundfont: 'MusyngKite',
-      destination: _masterGain,
-      gain: 4
-    });
-  } catch(e) { console.warn('Soundfont load failed:', e); }
-  btn.textContent = 'DEMO';
-  _sfLoading = false;
+  // 1. Charger le soundfont si besoin
+  if (!_sfPiano && !_sfLoading) {
+    _sfLoading = true;
+    btn.textContent = '✦ DEMO…';
+    try {
+      _audioCtx = _audioCtx || new AudioContext();
+      if (_audioCtx.state === 'suspended') await _audioCtx.resume();
+      if (!_masterGain) {
+        _masterGain = _audioCtx.createGain();
+        _masterGain.gain.value = 0.65;
+        _masterGain.connect(_audioCtx.destination);
+      }
+      _sfPiano = await Soundfont.instrument(_audioCtx, 'acoustic_grand_piano', {
+        soundfont: 'MusyngKite',
+        destination: _masterGain,
+        gain: 4
+      });
+    } catch(e) { console.warn('Soundfont load failed:', e); }
+    btn.textContent = '✦ DEMO';
+    _sfLoading = false;
+  }
+
+  // 2. Générer un pattern puis lancer la lecture
+  const genBtn = document.querySelector('.btn-gen');
+  if (genBtn) {
+    const onSettle = async () => {
+      document.body.removeEventListener('htmx:afterSettle', onSettle);
+      if (_demoMode && !_playing) await _start();
+    };
+    document.body.addEventListener('htmx:afterSettle', onSettle);
+    genBtn.click();
+  } else if (!_playing) {
+    await _start();
+  }
 }
 
 // Init Web MIDI au chargement
