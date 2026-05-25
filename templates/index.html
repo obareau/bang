@@ -1747,7 +1747,7 @@ function _scheduleStep(step, timeS) {
       _morphBlended  = _computeBlendedEvents(_morphProgress);
       const fill = document.getElementById('morph-progress-fill');
       if (fill) fill.style.width = Math.round(_morphProgress * 100) + '%';
-      if (_morphProgress >= 1.0) setTimeout(bangMorphStop, 0);
+      if (_morphProgress >= 1.0) setTimeout(() => bangMorphStop(true), 0);
     }
     _droppedVoices = new Set();
     for (let _di = 0; _di < _pattern.voices.length; _di++) {
@@ -3036,6 +3036,7 @@ async function _bangVelUp(e) {
 let _morphActive   = false;
 let _morphProgress = 0;
 let _morphCycles   = 8;
+let _morphToSlot   = null;
 let _morphFromEvents = null;
 let _morphToEvents   = null;
 let _morphBlended    = null;
@@ -3063,7 +3064,7 @@ function _computeBlendedEvents(p) {
 }
 
 async function bangMorphToggle() {
-  if (_morphActive) { bangMorphStop(); return; }
+  if (_morphActive) { bangMorphStop(false); return; }
   const fromSlot = parseInt(document.getElementById('morph-from')?.value ?? 0);
   const toSlot   = parseInt(document.getElementById('morph-to')?.value   ?? 1);
   const cycles   = parseInt(document.getElementById('morph-cycles-inp')?.value ?? 8);
@@ -3075,6 +3076,7 @@ async function bangMorphToggle() {
   _morphToEvents   = data.to;
   _morphCycles     = Math.max(1, cycles);
   _morphProgress   = 0;
+  _morphToSlot     = toSlot;
   _morphBlended    = _computeBlendedEvents(0);
   _morphActive     = true;
   document.getElementById('morph-start-btn')?.classList.add('active');
@@ -3082,12 +3084,25 @@ async function bangMorphToggle() {
   if (fill) fill.style.width = '0%';
 }
 
-function bangMorphStop() {
+async function bangMorphStop(loadTarget = false) {
   _morphActive  = false;
   _morphBlended = null;
   document.getElementById('morph-start-btn')?.classList.remove('active');
   const fill = document.getElementById('morph-progress-fill');
   if (fill) fill.style.width = '0%';
+  if (loadTarget && _morphToSlot !== null) {
+    // Charger le slot TO comme pattern actif côté serveur + recharger _pattern
+    const _slot = _morphToSlot;
+    _morphToSlot = null;
+    htmx.ajax('POST', '/seq/load', {target: '#voices', swap: 'innerHTML', values: {idx: _slot}});
+    setTimeout(async () => {
+      try {
+        const pr = await fetch('/pattern');
+        const pat = await pr.json();
+        if (pat.ok) _pattern = pat;
+      } catch(e) {}
+    }, 300);
+  }
 }
 
 // ---------------------------------------------------------------------------

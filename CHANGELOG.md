@@ -1,5 +1,16 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.9.4] — 2026-05-25
+
+### LFO serveur · Pattern morphing A→B
+
+- **LFO par voix — côté serveur** — la modulation density/drop par LFO (sin/tri/ramp/rnd) est maintenant appliquée dans `_midi_srv_clock_loop` et `_osc_clock_loop`. Avant, le LFO ne fonctionnait que dans le player navigateur. Maintenant cohérent entre player JS et MIDI serveur. `_lfo_val(shape, phase)` Python miroir de `_lfoValue()` JS.
+- **Pattern morphing A→B** — interpolation douce entre deux slots SEQ sur N cycles. Accessible depuis le panel SEQ (section MORPH) : sélectionner deux slots remplis, choisir le nombre de cycles, cliquer `▶`. Le player interpole les probabilités et vélocités de chaque step entre les deux patterns, voix par voix. À la fin du morphing, le slot TO est chargé automatiquement comme pattern actif (côté serveur + player rechargé), garantissant la continuité.
+- **Thème light** — fond crème `#f4efe6`, texte gris très sombre `#1e1e1e`. Bouton `LGT` dans la barre de thèmes.
+- **Screenshots GitHub** — captures dark/light/setup dans `docs/screenshots/`, intégrées dans le README.
+
+---
+
 ## [0.9.3] — 2026-05-25
 
 ### Page Setup · Debugger OSC · Swing par voix
