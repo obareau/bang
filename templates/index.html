@@ -1662,15 +1662,18 @@ async function toggleDemoMode() {
       }
       _sfPiano = await Soundfont.instrument(_audioCtx, 'acoustic_grand_piano', {
         soundfont: 'MusyngKite',
-        destination: _masterGain,
-        gain: 4
+        gain: 3
       });
     } catch(e) { console.warn('Soundfont load failed:', e); }
     btn.textContent = '✦ DEMO';
     _sfLoading = false;
   }
 
-  // 2. Générer un pattern puis lancer la lecture
+  // 2. Forcer le mode markov (drums + mélodie) pour le demo, générer puis jouer
+  const modeEl = document.querySelector('#params select[name="mode"]');
+  const prevMode = modeEl ? modeEl.value : null;
+  if (modeEl) modeEl.value = 'markov';
+
   const genBtn = document.querySelector('.btn-gen');
   if (genBtn) {
     const onSettle = async () => {
@@ -1943,7 +1946,9 @@ function _synthNote(note, vel, tS, durS, vtype) {
   const amp = vel / 127;
   const isDrum = vtype === 'drum' || vtype === 'babka' || vtype.startsWith('vd') || vtype === 'vk';
   if (_demoMode && !isDrum && _sfPiano) {
-    _sfPiano.play(note, tS, { duration: Math.min(durS * 1.5, 3.0), gain: amp });
+    const delayMs = Math.max(0, (tS - _audioCtx.currentTime) * 1000);
+    const dur     = Math.max(0.5, Math.min(durS * 2, 4.0));
+    setTimeout(() => { if (_sfPiano && _demoMode) _sfPiano.play(note, _audioCtx.currentTime, { duration: dur }); }, delayMs);
     return;
   }
   if (isDrum) {
