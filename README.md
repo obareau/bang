@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.9.3** · Dark Umbrae / Robōtariis
+> **v0.9.4** · Dark Umbrae / Robōtariis
 
 BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
 
@@ -239,7 +239,7 @@ sudo lsof -i :7777
 
 ## Contrôles par voix
 
-Chaque voix dispose de contrôles individuels dans le panneau central.
+Chaque voix dispose de contrôles individuels dans le panneau central. Les contrôles sont organisés en trois onglets : **DNA** (édition du pattern), **MOD** (modulation), **VEL** (vélocité et probabilité).
 
 ### Lock 🔒
 
@@ -248,6 +248,49 @@ Verrouille une voix : elle ne sera **pas régénérée** lors des prochains clic
 ### Densité (0–1)
 
 Slider par voix qui multiplie la probabilité de déclenchement. `1.0` = normal · `0.5` = moitié des triggers · `0.0` = silence.
+
+### Drop % (tab MOD)
+
+Probabilité que la voix joue pendant un cycle complet. `100%` = toujours · `50%` = silencieuse un cycle sur deux (décision aléatoire en début de cycle).
+
+### Swing par voix (tab MOD)
+
+Décalage des steps impairs de 0 à 100%. S'applique en parallèle du swing global. Chaque voix peut swinguer à une intensité différente.
+
+### LFO par voix (tab MOD)
+
+Modulation automatique de la `densité` ou du `drop%` selon une forme d'onde :
+
+| Forme | Comportement |
+|-------|-------------|
+| `sin` | Sinusoïde douce |
+| `tri` | Triangle (montée/descente linéaire) |
+| `ramp` | Rampe montante |
+| `rnd` | Aléatoire indépendant à chaque évaluation |
+
+- **Fréquence** : en cycles (÷4 / ÷2 / ×1 / ×2 / ×4 / ×8 boucles)
+- **Profondeur** : 0–100% — amplitude de la modulation
+- **Cible density** : phase recalculée à chaque step (modulation intra-cycle)
+- **Cible drop** : phase recalculée en début de cycle (décision toutes les N boucles)
+- Appliqué dans le player navigateur **et** dans le MIDI serveur rtmidi
+
+### MIDI ch par voix (tab MOD)
+
+Assigne un canal MIDI fixe (ch1–ch16) ou `auto` (drums → ch10, mélodique → ch1) pour cette voix uniquement. Utile pour les setups multi-timbre.
+
+### Copy / Paste DNA (tab DNA)
+
+Bouton `C` copie le DNA de la voix dans le presse-papier interne. Bouton `P` (actif après une copie) colle le DNA sur n'importe quelle autre voix. Ne nécessite pas de rechargement.
+
+### Transformations DNA (tab DNA)
+
+| Bouton | Effet |
+|--------|-------|
+| `↔` | Inverse le DNA (premier step ↔ dernier) |
+| `↺` | Rotation d'un step vers la droite |
+| `×2` | Double le DNA (concatène le pattern sur lui-même) |
+| `÷2` | Réduit le DNA de moitié (garde les N/2 premiers steps) |
+| `~` | Variation légère de cette voix seule |
 
 ### Euclidien — bouton E
 
@@ -260,6 +303,14 @@ Définit un cycle indépendant de N steps pour cette voix. Le DNA est tronqué o
 ### MIDI Learn — bouton ⏺
 
 Lance la capture de pattern depuis MIDI entrant. Count-in 2 steps, puis capture d'un cycle complet quantifié sur la grille. Chrome/Chromium uniquement.
+
+### Velocity lane (tab VEL)
+
+Drawbar par step (0–127). Remplace la vélocité algorithmique step par step. Drag pour modifier plusieurs steps d'un trait.
+
+### Probability lane (tab VEL)
+
+Barre de probabilité par step (0–100%). Remplace la probabilité du DNA (`x` = 100%, `?` = 50%) step par step. Les steps à probabilité réduite affichent une barre ambre en tête du pianoroll.
 
 ### Clips Ableton — bouton ↓
 
@@ -297,9 +348,9 @@ Force le synthé navigateur même en présence d'un port MIDI connecté. Le MIDI
 | `🎲` | Randomize BPM + tous les paramètres en un clic |
 | `▸A` / `▸B` | Store — sauvegarde l'état dans le slot A ou B |
 | `A○` / `B○` | Load — charge le slot A ou B (● = slot rempli) |
-| `SEQ` | Panneau séquenceur de presets (8 slots, avance auto) |
-| `OSC ○` | Panneau OSC slide-down — HOST / TX / RX / connect |
-| `SRV` | Panneau MIDI serveur rtmidi — port physique/virtuel |
+| `SEQ` | Panneau séquenceur de presets (8 slots, morphing, avance auto) |
+| `OSC ○/●` | Toggle OSC on/off — config dans `/setup` |
+| `MIDI ○/●` | Ouvre `/setup` sur la section MIDI serveur |
 | `🎹 MIDI` | Modal sélection port MIDI (Web MIDI, Chrome uniquement) |
 | `TAP` | Tap tempo (médiane 5 taps) |
 | `SYNC` | Synchronisation MIDI clock entrant (24 ppq) |
@@ -307,6 +358,7 @@ Force le synthé navigateur même en présence d'un port MIDI connecté. Le MIDI
 | `Strudel` | Export pattern en mini-notation Strudel/TidalCycles |
 | `📁` | Page `/files` — liste et téléchargement des exports MIDI |
 | `⚙` | Page `/setup` — config OSC, MIDI serveur, Ableton, debugger OSC TX/RX |
+| `AMB/GRN/RED/TRQ/WHT/LGT` | Thèmes visuels — persistés dans localStorage |
 
 ### Raccourcis clavier
 
@@ -319,13 +371,42 @@ Force le synthé navigateur même en présence d'un port MIDI connecté. Le MIDI
 
 ---
 
+## Séquenceur de presets (SEQ)
+
+Le panel SEQ (`SEQ` dans le toolbar) gère 8 slots mémoire pour stocker et rappeler des patterns complets.
+
+### Slots
+
+- **💾** : sauvegarde le pattern courant dans un slot
+- **Clic sur le slot** : charge le slot comme pattern actif
+- **×** : vide le slot
+- **Poids (1–9)** : fréquence de sélection en mode AUTO
+
+### Avance automatique (AUTO)
+
+`▶ AUTO` active l'avance entre slots pendant la lecture. `cycles/slot` définit combien de cycles le player reste sur chaque slot avant de passer au suivant. Le slot suivant est tiré au sort parmi les slots remplis, pondéré par les poids.
+
+### Pattern morphing A→B
+
+La section MORPH interpole en douceur entre deux slots sur N cycles :
+
+1. Stocker deux patterns différents dans deux slots (ex: slot 1 et slot 2)
+2. Sélectionner le slot source et le slot cible dans les sélecteurs MORPH
+3. Choisir le nombre de cycles
+4. Cliquer `▶` — la barre orange progresse pendant la lecture
+5. À 100%, le slot cible est chargé automatiquement côté serveur
+
+**Algorithme** : pour chaque step et chaque voix, la probabilité et la vélocité sont interpolées linéairement entre les deux patterns. Les steps présents dans un seul des deux patterns disparaissent ou apparaissent progressivement.
+
+---
+
 ## OSC Bidirectionnel
 
 BANG émet et reçoit des messages OSC UDP.
 
 ### Activer
 
-`OSC ○` → modal config → Host + PORT ↑ (TX) + PORT ↓ (RX) → Start.
+Page `/setup` (bouton `⚙`) → section OSC → configurer Host + PORT TX + PORT RX → Connecter. Le bouton `OSC ○` du toolbar reflète l'état et permet un toggle rapide.
 
 Défaut TX : `127.0.0.1:57120` · Défaut RX : `0.0.0.0:57121`
 
@@ -360,12 +441,13 @@ Depuis v0.9.0, BANG! peut envoyer le MIDI directement depuis le serveur Python, 
 
 ### Activer
 
-`SRV` dans le toolbar → sélectionner un port MIDI (physique ou virtuel) → toggle ON.
+Page `/setup` (bouton `⚙`) → section MIDI Serveur → sélectionner un port (physique ou virtuel) → Connecter. Le bouton `MIDI ○/●` du toolbar reflète l'état.
 
 ### Comportement
 
-- Drums (mode batterie) → canal 9 (GM standard) · voix mélodiques → canal 0 (auto)
+- Drums → canal 9 (GM standard) · voix mélodiques → canal 0 (auto)
 - **Canal MIDI par voix** — tab MOD → `ch MIDI` → overrider le canal auto (1–16) pour chaque voix indépendamment
+- **LFO** appliqué côté serveur (density et drop) — cohérent avec le player navigateur
 - Gate : 75% de la durée du step
 - Horloge synchronisée sur le BPM courant de BANG!
 - Fonctionne en parallèle du player Web Audio (les deux peuvent jouer simultanément)
@@ -396,34 +478,104 @@ curl http://localhost:7777/midi/ports
 
 ## API HTTP
 
+### Génération et export
+
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/` | Interface principale |
 | POST | `/generate` | Génère patterns + pianoroll |
+| POST | `/vary` | Mutation légère du pattern courant |
 | POST | `/export` | Exporte le `.mid` courant |
 | GET | `/export/clip?idx=N` | Clip MIDI mono-voix (voix N) |
 | GET | `/export/clips` | Zip de tous les clips MIDI |
-| POST | `/voice/pattern` | Valide pattern édité |
+| GET | `/export/strudel` | Pattern en notation Strudel/TidalCycles |
+| GET | `/pattern` | Données player JSON (BPM, steps, events, drones) |
+| POST | `/undo` | Restaure snapshot précédent (ring buffer 5) |
+
+### Voix
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/voice/pattern` | Valide le DNA édité manuellement |
+| POST | `/voice/vary` | Variation légère d'une voix seule |
+| POST | `/voice/regen` | Régénère une voix seule |
 | POST | `/voice/thin` | Thinning ×1/÷2/÷4 |
-| POST | `/voice/chord` | Change accord voix Markov/KSP |
-| POST | `/voice/density` | Change densité (0–1) |
+| POST | `/voice/density` | Densité par voix (0–1) |
+| POST | `/voice/drop` | Drop% par voix (0–100) |
+| POST | `/voice/chord` | Accord voix Markov/KSP |
 | POST | `/voice/euclidean` | Applique E(n,k) |
-| POST | `/voice/steps` | Cycle indépendant (polymetrie) |
+| POST | `/voice/steps` | Cycle indépendant polymétrie (0 = reset) |
+| POST | `/voice/offset` | Décalage de phase en steps |
+| POST | `/voice/rotate` | Rotation du DNA d'un step |
+| POST | `/voice/invert` | Inversion du DNA |
+| POST | `/voice/reverse` | Miroir du DNA |
+| POST | `/voice/double` | Double le DNA (×2 longueur) |
+| POST | `/voice/halve` | Réduit le DNA de moitié |
+| POST | `/voice/lfo` | LFO par voix (shape/target/freq/depth) |
+| POST | `/voice/swing` | Swing par voix (0–100%) |
+| POST | `/voice/midi_ch` | Canal MIDI par voix (-1 = auto) |
+| POST | `/voice/vel_lane` | Velocity lane (liste 0–127 par step) |
+| POST | `/voice/prob_lane` | Probability lane (liste 0–100 par step) |
+| POST | `/voice/preview` | Aperçu audio navigateur (Web Audio) |
 | POST | `/lock_voice` | Toggle lock voix |
-| POST | `/undo` | Restaure snapshot précédent |
+| POST | `/poly` | Limite de polyphonie globale |
+| POST | `/notes` | Remap notes MIDI par voix |
+
+### Slots A/B et SEQ
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
 | POST | `/ab/store` | Sauvegarde slot A ou B |
 | POST | `/ab/load` | Charge slot A ou B |
+| POST | `/seq/save` | Sauvegarde pattern dans un slot SEQ (0–7) |
+| POST | `/seq/load` | Charge un slot SEQ comme pattern actif |
+| POST | `/seq/clear` | Vide un slot SEQ |
+| POST | `/seq/advance` | Avance automatique vers le slot suivant (pondéré) |
+| POST | `/seq/config` | Configure cycles/slot |
+| POST | `/seq/weight` | Poids de sélection d'un slot (1–9) |
+| GET | `/morph/prepare` | Prépare le morphing entre deux slots (events JSON) |
+
+### OSC
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
 | POST | `/osc/toggle` | Active/désactive OSC |
-| POST | `/osc/config` | Configure host:port OSC |
+| POST | `/osc/config` | Configure host:port TX/RX |
+| GET | `/osc/log` | Derniers messages OSC TX/RX (HTML partiel HTMX) |
+| POST | `/osc/log/clear` | Vide le log OSC |
+
+### MIDI serveur
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
 | GET | `/midi/ports` | Liste les ports MIDI disponibles (rtmidi) |
 | POST | `/midi/toggle` | Active/désactive MIDI serveur |
 | POST | `/midi/config` | Configure port MIDI serveur |
-| POST | `/notes` | Remap notes MIDI |
-| GET | `/session/export` | Exporte session JSON |
+
+### Grooves et presets
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/grooves` | Liste des groove presets |
+| POST | `/groove/apply` | Applique un groove preset |
+| GET | `/presets` | Liste des presets de drum machine |
+| POST | `/preset/apply` | Applique un preset |
+| POST | `/preset/save` | Sauvegarde un preset custom |
+| DELETE | `/preset/{name}` | Supprime un preset custom |
+
+### Ableton, session, divers
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/ableton/sync_bpm` | Sync BPM depuis Ableton via AbletonOSC |
+| POST | `/ableton/config` | Configure host:port Ableton |
+| POST | `/ableton/send` | Push toutes les voix vers Ableton |
+| GET | `/session/export` | Exporte session JSON complète |
 | POST | `/session/import` | Charge session JSON |
 | GET | `/files` | Liste les exports MIDI du serveur |
-| GET | `/export/strudel` | Pattern en notation Strudel/TidalCycles |
-| GET | `/doc` | Documentation complète |
+| GET | `/setup` | Page de configuration (OSC, MIDI, Ableton) |
+| GET | `/doc` | Documentation in-app |
+| POST | `/weather` | Rafraîchit les données météo Scaër |
 
 ---
 
