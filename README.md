@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.9.4** · Dark Umbrae / Robōtariis
+> **v0.9.5-alpha** · Dark Umbrae / Robōtariis
 
 BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
 

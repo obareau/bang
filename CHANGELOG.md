@@ -1,5 +1,17 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.9.5-alpha] — 2026-05-25
+
+### Fixes · UX · Player browser
+
+- **Fix Drop% spinners** — le spinner Drop% tombait à zéro au premier clic (HTMX swappait `#voices` sur chaque `change`, détruisant le focus). Remplacé par un `fetch()` silencieux via `setVoiceDrop()` : le DOM n'est plus touché, la valeur est arrondie au multiple de 5 le plus proche.
+- **Boutons ×1 ÷2 ÷4 restaurés dans les voix** — les boutons de thinning (÷2, ÷4, ×1) avaient disparu. Réintégrés directement dans l'en-tête de chaque voix (`vr-hr`), visibles en permanence sans ouvrir le panneau OPS.
+- **Notes Markov réelles dans le player browser** — le player browser utilisait la note fixe `v.note` (ex. 24/C1) pour toutes les notes de la voix Markov. La chaîne de Markov n'était exploitée que par le MIDI SRV serveur-side. Correction : `/pattern` injecte désormais `e.note` dans chaque event des voix `markov` et `bl` en générant la séquence depuis `engine.voices[i].chain`. Le player utilise `e.note ?? v.note` (MIDI + browser synth).
+- **Panel VOIX élargi** — largeur passée de 290px à 420px pour une meilleure lisibilité des grilles DNA longues (64 steps).
+- **Bouton DEMO retiré de l'UI** (code conservé) — le mode DEMO (`_forceBrowserSynth` + auto-generate + auto-play) sera revu ultérieurement pour un support multi-timbral propre. Le code `toggleDemoMode()` reste présent mais non exposé.
+
+---
+
 ## [0.9.4] — 2026-05-25
 
 ### LFO serveur · Pattern morphing A→B
