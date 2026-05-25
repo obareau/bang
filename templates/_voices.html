@@ -57,6 +57,14 @@
                  value="{{ cur_drop_pct }}"
                  onchange="setVoiceDrop('{{ name }}', this)">%
         </label>
+        <div class="thin-btns">
+          {% for f, label in [(1, "×1"), (2, "÷2"), (4, "÷4")] %}
+          <button type="button" class="btn-thin{% if thin == f %} active{% endif %}"
+                  hx-post="/voice/thin" hx-vals='{"name": "{{ name }}", "factor": {{ f }}}'
+                  hx-target="#voices" hx-swap="innerHTML"
+                  title="{{ 'Normal' if f == 1 else ('Moitié des hits' if f == 2 else 'Quart des hits') }}">{{ label }}</button>
+          {% endfor %}
+        </div>
         {% endif %}
         <button type="button" class="btn-lock{% if is_locked %} active{% endif %}"
                 hx-post="/lock_voice" hx-vals='{"idx": {{ idx }}}'
