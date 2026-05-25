@@ -15,6 +15,7 @@
   {% set voffset_active= name in voice_offset and voice_offset[name] > 0 %}
   {% set cur_chord     = voice_chords[name]   if name in voice_chords  else "mono" %}
   {% set cur_density   = voice_density[name]  if name in voice_density else 1.0 %}
+  {% set cur_midi_ch   = voice_midi_ch[name]  if name in voice_midi_ch else -1 %}
 
   <div class="voice-row{% if is_locked %} voice-locked{% endif %}" data-voice-idx="{{ idx }}">
 
@@ -222,6 +223,18 @@
           </select>
         </div>
         {% endif %}
+        <div class="ops-row">
+          <span class="mod-label">ch MIDI</span>
+          <select class="midi-ch-select{% if cur_midi_ch >= 0 %} active{% endif %}"
+                  hx-post="/voice/midi_ch" hx-vals='{"name": "{{ name }}"}'
+                  hx-include="this" hx-swap="none"
+                  hx-trigger="change" name="ch" title="Canal MIDI pour le MIDI serveur (auto = drums/mélo)">
+            <option value="-1"{% if cur_midi_ch < 0 %} selected{% endif %}>auto</option>
+            {% for c in range(16) %}
+            <option value="{{ c }}"{% if cur_midi_ch == c %} selected{% endif %}>ch{{ c + 1 }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
 
     </div>

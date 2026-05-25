@@ -439,6 +439,7 @@ def _save_state() -> None:
             "voice_vel_lane":    _state.get("voice_vel_lane", {}),
             "voice_prob_lane":   _state.get("voice_prob_lane", {}),
             "voice_lfo":         _state.get("voice_lfo", {}),
+            "voice_midi_ch":     _state.get("voice_midi_ch", {}),
             "seq_weights":       _state.get("seq_weights", [1]*8),
             "ableton_host":         _state.get("ableton_host", "127.0.0.1"),
             "ableton_port":         _state.get("ableton_port", 11000),
@@ -481,6 +482,7 @@ def _load_state() -> None:
         _state["voice_vel_lane"]     = data.get("voice_vel_lane", {})
         _state["voice_prob_lane"]    = data.get("voice_prob_lane", {})
         _state["voice_lfo"]          = data.get("voice_lfo", {})
+        _state["voice_midi_ch"]      = data.get("voice_midi_ch", {})
         _state["seq_weights"]        = data.get("seq_weights", [1]*8)
         _state["ableton_host"]         = data.get("ableton_host", "127.0.0.1")
         _state["ableton_port"]         = data.get("ableton_port", 11000)
@@ -560,6 +562,7 @@ _state: dict = {
     "voice_vel_lane":  {},  # voice_name -> list[int] 0-127, indexé par position DNA
     "voice_prob_lane": {},  # voice_name -> list[int] 0-100, indexé par position DNA (0 = no override)
     "voice_lfo":       {},  # voice_name -> {shape, target, freq, depth}
+    "voice_midi_ch":   {},  # voice_name -> int 0-15 (MIDI ch 1-16), absent = auto
     "seq_weights":     [1] * 8,  # poids de sélection aléatoire par slot SEQ (1-9)
     "ableton_host":         "127.0.0.1",
     "ableton_port":         11000,
@@ -809,6 +812,7 @@ def _build_voices_html(voices: list) -> str:
         voice_vel_lane=_state.get("voice_vel_lane", {}),
         voice_prob_lane=_state.get("voice_prob_lane", {}),
         voice_lfo=_state.get("voice_lfo", {}),
+        voice_midi_ch=_state.get("voice_midi_ch", {}),
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -1554,6 +1558,7 @@ def _midi_srv_clock_loop() -> None:
         gate_dur = step_dur * 0.75
         ch_drums    = int(_state.get("midi_srv_channel", 9))
         ch_melodic  = 0 if ch_drums != 0 else 1
+        voice_ch_map = _state.get("voice_midi_ch", {})
 
         t0 = time.perf_counter()
 
@@ -1596,7 +1601,7 @@ def _midi_srv_clock_loop() -> None:
             trig, vel, prob, ratch, jit = row
             if trig and random.random() < prob * density:
                 is_melodic = vtype in ("markov", "bl") or vtype.startswith(("ksp", "vd", "vfm", "mf"))
-                ch         = ch_melodic if is_melodic else ch_drums
+                ch         = voice_ch_map.get(name, ch_melodic if is_melodic else ch_drums)
                 midi_note  = markov_notes.get(name, [note] * n_steps)[step] if is_melodic else note
                 try:
                     midi_out.send_message([0x90 | ch, int(midi_note) & 0x7F, int(vel) & 0x7F])
@@ -1677,6 +1682,7 @@ async def index(request: Request):
         voice_vel_lane=_state.get("voice_vel_lane", {}),
         voice_prob_lane=_state.get("voice_prob_lane", {}),
         voice_lfo=_state.get("voice_lfo", {}),
+        voice_midi_ch=_state.get("voice_midi_ch", {}),
         locked_voices=_state.get("locked_voices", set()),
     )
 
@@ -2611,6 +2617,16 @@ async def voice_lfo_set(
         vl.pop(name, None)
     else:
         vl[name] = {"shape": shape, "target": target, "freq": freq, "depth": round(depth, 3)}
+    return HTMLResponse("")
+
+
+@app.post("/voice/midi_ch", response_class=HTMLResponse)
+async def voice_midi_ch_set(name: Annotated[str, Form()], ch: Annotated[int, Form()] = -1):
+    vmc = _state.setdefault("voice_midi_ch", {})
+    if ch < 0:
+        vmc.pop(name, None)
+    else:
+        vmc[name] = max(0, min(15, ch))
     return HTMLResponse("")
 
 
