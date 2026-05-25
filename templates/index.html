@@ -25,8 +25,10 @@
 
       --bg:      #030303;
       --surface: #090909;
+      --bg2:     #111111;   /* inputs, selects, champs */
       --border:  rgba(var(--ar), var(--ag), var(--ab), 0.22);
 
+      --fg:      var(--accent);  /* texte dans les inputs */
       --text:    var(--accent);
       --muted:   var(--accent-mid);
       --primary: var(--accent);
@@ -34,11 +36,47 @@
       --warn:    var(--accent);
 
       /* DNA atom brightness via opacity */
-      --dx: var(--accent);   /* hit      — 100% */
-      --dd: var(--accent);   /* silence  — 25%  (voir .dd) */
-      --dq: var(--accent);   /* prob     — 70%  */
-      --dr: var(--accent);   /* ratchet  — 100% */
-      --db: var(--accent);   /* ghost    — 55%  */
+      --dx: var(--accent);
+      --dd: var(--accent);
+      --dq: var(--accent);
+      --dr: var(--accent);
+      --db: var(--accent);
+
+      /* active states (surchargés en light) */
+      --active-bg:     #052;
+      --active-fg:     #4ade80;
+      --active-border: #4ade80;
+    }
+
+    /* ── Thème clair ─────────────────────────────────────────────────── */
+    [data-theme="light"] {
+      --ar: 30; --ag: 30; --ab: 30;
+
+      --bg:      #f4efe6;
+      --surface: #ebe5da;
+      --bg2:     #ddd8ce;
+      --border:  rgba(30,30,30,0.18);
+
+      --fg:      #1e1e1e;
+      --text:    #1e1e1e;
+      --accent:  #1e1e1e;
+      --accent-mid: rgba(30,30,30,0.5);
+      --accent-dim: rgba(30,30,30,0.10);
+      --accent-glo: rgba(30,30,30,0.14);
+      --muted:   rgba(30,30,30,0.5);
+      --primary: #1e1e1e;
+      --success: #1e1e1e;
+      --warn:    #1e1e1e;
+
+      --dx: #1e1e1e;
+      --dd: #1e1e1e;
+      --dq: #1e1e1e;
+      --dr: #1e1e1e;
+      --db: #1e1e1e;
+
+      --active-bg:     #1e1e1e;
+      --active-fg:     #f4efe6;
+      --active-border: #1e1e1e;
     }
 
     body {
@@ -83,6 +121,7 @@
     }
     .th-btn:hover, .th-btn.active { border-color: var(--accent); color: var(--accent); }
     .th-btn.active { background: var(--accent-dim); }
+    .th-btn-light { font-size: 12px; padding: 0 5px; }
     #ver { color: var(--accent-mid); font-size: 10px; letter-spacing: .08em; margin-left: .5rem; }
 
     /* Weather bar */
@@ -188,6 +227,16 @@
     .tag-pill.vfm    { background: #1c2020; color: #34d399; border: 1px solid #065f46; }
     .tag-pill.mf     { background: #1e1e2e; color: #e879f9; border: 1px solid #86198f; }
     .tag-pill.ksp    { background: #2a1f10; color: #fbbf24; border: 1px solid #92400e; }
+
+    [data-theme="light"] .tag-pill.markov { background: #ede9fe; color: #5b21b6; border-color: #7c3aed; }
+    [data-theme="light"] .tag-pill.cc     { background: #f1f5f9; color: #475569; border-color: #94a3b8; }
+    [data-theme="light"] .tag-pill.babka  { background: #dcfce7; color: #15803d; border-color: #16a34a; }
+    [data-theme="light"] .tag-pill.bl     { background: #faf5ff; color: #7e22ce; border-color: #a855f7; }
+    [data-theme="light"] .tag-pill.vk     { background: #fff7ed; color: #c2410c; border-color: #ea580c; }
+    [data-theme="light"] .tag-pill.vfm    { background: #ecfdf5; color: #065f46; border-color: #10b981; }
+    [data-theme="light"] .tag-pill.mf     { background: #fdf4ff; color: #86198f; border-color: #d946ef; }
+    [data-theme="light"] .tag-pill.ksp    { background: #fefce8; color: #92400e; border-color: #f59e0b; }
+    [data-theme="light"] .btn-morph-start.active { color: #ea580c; border-color: #ea580c; background: #fff7ed; }
 
     /* Expand button */
     .btn-expand { font-size: 10px; padding: 1px 4px; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 3px; cursor: pointer; flex-shrink: 0; transition: color .1s, transform .15s; }
@@ -319,6 +368,8 @@
     }
     .btn-mute.active { background: #3a0000; color: #f66; border-color: #f66; }
     .btn-solo.active { background: #2a1a00; color: #fc0; border-color: #fc0; }
+    [data-theme="light"] .btn-mute.active { background: #fde8e8; color: #b91c1c; border-color: #b91c1c; }
+    [data-theme="light"] .btn-solo.active { background: #fef3c7; color: #92400e; border-color: #92400e; }
     .voice-row.v-muted .vr-pattern { opacity: 0.2; }
     .voice-row.v-muted .vr-header  { opacity: 0.4; }
     .voice-row.v-muted .btn-mute,
@@ -447,6 +498,7 @@
     }
     .btn-lfo:hover { color: var(--text); border-color: var(--border); }
     .btn-lfo.active { color: #a78bfa; border-color: #a78bfa; background: #1e1730; }
+    [data-theme="light"] .btn-lfo.active { color: #6d28d9; border-color: #6d28d9; background: #ede9fe; }
     .lfo-config { display: inline-flex; align-items: center; gap: 2px; }
     .lfo-shape, .lfo-target, .lfo-freq {
       font-size: 9px; padding: 0 2px; height: 16px;
@@ -586,7 +638,7 @@
     .btn-play.playing { background: #f87171; color: #fff; }
     .btn-synth { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 7px; font-size: 13px; border-radius: 3px; cursor: pointer; }
     .btn-synth:hover { color: var(--text); }
-    .btn-synth.active { background: #042; color: #4fc; border-color: #4fc; }
+    .btn-synth.active { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
     .btn-rec { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 9px; font-size: 12px; border-radius: 3px; cursor: pointer; }
     .btn-rec:hover { color: var(--text); border-color: var(--muted); }
     .btn-rec.recording { background: #3a0000; color: #f55; border-color: #f55; animation: rec-pulse 0.8s ease-in-out infinite; }
@@ -831,7 +883,7 @@
     /* MIDI serveur + Setup button */
     .btn-midi-srv { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; border-radius: 3px; cursor: pointer; }
     .btn-midi-srv:hover { color: var(--text); border-color: var(--text); }
-    .btn-midi-srv.active { background: #052; color: #4f8; border-color: #4f8; }
+    .btn-midi-srv.active { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
     .btn-setup { font-family: 'Courier New', monospace; font-size: 14px; text-decoration: none;
                  background: var(--surface); color: var(--muted); border: 1px solid var(--border);
                  padding: 2px 7px; border-radius: 3px; line-height: 22px; display: inline-flex; align-items: center; }
@@ -858,7 +910,7 @@
     .btn-doc:hover { color: var(--primary); border-color: var(--primary); }
     .btn-osc { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; }
     .btn-osc:hover { color: var(--text); border-color: var(--border); }
-    .btn-osc.active { background: #052; color: #4f8; border-color: #4f8; }
+    .btn-osc.active { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
     .btn-clip-dl {
       font-size: 10px; padding: 1px 4px; line-height: 1.4;
       background: var(--surface); color: var(--muted);
@@ -995,6 +1047,7 @@
     <button class="th-btn"        data-theme="red"       onclick="setTheme('red')"       title="Red">RED</button>
     <button class="th-btn"        data-theme="turquoise" onclick="setTheme('turquoise')" title="Turquoise">TRQ</button>
     <button class="th-btn"        data-theme="white"     onclick="setTheme('white')"     title="White">WHT</button>
+    <button class="th-btn th-btn-light" data-theme="light" onclick="setTheme('light')"  title="Thème clair">☀</button>
     <span id="ver">v{{ app_version }}</span>
   </div>
 </header>

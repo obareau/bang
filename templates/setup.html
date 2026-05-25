@@ -6,11 +6,22 @@
 <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
 <style>
   :root {
-    --bg: #030303; --surface: #0d0d0d; --border: #2a2000;
+    --bg: #030303; --surface: #0d0d0d; --bg2: #111111;
+    --border: rgba(255,170,0,0.22);
     --text: #ffaa00; --muted: rgba(255,170,0,0.45);
     --accent: #ffaa00; --dim: rgba(255,170,0,0.18);
+    --fg: #ffaa00;
     --green: #4ade80; --warn: #fbbf24; --red: #f87171;
-    --success: #1a3a1a;
+    --active-bg: #052; --active-fg: #4ade80; --active-border: #4ade80;
+  }
+  [data-theme="light"] {
+    --bg: #f4efe6; --surface: #ebe5da; --bg2: #ddd8ce;
+    --border: rgba(30,30,30,0.18);
+    --text: #1e1e1e; --muted: rgba(30,30,30,0.5);
+    --accent: #1e1e1e; --dim: rgba(30,30,30,0.10);
+    --fg: #1e1e1e;
+    --green: #15803d; --warn: #92400e; --red: #b91c1c;
+    --active-bg: #1e1e1e; --active-fg: #f4efe6; --active-border: #1e1e1e;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace;
@@ -37,7 +48,7 @@
   .cfg-field { display: flex; flex-direction: column; gap: 2px; }
   .cfg-field label { font-size: 10px; color: var(--muted); text-transform: uppercase; }
   .cfg-field input[type=text], .cfg-field input[type=number], .cfg-field select {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    background: var(--bg2); border: 1px solid var(--border); color: var(--fg);
     font-family: 'Courier New', monospace; font-size: 12px;
     padding: 3px 6px; border-radius: 3px; width: 110px;
   }
@@ -50,7 +61,7 @@
                  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
                  padding: 4px 12px; border-radius: 3px; cursor: pointer; align-self: flex-end; }
   .btn-connect:hover { color: var(--text); border-color: var(--text); }
-  .btn-connect.active { background: var(--success); color: var(--green); border-color: var(--green); }
+  .btn-connect.active { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
   .btn-small { font-family: 'Courier New', monospace; font-size: 11px;
                border: 1px solid var(--border); background: var(--surface); color: var(--muted);
                padding: 2px 8px; border-radius: 3px; cursor: pointer; }
@@ -369,6 +380,13 @@ async function ablSend() {
   const html = await r.text();
   st.innerHTML = html;
 }
+
+// ─── Thème (sync avec la page principale via localStorage) ──────────────────
+
+(function() {
+  const t = localStorage.getItem('bang-theme') || 'amber';
+  if (t !== 'amber') document.documentElement.setAttribute('data-theme', t);
+})();
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 

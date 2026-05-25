@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-APP_VERSION = "0.9.0-beta"
+APP_VERSION = "0.9.3"
 
 import io
 import json
