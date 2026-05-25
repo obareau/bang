@@ -142,7 +142,7 @@
           {% if not is_locked %}
           <button type="button" class="btn-vary-voice" hx-post="/voice/vary"  hx-vals='{"idx": {{ idx }}}' hx-target="#voices" hx-swap="innerHTML" title="Muter légèrement">~</button>
           <button type="button" class="btn-copy-dna"   onclick="bangCopyDNA({{ idx }}, this)"               title="Copier DNA">C</button>
-          <button type="button" class="btn-paste-dna"  onclick="bangPasteDNA({{ idx }})"                    title="Coller DNA">P</button>
+          <button type="button" class="btn-paste-dna"  onclick="bangPasteDNA({{ idx }})"                    title="Coller DNA" disabled>P</button>
           <button type="button" class="btn-vary-voice" hx-post="/voice/regen" hx-vals='{"idx": {{ idx }}}' hx-target="#voices" hx-swap="innerHTML" title="Régénérer">⟳</button>
           {% endif %}
           <a class="btn-clip-dl" href="/export/clip?idx={{ idx }}" download="{{ name }}.mid"

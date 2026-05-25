@@ -2827,7 +2827,11 @@ function bangPasteDNA(idx) {
   const input = document.querySelector(`.dna-edit[data-idx="${idx}"]`);
   if (!input) return;
   input.value = _copiedDNA;
-  htmx.trigger(input, 'change');
+  htmx.ajax('POST', '/voice/pattern', {
+    target: '#voices',
+    swap: 'innerHTML',
+    values: { idx: idx, pattern: _copiedDNA }
+  });
 }
 
 function _syncMuteState() {
