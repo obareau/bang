@@ -54,10 +54,8 @@
         <label class="drop-label{% if cur_drop_pct < 100 %} active{% endif %}"
                title="Drop — 100% = toujours joue, 50% = 1 cycle sur 2">
           <input class="drop-pct" type="number" min="0" max="100" step="5"
-                 value="{{ cur_drop_pct }}" name="pct"
-                 hx-post="/voice/drop" hx-vals='{"name": "{{ name }}"}'
-                 hx-include="this" hx-target="#voices" hx-swap="innerHTML"
-                 hx-trigger="change">%
+                 value="{{ cur_drop_pct }}"
+                 onchange="setVoiceDrop('{{ name }}', this)">%
         </label>
         {% endif %}
         <button type="button" class="btn-lock{% if is_locked %} active{% endif %}"

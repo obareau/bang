@@ -1624,6 +1624,17 @@ function toggleForceSynth() {
   document.getElementById('synth-btn').classList.toggle('active', _forceBrowserSynth);
 }
 
+async function setVoiceDrop(name, input) {
+  const raw = parseInt(input.value, 10);
+  const pct = isNaN(raw) ? 100 : Math.max(0, Math.min(100, Math.round(raw / 5) * 5));
+  input.value = pct;
+  input.closest('.drop-label').classList.toggle('active', pct < 100);
+  const fd = new FormData();
+  fd.append('name', name);
+  fd.append('pct', String(pct));
+  fetch('/voice/drop', { method: 'POST', body: fd });
+}
+
 async function toggleDemoMode() {
   _demoMode = !_demoMode;
   const btn = document.getElementById('demo-btn');
