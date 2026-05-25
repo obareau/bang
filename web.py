@@ -586,6 +586,7 @@ _state: dict = {
     "midi_srv_thread":  None,
     "midi_srv_channel": 9,      # 0-based (9 = MIDI ch10 drums)
     "max_poly":        0,   # 0 = illimité
+    "osc_log":         deque(maxlen=50),  # ring buffer log TX/RX OSC
 }
 
 # ---------------------------------------------------------------------------
@@ -1306,6 +1307,7 @@ _PARAM_CLAMPS: dict[str, tuple] = {
 
 
 def _osc_handle_param(address: str, *args) -> None:
+    _osc_log_entry("RX", address, args)
     if not args or not _state.get("last_p"):
         return
     parts = address.strip("/").split("/")   # ["bang","param","bpm"]
@@ -1324,14 +1326,17 @@ def _osc_handle_param(address: str, *args) -> None:
 
 
 def _osc_handle_generate(address: str, *args) -> None:
+    _osc_log_entry("RX", address, args)
     _sync_generate()
 
 
 def _osc_handle_vary(address: str, *args) -> None:
+    _osc_log_entry("RX", address, args)
     _sync_vary()
 
 
 def _osc_handle_density(address: str, *args) -> None:
+    _osc_log_entry("RX", address, args)
     if not args:
         return
     parts = address.strip("/").split("/")   # ["bang","density","Kick"]
@@ -1346,6 +1351,7 @@ def _osc_handle_density(address: str, *args) -> None:
 
 
 def _osc_handle_lock(address: str, *args) -> None:
+    _osc_log_entry("RX", address, args)
     parts = address.strip("/").split("/")   # ["bang","lock","2"]
     if len(parts) < 3:
         return
@@ -1406,6 +1412,15 @@ def _osc_rx_stop() -> None:
     _state["osc_rx_thread"] = None
 
 
+def _osc_log_entry(direction: str, addr: str, args) -> None:
+    _state["osc_log"].appendleft({
+        "ts":   time.strftime("%H:%M:%S"),
+        "dir":  direction,
+        "addr": addr,
+        "args": str(list(args))[:80] if args else "",
+    })
+
+
 def _osc_clock_loop() -> None:
     """Thread background : émet les triggers OSC au BPM du pattern courant."""
     try:
@@ -1460,6 +1475,8 @@ def _osc_clock_loop() -> None:
         try:
             assert client is not None
             client.send_message("/bang/clock", [step, n_steps])
+            if step == 0:
+                _osc_log_entry("TX", "/bang/clock", [0, n_steps])
 
             for note, dna, vtype in voices:
                 if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
@@ -1477,6 +1494,7 @@ def _osc_clock_loop() -> None:
                 if trig and random.random() < prob * density:
                     osc_note = markov_notes.get(name, [note] * n_steps)[step] if (vtype in ("markov", "bl") or vtype.startswith("ksp")) else note
                     client.send_message(f"/bang/{name}", [step, int(vel), int(osc_note)])
+                    _osc_log_entry("TX", f"/bang/{name}", [step, int(vel), int(osc_note)])
         except Exception:
             pass   # perte réseau → on continue
 
@@ -1684,6 +1702,7 @@ async def index(request: Request):
         osc_host=_state.get("osc_host", "127.0.0.1"),
         osc_port=_state.get("osc_port", 57120),
         osc_rx_port=_state.get("osc_rx_port", 57121),
+        midi_srv_enabled=_state.get("midi_srv_enabled", False),
         ableton_host=_state.get("ableton_host", "127.0.0.1"),
         ableton_port=_state.get("ableton_port", 11000),
         ableton_track_offset=_state.get("ableton_track_offset", 0),
@@ -3146,6 +3165,51 @@ def _build_osc_btn() -> str:
     return (f'<span id="osc-btn">'
             f'<button class="{cls}" hx-post="/osc/toggle" hx-target="#osc-btn" hx-swap="outerHTML" title="{tip}">{label}</button>'
             f'</span>')
+
+
+@app.get("/osc/log", response_class=HTMLResponse)
+async def osc_log_view():
+    entries = list(_state.get("osc_log", []))
+    if not entries:
+        return HTMLResponse(
+            '<tr><td colspan="4" class="osc-log-empty">Aucun message OSC — activer OSC et jouer un pattern</td></tr>'
+        )
+    rows = []
+    for e in entries[:40]:
+        dir_cls = "osc-log-tx" if e["dir"] == "TX" else "osc-log-rx"
+        rows.append(
+            f'<tr class="{dir_cls}">'
+            f'<td class="osc-log-ts">{e["ts"]}</td>'
+            f'<td class="osc-log-dir">{e["dir"]}</td>'
+            f'<td class="osc-log-addr">{e["addr"]}</td>'
+            f'<td class="osc-log-args">{e["args"]}</td>'
+            f'</tr>'
+        )
+    return HTMLResponse("".join(rows))
+
+
+@app.post("/osc/log/clear", response_class=HTMLResponse)
+async def osc_log_clear():
+    _state["osc_log"].clear()
+    return HTMLResponse('<tr><td colspan="4" class="osc-log-empty">Log effacé</td></tr>')
+
+
+@app.get("/setup", response_class=HTMLResponse)
+async def setup_page(request: Request):
+    return render("setup.html",
+        osc_enabled=_state.get("osc_enabled", False),
+        osc_host=_state.get("osc_host", "127.0.0.1"),
+        osc_port=_state.get("osc_port", 57120),
+        osc_rx_port=_state.get("osc_rx_port", 57121),
+        midi_srv_enabled=_state.get("midi_srv_enabled", False),
+        midi_srv_port=_state.get("midi_srv_port", 0),
+        midi_srv_channel=_state.get("midi_srv_channel", 9),
+        ableton_host=_state.get("ableton_host", "127.0.0.1"),
+        ableton_port=_state.get("ableton_port", 11000),
+        ableton_track_offset=_state.get("ableton_track_offset", 0),
+        ableton_slot=_state.get("ableton_slot", 0),
+        app_version=APP_VERSION,
+    )
 
 
 @app.post("/lock_voice", response_class=HTMLResponse)

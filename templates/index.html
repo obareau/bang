@@ -547,27 +547,7 @@
     .btn-morph-start { font-size: 9px; padding: 1px 5px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; flex-shrink: 0; }
     .btn-morph-start:hover { color: var(--text); border-color: var(--muted); }
 
-    /* OSC Panel */
-    #osc-panel { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: .35rem .8rem .4rem; }
-    #osc-panel.open { display: flex; flex-direction: column; gap: .3rem; }
-    .osc-row { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
-    .osc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .3s; }
-    .osc-dot.active { background: #4f8; animation: osc-blink 1.4s ease-in-out infinite; }
     @keyframes osc-blink { 0%,100% { opacity:1; } 50% { opacity:.25; } }
-    .osc-field { display: flex; flex-direction: column; gap: 1px; }
-    .osc-field label { font-size: 8px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
-    .osc-field input { font-size: 11px; padding: 2px 4px; height: 22px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); }
-    .osc-host-inp { width: 120px; }
-    .osc-port-inp { width: 52px; }
-    .btn-osc-connect { font-size: 11px; padding: 0 10px; height: 22px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg2); color: var(--muted); cursor: pointer; flex-shrink: 0; }
-    .btn-osc-connect:hover { border-color: var(--text); color: var(--text); }
-    .btn-osc-connect.active { background: #052; color: #4f8; border-color: #4f8; }
-    .osc-vsep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; margin: 0 3px; }
-    .osc-dl { display: flex; gap: 3px; align-items: center; }
-    .osc-dl-label { font-size: 9px; color: var(--muted); white-space: nowrap; }
-    .osc-dl a { font-size: 10px; padding: 2px 8px; height: 20px; display: inline-flex; align-items: center; background: var(--surface); color: var(--muted); border: 1px solid var(--border); border-radius: 3px; text-decoration: none; }
-    .osc-dl a:hover { color: var(--text); border-color: var(--text); }
-    .osc-ref { font-size: 9px; color: var(--muted); line-height: 1.6; font-family: 'JetBrains Mono','Fira Code',monospace; }
     .btn-morph-start.active { color: #fb923c; border-color: #fb923c; background: #1c1008; }
     .morph-progress-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; min-width: 30px; }
     .morph-progress-fill { height: 100%; width: 0%; background: #fb923c; border-radius: 2px; transition: width .2s; }
@@ -848,23 +828,14 @@
     .log-seed { color: var(--muted); font-size: 11px; }
     .log-tag  { font-size: 10px; background: var(--border); padding: 1px 5px; border-radius: 3px; }
     .log-err  { color: #f87171; }
-    /* MIDI serveur */
+    /* MIDI serveur + Setup button */
     .btn-midi-srv { background: var(--surface); color: var(--muted); border: 1px solid var(--border); font-size: 11px; padding: 3px 7px; border-radius: 3px; cursor: pointer; }
     .btn-midi-srv:hover { color: var(--text); border-color: var(--text); }
     .btn-midi-srv.active { background: #052; color: #4f8; border-color: #4f8; }
-    #midi-srv-panel { display: none; background: var(--surface); border-bottom: 1px solid var(--border); padding: .35rem .8rem .4rem; }
-    #midi-srv-panel.open { display: flex; flex-direction: column; gap: .3rem; }
-    .msrv-row { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
-    .msrv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
-    .msrv-dot.active { background: #4f8; animation: osc-blink 1.4s ease-in-out infinite; }
-    .msrv-field { display: flex; flex-direction: column; gap: 1px; }
-    .msrv-field label { font-size: 8px; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
-    .msrv-field select, .msrv-field input { font-size: 11px; padding: 2px 4px; height: 22px; background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; color: var(--text); }
-    .msrv-port-sel { min-width: 200px; max-width: 320px; }
-    .msrv-ch-inp { width: 40px; }
-    .btn-msrv-connect { font-size: 11px; padding: 0 10px; height: 22px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg2); color: var(--muted); cursor: pointer; flex-shrink: 0; }
-    .btn-msrv-connect:hover { border-color: var(--text); color: var(--text); }
-    .btn-msrv-connect.active { background: #052; color: #4f8; border-color: #4f8; }
+    .btn-setup { font-family: 'Courier New', monospace; font-size: 14px; text-decoration: none;
+                 background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+                 padding: 2px 7px; border-radius: 3px; line-height: 22px; display: inline-flex; align-items: center; }
+    .btn-setup:hover { color: var(--text); border-color: var(--text); }
     .msrv-hint { font-size: 9px; color: var(--muted); line-height: 1.5; }
     /* MIDI log */
     .ml { font-size: 11px; font-family: 'Courier New', monospace; padding: 1px 0;
@@ -1241,15 +1212,21 @@
 
     <span id="osc-btn">
       <button class="btn-osc{% if osc_enabled %} active{% endif %}"
-              onclick="bangToggleOscPanel(this)"
-              title="OSC — {% if osc_enabled %}actif ● (cliquer pour configurer){% else %}inactif ○ (cliquer pour configurer){% endif %}">
+              hx-post="/osc/toggle" hx-target="#osc-btn" hx-swap="outerHTML"
+              title="OSC {{ '● actif' if osc_enabled else '○ inactif' }} — clic pour toggle · ⚙ Setup pour configurer">
         OSC {{ '●' if osc_enabled else '○' }}
       </button>
     </span>
 
     <span id="midi-srv-btn">
-      <button class="btn-midi-srv" onclick="bangToggleMidiSrvPanel(this)" title="MIDI serveur (rtmidi — sans Chrome)">MIDI ○</button>
+      <button class="btn-midi-srv{% if midi_srv_enabled is defined and midi_srv_enabled %} active{% endif %}"
+              onclick="window.open('/setup#midi-srv-section', '_blank')"
+              title="MIDI Serveur — ouvre ⚙ Setup pour configurer">
+        MIDI {{ '●' if (midi_srv_enabled is defined and midi_srv_enabled) else '○' }}
+      </button>
     </span>
+
+    <a href="/setup" target="_blank" class="btn-setup" title="⚙ Setup — OSC, MIDI Serveur, Ableton">⚙</a>
 
     <button class="btn-midi-top" id="midi-top-btn" onclick="openMidiModal()" title="MIDI Learn (Web MIDI)">🎹 MIDI</button>
 
@@ -1274,66 +1251,6 @@
   {{ seq_html | safe }}
 </div>
 
-<div id="osc-panel">
-  <div class="osc-row">
-    <div id="osc-dot" class="osc-dot{% if osc_enabled %} active{% endif %}"></div>
-    <span class="seq-label">OSC</span>
-    <div class="osc-field">
-      <label>HOST DEST.</label>
-      <input class="osc-host-inp" type="text" id="osc-host" value="{{ osc_host }}">
-    </div>
-    <div class="osc-field">
-      <label>TX ↑</label>
-      <input class="osc-port-inp" type="number" id="osc-port" value="{{ osc_port }}" min="1" max="65535">
-    </div>
-    <div class="osc-field">
-      <label>RX ↓</label>
-      <input class="osc-port-inp" type="number" id="osc-rx-port" value="{{ osc_rx_port }}" min="1" max="65535">
-    </div>
-    <button id="osc-connect-btn" class="btn-osc-connect{% if osc_enabled %} active{% endif %}"
-            onclick="oscPanelToggle()">
-      {{ '◉ CONNECTÉ' if osc_enabled else '○ CONNECTER' }}
-    </button>
-    <div class="osc-vsep"></div>
-    <div class="osc-dl">
-      <span class="osc-dl-label">TouchOSC :</span>
-      <a href="/touchosc?host=lan" download title="Télécharger le dashboard TouchOSC (réseau local LAN)">↓ LAN</a>
-      <a href="/touchosc?host=tailscale" download title="Télécharger le dashboard TouchOSC (Tailscale)">↓ Tailscale</a>
-    </div>
-  </div>
-  <div class="osc-ref">
-    <strong style="color:var(--text)">↑ OUT :</strong>
-    <code>/bang/clock [step,steps]</code>&nbsp;
-    <code>/bang/{Voix} [step,vel,note]</code>&nbsp;&nbsp;
-    <strong style="color:var(--text)">↓ IN :</strong>
-    <code>/bang/param/bpm N</code>&nbsp;
-    <code>/bang/param/chaos N</code>&nbsp;
-    <code>/bang/param/gravity N</code>&nbsp;
-    <code>/bang/generate</code>&nbsp;
-    <code>/bang/vary</code>&nbsp;
-    <code>/bang/density/Kick N</code>&nbsp;
-    <code>/bang/lock/0 N</code>
-  </div>
-</div>
-
-<div id="midi-srv-panel">
-  <div class="msrv-row">
-    <div id="msrv-dot" class="msrv-dot"></div>
-    <span class="seq-label">MIDI SRV</span>
-    <div class="msrv-field">
-      <label>PORT MIDI</label>
-      <select class="msrv-port-sel" id="msrv-port-sel"></select>
-    </div>
-    <div class="msrv-field">
-      <label>CH DRUMS</label>
-      <input class="msrv-ch-inp" type="number" id="msrv-ch" min="1" max="16" value="10" title="Canal MIDI drums (10 = standard)">
-    </div>
-    <button id="msrv-connect-btn" class="btn-msrv-connect" onclick="msrvToggle()">○ CONNECTER</button>
-  </div>
-  <div class="msrv-hint">
-    Drums → canal sélectionné · Voix mélodiques → canal 1 · IAC Driver (Mac) · loopMIDI (Windows) · ALSA (Linux)
-  </div>
-</div>
 
 <div id="main">
 
@@ -2313,60 +2230,9 @@ function closeExportModal() {
   document.getElementById('export-modal').classList.remove('open');
 }
 
-// ---- OSC Panel ----
-let _oscEnabled = {{ 'true' if osc_enabled else 'false' }};
-
-function bangToggleOscPanel() {
-  document.getElementById('osc-panel').classList.toggle('open');
-}
-
-// ---- MIDI Serveur Panel ----
-let _msrvEnabled = false;
-
-function bangToggleMidiSrvPanel() {
-  const panel = document.getElementById('midi-srv-panel');
-  const open  = panel.classList.toggle('open');
-  if (open) _msrvLoadPorts();
-}
-
-async function _msrvLoadPorts() {
-  const res   = await fetch('/midi/ports');
-  const data  = await res.json();
-  const sel   = document.getElementById('msrv-port-sel');
-  sel.innerHTML = '';
-  if (!data.ports.length) {
-    sel.innerHTML = '<option value="0">— aucun port MIDI —</option>';
-    return;
-  }
-  data.ports.forEach((name, i) => {
-    const opt = document.createElement('option');
-    opt.value = i; opt.textContent = name;
-    sel.appendChild(opt);
-  });
-}
-
-function _syncMsrvPanel() {
-  const btn = document.getElementById('msrv-connect-btn');
-  const dot = document.getElementById('msrv-dot');
-  const tbBtn = document.querySelector('#midi-srv-btn button');
-  if (btn) { btn.textContent = _msrvEnabled ? '◉ CONNECTÉ' : '○ CONNECTER'; btn.classList.toggle('active', _msrvEnabled); }
-  if (dot) dot.classList.toggle('active', _msrvEnabled);
-  if (tbBtn) { tbBtn.textContent = _msrvEnabled ? 'MIDI ●' : 'MIDI ○'; tbBtn.classList.toggle('active', _msrvEnabled); }
-}
-
-async function msrvToggle() {
-  const port    = parseInt(document.getElementById('msrv-port-sel').value) || 0;
-  const channel = (parseInt(document.getElementById('msrv-ch').value) || 10) - 1; // 0-based
-  await fetch('/midi/config', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: `port=${port}&channel=${channel}`,
-  });
-  const resp = await fetch('/midi/toggle', { method: 'POST' });
-  const html = await resp.text();
-  _msrvEnabled = html.includes('MIDI ●');
-  _syncMsrvPanel();
-}
+// ---- OSC / MIDI SRV : configurables dans ⚙ Setup ----
+// OSC toggle direct via HTMX (bouton toolbar)
+// MIDI SRV → window.open('/setup#midi-srv-section', '_blank')
 
 // ---------------------------------------------------------------------------
 // MIDI Learn — Web MIDI API
@@ -2497,46 +2363,6 @@ function bangMidiQuantize(hits, steps, stepDurMs) {
   return dna.join('');
 }
 
-function _syncOscBtn() {
-  const el = document.getElementById('osc-btn');
-  if (!el) return;
-  const btn = el.querySelector('button');
-  if (!btn) return;
-  if (_oscEnabled) {
-    btn.textContent = 'OSC ●';
-    btn.classList.add('active');
-  } else {
-    btn.textContent = 'OSC ○';
-    btn.classList.remove('active');
-  }
-}
-
-function _syncOscPanel() {
-  const btn = document.getElementById('osc-connect-btn');
-  const dot = document.getElementById('osc-dot');
-  if (btn) {
-    btn.textContent = _oscEnabled ? '◉ CONNECTÉ' : '○ CONNECTER';
-    btn.classList.toggle('active', _oscEnabled);
-  }
-  if (dot) dot.classList.toggle('active', _oscEnabled);
-}
-
-async function oscPanelToggle() {
-  const host   = document.getElementById('osc-host').value.trim() || '127.0.0.1';
-  const port   = parseInt(document.getElementById('osc-port').value) || 57120;
-  const rxPort = parseInt(document.getElementById('osc-rx-port').value) || 57121;
-
-  await fetch('/osc/config', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: `host=${encodeURIComponent(host)}&port=${port}&rx_port=${rxPort}`,
-  });
-  const resp = await fetch('/osc/toggle', { method: 'POST' });
-  const html = await resp.text();
-  _oscEnabled = html.includes('OSC ●');
-  _syncOscBtn();
-  _syncOscPanel();
-}
 
 function confirmExport() {
   const filename = document.getElementById('export-filename').value.trim() || 'bang_out.mid';
