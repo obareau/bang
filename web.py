@@ -1421,6 +1421,15 @@ def _osc_log_entry(direction: str, addr: str, args) -> None:
     })
 
 
+def _lfo_val(shape: str, phase: float) -> float:
+    """Valeur LFO normalisée [0..1] pour une phase [0..1]."""
+    import math
+    if shape == "sin":  return 0.5 + 0.5 * math.sin(2 * math.pi * phase)
+    if shape == "tri":  return 2 * phase if phase < 0.5 else 2 * (1 - phase)
+    if shape == "ramp": return phase
+    return random.random()  # rnd
+
+
 def _osc_clock_loop() -> None:
     """Thread background : émet les triggers OSC au BPM du pattern courant."""
     try:
@@ -1433,6 +1442,8 @@ def _osc_clock_loop() -> None:
     client: SimpleUDPClient | None = None
     last_addr = (None, None)
     step = 0
+    cycle_count = 0
+    dropped_voices: set[str] = set()
     markov_notes: dict[str, list[int]] = {}
 
     while _state.get("osc_enabled"):
@@ -1455,8 +1466,9 @@ def _osc_clock_loop() -> None:
 
         t0 = time.perf_counter()
 
-        # Régénération des notes Markov au début de chaque cycle
+        # Régénération des notes Markov + LFO drop au début de chaque cycle
         if step == 0:
+            cycle_count += 1
             markov_notes = {}
             engine = _state.get("engine")
             if engine:
@@ -1470,6 +1482,21 @@ def _osc_clock_loop() -> None:
                             name = _voice_label(note, vtype)
                             markov_notes[name] = ev["chain"].generate(n_steps)
                     mk_idx += 1
+            # Décision drop par voix (voice_drop + LFO target=drop)
+            voice_lfo_map  = _state.get("voice_lfo", {})
+            voice_drop_map = _state.get("voice_drop", {})
+            dropped_voices = set()
+            for _n, _d, _vt in voices:
+                if _vt in ("cc", "babka"): continue
+                _nm  = _voice_label(_n, _vt)
+                _drop = voice_drop_map.get(_nm, 1.0)
+                _lfo = voice_lfo_map.get(_nm)
+                if _lfo and _lfo.get("target") == "drop":
+                    _ph = (cycle_count * _lfo["freq"]) % 1.0
+                    _lv = _lfo_val(_lfo["shape"], _ph)
+                    _drop = max(0.0, min(1.0, _drop * (1 - _lfo["depth"] + _lv * _lfo["depth"])))
+                if _drop < 1.0 and random.random() > _drop:
+                    dropped_voices.add(_nm)
 
         # /bang/clock step total_steps
         try:
@@ -1478,11 +1505,19 @@ def _osc_clock_loop() -> None:
             if step == 0:
                 _osc_log_entry("TX", "/bang/clock", [0, n_steps])
 
+            voice_lfo_map = _state.get("voice_lfo", {})
             for note, dna, vtype in voices:
                 if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
                     continue
                 name    = _voice_label(note, vtype)
+                if name in dropped_voices:
+                    continue
                 density = _state["voice_density"].get(name, 1.0)
+                _lfo = voice_lfo_map.get(name)
+                if _lfo and _lfo.get("target") == "density":
+                    _ph = ((step / n_steps) * _lfo["freq"]) % 1.0
+                    _lv = _lfo_val(_lfo["shape"], _ph)
+                    density = max(0.0, min(1.0, density * (1 - _lfo["depth"] + _lv * _lfo["depth"])))
 
                 if vtype == "babka":
                     continue  # timing Babka incompatible avec un clock step-par-step
@@ -1563,6 +1598,8 @@ def _midi_srv_clock_loop() -> None:
         return
 
     step = 0
+    cycle_count = 0
+    dropped_voices: set[str] = set()
     markov_notes: dict[str, list[int]] = {}
     pending_off: list[tuple[float, int, int]] = []  # (time, channel, note)
 
@@ -1595,8 +1632,9 @@ def _midi_srv_clock_loop() -> None:
                 still.append((off_t, ch, n))
         pending_off = still
 
-        # Régénération Markov au début du cycle
+        # Régénération Markov + LFO drop au début du cycle
         if step == 0:
+            cycle_count += 1
             markov_notes = {}
             engine = _state.get("engine")
             if engine:
@@ -1610,14 +1648,37 @@ def _midi_srv_clock_loop() -> None:
                             name = _voice_label(note, vtype)
                             markov_notes[name] = ev["chain"].generate(n_steps)
                     mk_idx += 1
+            # Décision drop par voix (voice_drop + LFO target=drop)
+            voice_lfo_map  = _state.get("voice_lfo", {})
+            voice_drop_map = _state.get("voice_drop", {})
+            dropped_voices = set()
+            for _n, _d, _vt in voices:
+                if _vt in ("cc", "babka"): continue
+                _nm   = _voice_label(_n, _vt)
+                _drop = voice_drop_map.get(_nm, 1.0)
+                _lfo  = voice_lfo_map.get(_nm)
+                if _lfo and _lfo.get("target") == "drop":
+                    _ph = (cycle_count * _lfo["freq"]) % 1.0
+                    _lv = _lfo_val(_lfo["shape"], _ph)
+                    _drop = max(0.0, min(1.0, _drop * (1 - _lfo["depth"] + _lv * _lfo["depth"])))
+                if _drop < 1.0 and random.random() > _drop:
+                    dropped_voices.add(_nm)
 
         # Collecter les triggers de ce step, triés par temps de déclenchement
+        voice_lfo_map = _state.get("voice_lfo", {})
         events: list[tuple[float, int, int, int]] = []  # (trigger_t, ch, midi_note, vel)
         for note, dna, vtype in voices:
             if vtype in ("cc", "babka") or (note == 0 and not vtype.startswith("ksp")):
                 continue
             name    = _voice_label(note, vtype)
+            if name in dropped_voices:
+                continue
             density = _state["voice_density"].get(name, 1.0)
+            _lfo = voice_lfo_map.get(name)
+            if _lfo and _lfo.get("target") == "density":
+                _ph = ((step / n_steps) * _lfo["freq"]) % 1.0
+                _lv = _lfo_val(_lfo["shape"], _ph)
+                density = max(0.0, min(1.0, density * (1 - _lfo["depth"] + _lv * _lfo["depth"])))
             compiled = compile_dna(dna)
             row      = compiled[step % len(compiled)]
             trig, vel, prob, ratch, jit = row
