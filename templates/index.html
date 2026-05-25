@@ -1662,7 +1662,8 @@ async function toggleDemoMode() {
       }
       _sfPiano = await Soundfont.instrument(_audioCtx, 'acoustic_grand_piano', {
         soundfont: 'MusyngKite',
-        gain: 3
+        destination: _masterGain,
+        gain: 2
       });
     } catch(e) { console.warn('Soundfont load failed:', e); }
     btn.textContent = '✦ DEMO';
