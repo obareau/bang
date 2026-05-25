@@ -1946,12 +1946,27 @@ function _synthNote(note, vel, tS, durS, vtype) {
   if (!_audioCtx || !_masterGain) return;
   const amp = vel / 127;
   const isDrum = vtype === 'drum' || vtype === 'babka' || vtype.startsWith('vd') || vtype === 'vk';
-  if (_demoMode && !isDrum && _sfPiano) {
+
+  if (_demoMode) {
     const delayMs = Math.max(0, (tS - _audioCtx.currentTime) * 1000);
-    const dur     = Math.max(0.5, Math.min(durS * 2, 4.0));
-    setTimeout(() => { if (_sfPiano && _demoMode) _sfPiano.play(note, _audioCtx.currentTime, { duration: dur }); }, delayMs);
+    if (!isDrum && _sfPiano) {
+      const dur = Math.max(0.3, Math.min(durS * 1.5, 1.5));
+      setTimeout(() => { if (_sfPiano && _demoMode) _sfPiano.play(note, _audioCtx.currentTime, { duration: dur }); }, delayMs);
+    } else if (isDrum) {
+      setTimeout(() => {
+        if (!_audioCtx || !_masterGain || !_demoMode) return;
+        const ct = _audioCtx.currentTime;
+        if      (note === 35 || note === 36)       _synthKick(amp, ct);
+        else if (note === 38 || note === 40)       _synthSnare(amp, ct);
+        else if (note === 42 || note === 44)       _synthHH(amp, ct, false);
+        else if (note === 46)                      _synthHH(amp, ct, true);
+        else if (note >= 48 && note <= 53)         _synthTom(amp, ct, note);
+        else                                       _synthKick(amp * 0.55, ct);
+      }, delayMs);
+    }
     return;
   }
+
   if (isDrum) {
     if      (note === 35 || note === 36)           _synthKick(amp, tS);
     else if (note === 38 || note === 40)           _synthSnare(amp, tS);
