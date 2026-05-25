@@ -1,8 +1,32 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.9.2** · Dark Umbrae / Robōtariis
+> **v0.9.3** · Dark Umbrae / Robōtariis
 
 BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
+
+---
+
+## Aperçu
+
+<table>
+<tr>
+<td align="center"><b>Dark (amber)</b></td>
+<td align="center"><b>Light (cream)</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/shot-dark.png" alt="BANG! dark amber theme" width="480"/></td>
+<td><img src="docs/screenshots/shot-light.png" alt="BANG! light cream theme" width="480"/></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td align="center"><b>Page Setup — OSC debugger + config MIDI</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/shot-setup.png" alt="BANG! page setup avec OSC debugger" width="700"/></td>
+</tr>
+</table>
 
 ---
 
@@ -282,6 +306,7 @@ Force le synthé navigateur même en présence d'un port MIDI connecté. Le MIDI
 | `→ Abl` | Push vers Ableton Live via AbletonOSC |
 | `Strudel` | Export pattern en mini-notation Strudel/TidalCycles |
 | `📁` | Page `/files` — liste et téléchargement des exports MIDI |
+| `⚙` | Page `/setup` — config OSC, MIDI serveur, Ableton, debugger OSC TX/RX |
 
 ### Raccourcis clavier
 
@@ -412,9 +437,12 @@ bang/
 ├── web.py              # Interface Web FastAPI+HTMX
 ├── templates/
 │   ├── index.html      # UI principale (HTMX + player Web MIDI/Audio)
+│   ├── setup.html      # Page config — OSC debugger, MIDI SRV, Ableton
 │   ├── _voices.html    # Panneau voix (partiel HTMX)
 │   ├── _pianoroll.html # Pianoroll SVG (partiel HTMX)
 │   └── doc.html        # Documentation in-app
+├── docs/
+│   └── screenshots/    # Captures d'écran pour README
 └── exports/            # Fichiers .mid générés
 ```
 
