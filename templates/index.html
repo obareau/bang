@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BANG — Dark Umbrae</title>
   <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -642,6 +643,10 @@
     .btn-rec { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 9px; font-size: 12px; border-radius: 3px; cursor: pointer; }
     .btn-rec:hover { color: var(--text); border-color: var(--muted); }
     .btn-rec.recording { background: #3a0000; color: #f55; border-color: #f55; animation: rec-pulse 0.8s ease-in-out infinite; }
+    .btn-demo { background: var(--surface); color: var(--muted); border: 1px solid var(--border); height: 26px; padding: 0 7px; font-size: 11px; border-radius: 3px; cursor: pointer; letter-spacing: .04em; }
+    .btn-demo:hover { color: var(--text); }
+    .btn-demo.active { background: #12261a; color: #4ade80; border-color: #4ade80; }
+    html[data-theme="light"] .btn-demo.active { background: #f0fdf4; color: #16a34a; border-color: #16a34a; }
 
     /* Piano-roll panel (right side of #main) */
     #pianoroll-panel {
@@ -1366,6 +1371,7 @@
       <option value="">— Web MIDI non initialisé —</option>
     </select>
     <button id="synth-btn" class="btn-synth" onclick="toggleForceSynth()" title="Forcer synthèse audio browser (🔊) — indépendant du MIDI">🔊</button>
+    <button id="demo-btn" class="btn-demo" onclick="toggleDemoMode()" title="Mode DEMO — joue les voix mélodiques via samples piano GM (soundfont browser, sans MIDI)">DEMO</button>
     <button id="rec-btn" class="btn-rec" onclick="toggleRec()" title="Enregistrer la sortie audio browser en WebM — activer avant ou pendant la lecture">⏺ REC</button>
     <span id="play-status" style="font-size:11px;color:var(--muted)">—</span>
   </div>
@@ -1605,9 +1611,43 @@ let _forceBrowserSynth = false;
 let _masterGain = null;
 let _evolveCount = 0;
 
+// Demo mode — soundfont piano via browser
+let _demoMode   = false;
+let _sfPiano    = null;
+let _sfLoading  = false;
+
 function toggleForceSynth() {
   _forceBrowserSynth = !_forceBrowserSynth;
   document.getElementById('synth-btn').classList.toggle('active', _forceBrowserSynth);
+}
+
+async function toggleDemoMode() {
+  _demoMode = !_demoMode;
+  const btn = document.getElementById('demo-btn');
+  btn.classList.toggle('active', _demoMode);
+  if (!_demoMode) return;
+
+  _forceBrowserSynth = true;
+  document.getElementById('synth-btn').classList.add('active');
+
+  if (_sfPiano || _sfLoading) return;
+  _sfLoading = true;
+  btn.textContent = 'DEMO…';
+  try {
+    _audioCtx = _audioCtx || new AudioContext();
+    if (!_masterGain) {
+      _masterGain = _audioCtx.createGain();
+      _masterGain.gain.value = 0.65;
+      _masterGain.connect(_audioCtx.destination);
+    }
+    _sfPiano = await Soundfont.instrument(_audioCtx, 'acoustic_grand_piano', {
+      soundfont: 'MusyngKite',
+      destination: _masterGain,
+      gain: 4
+    });
+  } catch(e) { console.warn('Soundfont load failed:', e); }
+  btn.textContent = 'DEMO';
+  _sfLoading = false;
 }
 
 // Init Web MIDI au chargement
@@ -1868,6 +1908,10 @@ function _synthNote(note, vel, tS, durS, vtype) {
   if (!_audioCtx || !_masterGain) return;
   const amp = vel / 127;
   const isDrum = vtype === 'drum' || vtype === 'babka' || vtype.startsWith('vd') || vtype === 'vk';
+  if (_demoMode && !isDrum && _sfPiano) {
+    _sfPiano.play(note, tS, { duration: Math.min(durS * 1.5, 3.0), gain: amp });
+    return;
+  }
   if (isDrum) {
     if      (note === 35 || note === 36)           _synthKick(amp, tS);
     else if (note === 38 || note === 40)           _synthSnare(amp, tS);
