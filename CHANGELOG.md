@@ -1,5 +1,17 @@
 # Changelog — BANG · Dark Umbrae Sequencer
 
+## [0.9.3] — 2026-05-25
+
+### Page Setup · Debugger OSC · Swing par voix
+
+- **Page /setup** — nouvelle page dédiée à la configuration : OSC (host/ports/connect), MIDI Serveur (port/canal/connect), Ableton Live. Accessible via le bouton `⚙` dans le toolbar. S'ouvre dans un nouvel onglet pour rester accessible pendant la session.
+- **Debugger OSC temps réel** — intégré dans /setup : ring buffer 50 messages, polling HTMX toutes les secondes. Les messages TX (orange) et RX (vert) s'affichent avec timestamp, adresse et arguments. Boutons Pause et Effacer. TX logué : `/bang/clock` au step 0 + triggers voix. RX logué : tous les handlers (`/bang/param/*`, `/bang/generate`, `/bang/vary`, `/bang/density/*`, `/bang/lock/*`).
+- **Swing par voix** — slider 0–100% dans le tab MOD de chaque voix. Décale les steps impairs dans le temps (`swing × step_dur × 0.33`). Les events MIDI d'un même step sont collectés, triés par timestamp, puis envoyés dans l'ordre — chaque voix peut donc swinguer différemment sans collision.
+- **MIDI canal par voix** — sélecteur `ch MIDI` (auto / ch1–ch16) dans le tab MOD. En mode "auto" : drums → canal drums global, voix mélodiques → canal 1. Override persisté dans `bang_state.json`.
+- **Ergonomie toolbar** — panels OSC et MIDI SRV slide-down supprimés. Le bouton `OSC ○/●` toggle directement l'état OSC (HTMX). Le bouton `MIDI ○/●` ouvre /setup. Toolbar sensiblement allégé.
+
+---
+
 ## [0.9.2] — 2026-05-25
 
 ### MIDI output routing par voix · LFO par voix · Copy/Paste DNA
