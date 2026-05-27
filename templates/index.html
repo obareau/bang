@@ -1050,7 +1050,6 @@
       opacity: .7;
     }
   </style>
-  <meta http-equiv="refresh" content="5">
 </head>
 <body>
 
@@ -3406,6 +3405,29 @@ function setTheme(theme) {
 (function() {
   const saved = localStorage.getItem('bang-theme') || 'amber';
   setTheme(saved);
+})();
+</script>
+
+<script>
+// Polling léger des params OSC (2s) - sans recharger la page
+(function() {
+  function pollParams() {
+    fetch('/params/live')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        ['bpm','chaos','gravity','steps','swing','microtiming'].forEach(k => {
+          const el = document.querySelector('[name= + k + ]');
+          if (el && document.activeElement !== el) el.value = d[k];
+        });
+        const swingVal = document.getElementById('swing-val');
+        if (swingVal && d.swing != null) swingVal.textContent = Math.round(d.swing*100) + '%';
+        const microVal = document.getElementById('micro-val');
+        if (microVal && d.microtiming != null) microVal.textContent = Math.round(d.microtiming*100) + '%';
+      })
+      .catch(() => {});
+  }
+  setInterval(pollParams, 2000);
 })();
 </script>
 </body>

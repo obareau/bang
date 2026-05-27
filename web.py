@@ -1334,7 +1334,7 @@ def _osc_handle_param(address: str, *args) -> None:
         return
     _state["last_p"][name] = val
     _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"] or [])
-    if name in ("chaos", "gravity") and _state.get("voices"):
+    if name in ("chaos", "gravity", "swing") and _state.get("voices"):
         _schedule_regen()
 
 
@@ -1363,6 +1363,24 @@ def _osc_handle_density(address: str, *args) -> None:
     _state["voice_density"][name] = val
     if _state.get("voices"):
         _schedule_regen()
+
+
+def _osc_handle_mute(address: str, *args) -> None:
+    _osc_log_entry(RX, address, args)
+    parts = address.strip(/).split(/)   # [bang,mute,2]
+    if len(parts) < 3:
+        return
+    try:
+        idx = int(parts[2])
+        mute = bool(int(args[0])) if args else True
+    except (TypeError, ValueError):
+        return
+    muted = _state.get("muted_voices", set())
+    if mute:
+        muted.add(idx)
+    else:
+        muted.discard(idx)
+    _state["muted_voices"] = muted
 
 
 def _osc_handle_lock(address: str, *args) -> None:
@@ -1403,6 +1421,7 @@ def _osc_rx_start(port: int) -> None:
     disp.map("/bang/vary",      _osc_handle_vary)
     disp.map("/bang/density/*", _osc_handle_density)
     disp.map("/bang/lock/*",    _osc_handle_lock)
+    disp.map("/bang/mute/*",    _osc_handle_mute)
 
     try:
         server = ThreadingOSCUDPServer(("0.0.0.0", port), disp)
@@ -3227,6 +3246,19 @@ async def ab_load(slot: Annotated[str, Form()] = "a"):
     oob_ab  = f'<div id="ab-controls" hx-swap-oob="outerHTML:#ab-controls">{_build_ab_html()}</div>'
     return HTMLResponse(_build_voices_html(voices) + oob_pr + oob_ab)
 
+
+
+@app.get("/params/live")
+async def params_live():
+    p = _state.get("last_p") or {}
+    return {
+        "bpm":         p.get("bpm", 110),
+        "chaos":       round(p.get("chaos", 0.3), 3),
+        "gravity":     round(p.get("gravity", 0.7), 3),
+        "steps":       p.get("steps", 64),
+        "swing":       round(p.get("swing", 0.0), 3),
+        "microtiming": round(p.get("microtiming", 1.0), 3),
+    }
 
 
 @app.get("/pianoroll/live")
