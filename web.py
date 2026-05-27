@@ -1307,8 +1307,10 @@ _PARAM_CLAMPS: dict[str, tuple] = {
 
 def _osc_handle_param(address: str, *args) -> None:
     _osc_log_entry("RX", address, args)
-    if not args or not _state.get("last_p"):
+    if not args:
         return
+    if not _state.get("last_p"):
+        _state["last_p"] = _read_form()
     parts = address.strip("/").split("/")   # ["bang","param","bpm"]
     if len(parts) < 3:
         return
