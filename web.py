@@ -3214,6 +3214,14 @@ async def ab_load(slot: Annotated[str, Form()] = "a"):
     return HTMLResponse(_build_voices_html(voices) + oob_pr + oob_ab)
 
 
+
+@app.get("/pianoroll/live", response_class=HTMLResponse)
+async def pianoroll_live():
+    if not _state.get("voices") or not _state.get("last_p"):
+        return HTMLResponse("")
+    pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state.get("plocks") or None)
+    return HTMLResponse(pr_html)
+
 @app.post("/osc/toggle", response_class=HTMLResponse)
 async def osc_toggle():
     if _state.get("osc_enabled"):

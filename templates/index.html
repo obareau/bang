@@ -1358,7 +1358,7 @@
       <button class="pr-zoom-btn" onclick="prZoom(+1)" title="Zoom +">+</button>
       <span id="pr-zoom-label" class="pr-zoom-label">×1</span>
     </div>
-    <div id="pianoroll">
+    <div id="pianoroll" hx-get="/pianoroll/live" hx-trigger="every 2s" hx-swap="innerHTML">
       {% if pr_html %}{{ pr_html|safe }}{% else %}<p style="color:var(--muted);font-size:11px">Appuyez sur ⚡ Générer pour voir le piano roll</p>{% endif %}
     </div>
   </div>
