@@ -277,7 +277,7 @@ function _syncOscUI() {
 }
 
 async function oscToggle() {
-  const host   = document.getElementById('osc-host').value.trim() || '127.0.0.1';
+  const host   = document.getElementById('osc-host').value.trim() || '100.64.201.127';
   const port   = parseInt(document.getElementById('osc-port').value) || 57120;
   const rxPort = parseInt(document.getElementById('osc-rx-port').value) || 57121;
   await fetch('/osc/config', {

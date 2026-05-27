@@ -453,7 +453,7 @@ def _save_state() -> None:
             "current_preset":    _state.get("current_preset", ""),
             "current_ksp_preset":_state.get("current_ksp_preset", ""),
             "max_poly":          _state.get("max_poly", 0),
-            "osc_host":          _state.get("osc_host", "127.0.0.1"),
+            "osc_host":          _state.get("osc_host", "100.64.201.127"),
             "osc_port":          _state.get("osc_port", 57120),
             "osc_rx_port":       _state.get("osc_rx_port", 57121),
             "slot_a":            _snap_to_dict(_state.get("slot_a")),
@@ -575,7 +575,7 @@ _state: dict = {
     "seq_current":          0,
     "seq_cycles":           2,
     "osc_enabled":     False,
-    "osc_host":        "127.0.0.1",
+    "osc_host":        "100.64.201.127",
     "osc_port":        57120,
     "osc_thread":      None,  # threading.Thread
     "osc_rx_port":     57121,
@@ -1458,7 +1458,7 @@ def _osc_clock_loop() -> None:
         n_steps  = p["steps"]
         step_dur = 60.0 / (bpm * 4)   # durée 1 step (double-croche)
 
-        host = _state.get("osc_host", "127.0.0.1")
+        host = _state.get("osc_host", "100.64.201.127")
         port = _state.get("osc_port", 57120)
         if (host, port) != last_addr:
             client    = SimpleUDPClient(host, int(port))
@@ -1760,7 +1760,7 @@ async def index(request: Request):
         last_p=_state["last_p"],
         app_version=APP_VERSION,
         osc_enabled=_state.get("osc_enabled", False),
-        osc_host=_state.get("osc_host", "127.0.0.1"),
+        osc_host=_state.get("osc_host", "100.64.201.127"),
         osc_port=_state.get("osc_port", 57120),
         osc_rx_port=_state.get("osc_rx_port", 57121),
         midi_srv_enabled=_state.get("midi_srv_enabled", False),
@@ -3225,7 +3225,7 @@ async def osc_toggle():
 async def osc_config(host:    Annotated[str, Form()] = "127.0.0.1",
                      port:    Annotated[int, Form()] = 57120,
                      rx_port: Annotated[int, Form()] = 57121):
-    _state["osc_host"]    = host.strip() or "127.0.0.1"
+    _state["osc_host"]    = host.strip() or "100.64.201.127"
     _state["osc_port"]    = max(1, min(65535, port))
     _state["osc_rx_port"] = max(1, min(65535, rx_port))
     if _state.get("osc_enabled"):
@@ -3236,7 +3236,7 @@ async def osc_config(host:    Annotated[str, Form()] = "127.0.0.1",
 
 def _build_osc_btn() -> str:
     enabled  = _state.get("osc_enabled", False)
-    host     = _state.get("osc_host", "127.0.0.1")
+    host     = _state.get("osc_host", "100.64.201.127")
     port     = _state.get("osc_port", 57120)
     rx_port  = _state.get("osc_rx_port", 57121)
     cls      = "btn-osc active" if enabled else "btn-osc"
@@ -3278,7 +3278,7 @@ async def osc_log_clear():
 async def setup_page(request: Request):
     return render("setup.html",
         osc_enabled=_state.get("osc_enabled", False),
-        osc_host=_state.get("osc_host", "127.0.0.1"),
+        osc_host=_state.get("osc_host", "100.64.201.127"),
         osc_port=_state.get("osc_port", 57120),
         osc_rx_port=_state.get("osc_rx_port", 57121),
         midi_srv_enabled=_state.get("midi_srv_enabled", False),
