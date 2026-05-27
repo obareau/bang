@@ -3215,10 +3215,11 @@ async def ab_load(slot: Annotated[str, Form()] = "a"):
 
 
 
-@app.get("/pianoroll/live", response_class=HTMLResponse)
+@app.get("/pianoroll/live")
 async def pianoroll_live():
     if not _state.get("voices") or not _state.get("last_p"):
-        return HTMLResponse("")
+        from starlette.responses import Response
+        return Response(status_code=204)
     pr_html = _build_pr_html(_state["voices"], _state["last_p"]["steps"], _state.get("plocks") or None)
     return HTMLResponse(pr_html)
 
