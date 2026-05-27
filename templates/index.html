@@ -1082,17 +1082,17 @@
 
     <div class="tb-group">
       <label>CHAOS</label>
-      <input type="number" name="chaos" value="0.30" min="0" max="1" step="0.05" class="tb-w-sm">
+      <input type="number" name="chaos" value="{{ last_p.chaos if last_p else 0.30 }}" min="0" max="1" step="0.05" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
       <label>STEPS</label>
-      <input type="number" name="steps" value="64" min="8" max="256" class="tb-w-sm">
+      <input type="number" name="steps" value="{{ last_p.steps if last_p else 64 }}" min="8" max="256" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
       <label>BPM</label>
-      <input type="number" name="bpm" id="bpm-input" value="110" min="40" max="200" class="tb-w-sm">
+      <input type="number" name="bpm" id="bpm-input" value="{{ last_p.bpm if last_p else 110 }}" min="40" max="200" class="tb-w-sm">
       <button type="button" id="tap-btn" onclick="bangTap()" title="Tap tempo — taper le rythme">TAP</button>
       <button type="button" id="sync-btn" onclick="toggleMidiSync()" title="MIDI Clock sync (Chrome) — synchronise BPM sur horloge MIDI entrante · transport Start/Stop auto">SYNC</button>
     </div>
@@ -1123,7 +1123,7 @@
 
     <div class="tb-group">
       <label>GRAVITY</label>
-      <input type="number" name="gravity" value="0.70" min="0" max="1" step="0.05" class="tb-w-sm">
+      <input type="number" name="gravity" value="{{ last_p.gravity if last_p else 0.70 }}" min="0" max="1" step="0.05" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
