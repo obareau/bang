@@ -1283,9 +1283,8 @@ def _sync_vary() -> None:
 
 def _sync_generate() -> None:
     """Regénération complète avec les params courants (appelable depuis le thread OSC)."""
-    p = _state.get("last_p")
-    if not p:
-        return
+    p = _state.get("last_p") or _read_form()
+    _state["last_p"] = p
     if _state["voices"]:
         _state["history"].append((_state["voices"][:], list(_state["plocks"]), dict(p)))
     voices = _apply_voice_steps(_apply_note_remap(_apply_locks(_build_voices(p))))
@@ -1769,6 +1768,7 @@ async def index(request: Request):
         ableton_track_offset=_state.get("ableton_track_offset", 0),
         ableton_slot=_state.get("ableton_slot", 0),
         seq_html=_build_seq_html(),
+        pr_html=_build_pr_html(_state['voices'], _state['last_p']['steps'], _state.get('plocks') or None) if _state.get('voices') and _state.get('last_p') else '',
         voice_density=_state.get("voice_density", {}),
         voice_chords=_state.get("voice_chords", {}),
         voice_steps=_state.get("voice_steps", {}),
@@ -3525,4 +3525,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("BANG_PORT", 7777))
     print(f"BANG Web — http://0.0.0.0:{port}")
     print(f"Sur Tailscale : http://100.64.201.127:{port}")
-    uvicorn.run("web:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("web:app", host="0.0.0.0", port=port, reload=False)
