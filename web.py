@@ -1303,6 +1303,16 @@ _PARAM_CLAMPS: dict[str, tuple] = {
     "steps":       (8,    256,  int),
     "cc_depth":    (0.0,  1.0,  float),
 }
+_regen_timer: threading.Timer | None = None
+
+
+def _schedule_regen(delay: float = 0.4) -> None:
+    global _regen_timer
+    if _regen_timer is not None:
+        _regen_timer.cancel()
+    _regen_timer = threading.Timer(delay, _sync_generate)
+    _regen_timer.daemon = True
+    _regen_timer.start()
 
 
 def _osc_handle_param(address: str, *args) -> None:
@@ -1324,6 +1334,8 @@ def _osc_handle_param(address: str, *args) -> None:
         return
     _state["last_p"][name] = val
     _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"] or [])
+    if name in ("chaos", "gravity") and _state.get("voices"):
+        _schedule_regen()
 
 
 def _osc_handle_generate(address: str, *args) -> None:
@@ -1349,6 +1361,8 @@ def _osc_handle_density(address: str, *args) -> None:
     except (TypeError, ValueError):
         return
     _state["voice_density"][name] = val
+    if _state.get("voices"):
+        _schedule_regen()
 
 
 def _osc_handle_lock(address: str, *args) -> None:
