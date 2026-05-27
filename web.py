@@ -1366,8 +1366,8 @@ def _osc_handle_density(address: str, *args) -> None:
 
 
 def _osc_handle_mute(address: str, *args) -> None:
-    _osc_log_entry(RX, address, args)
-    parts = address.strip(/).split(/)   # [bang,mute,2]
+    _osc_log_entry("RX", address, args)
+    parts = address.strip("/").split("/")   # ["bang","mute","2"]
     if len(parts) < 3:
         return
     try:
