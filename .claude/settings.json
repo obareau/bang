@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(journalctl *)",
+      "Bash(systemctl status *)",
+      "Bash(systemctl is-active *)",
+      "Bash(systemctl list-units *)",
+      "Bash(systemctl list-timers *)",
+      "Bash(systemctl cat *)",
+      "Bash(nmap *)",
+      "Bash(ollama list)",
+      "Bash(ollama ps)",
+      "Bash(ollama show *)",
+      "Bash(ping *)",
+      "Bash(tailscale status)",
+      "Bash(tailscale ip *)",
+      "Bash(openclaw logs *)",
+      "Bash(openclaw status)",
+      "Bash(openclaw mcp)",
+      "Bash(openclaw skills)",
+      "Bash(openclaw plugins)",
+      "Bash(openclaw channels)",
+      "Bash(openclaw config)",
+      "Bash(nvidia-smi *)",
+      "Bash(ufw status)",
+      "Bash(apt-cache search *)",
+      "Bash(apt-cache show *)",
+      "Bash(pip show *)",
+      "Bash(blkid *)",
+      "Bash(lsblk *)",
+      "Bash(upsc *)"
+    ]
+  }
+}

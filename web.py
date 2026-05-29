@@ -4,6 +4,14 @@ from __future__ import annotations
 
 APP_VERSION = "0.9.5-alpha"
 
+# ---------------------------------------------------------------------------
+# SSE ??? Live sync browser ??? ??tat OSC/MIDI
+# ---------------------------------------------------------------------------
+_sse_loop:    asyncio.AbstractEventLoop | None = None
+_sse_event:   asyncio.Event | None             = None
+_sse_dirty:   set[str]                         = set()
+_sse_clients: list[asyncio.Queue]              = []
+
 import io
 import json
 import os
@@ -20,7 +28,9 @@ from typing import Annotated
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+import asyncio
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from bang_engine import (
@@ -514,6 +524,7 @@ def _load_state() -> None:
 
 
 app      = App = FastAPI(title="BANG — Dark Umbrae")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 jinja    = Environment(
     loader=FileSystemLoader(str(BASE_DIR / "templates")),
     autoescape=select_autoescape(["html"]),
@@ -530,7 +541,111 @@ async def autosave_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def on_startup():
+    global _sse_loop, _sse_event
+    _sse_loop  = asyncio.get_event_loop()
+    _sse_event = asyncio.Event()
+    asyncio.create_task(_sse_broadcaster())
     _load_state()
+
+
+# ---------------------------------------------------------------------------
+# SSE ??? broadcaster, payload, endpoint
+# ---------------------------------------------------------------------------
+
+async def _sse_broadcaster() -> None:
+    """Debounce 50 ms puis pousse les fragments HTML aux clients connect??s."""
+    while True:
+        await _sse_event.wait()
+        _sse_event.clear()
+        await asyncio.sleep(0.05)                     # absorbe les rafales potard
+        dirty = set(_sse_dirty)
+        _sse_dirty.clear()
+        payload = _build_sse_payload(dirty)
+        if payload:
+            dead = []
+            for q in list(_sse_clients):
+                try:
+                    q.put_nowait(payload)
+                except asyncio.QueueFull:
+                    dead.append(q)
+            for q in dead:
+                _sse_clients.remove(q)
+
+
+def _build_sse_payload(dirty: set[str]) -> str:
+    """Construit les fragments HTML HTMX OOB correspondant aux ??l??ments dirty."""
+    parts: list[str] = []
+    p = _state.get("last_p") or {}
+
+    # Params globaux (bpm, chaos, gravity, swing, microtiming, steps)
+    param_ids = {
+        "bpm":         "bpm-input",
+        "chaos":       "inp-chaos",
+        "gravity":     "inp-gravity",
+        "swing":       "swing-range",
+        "microtiming": "micro-range",
+        "steps":       "inp-steps",
+    }
+    for item in dirty:
+        if item.startswith("param:"):
+            name = item[6:]
+            val  = p.get(name, "")
+            eid  = param_ids.get(name, f"inp-{name}")
+            parts.append(
+                f'<input id="{eid}" name="{name}" value="{val}" hx-swap-oob="true">'
+            )
+
+    # Density par voix
+    for item in dirty:
+        if item.startswith("density:"):
+            voice = item[8:]
+            val   = _state.get("voice_density", {}).get(voice, 1.0)
+            parts.append(
+                f'<input id="inp-density-{voice}" value="{val:.3f}" hx-swap-oob="true">'
+            )
+
+    # Pattern (generate / vary) ??? pianoroll complet
+    if "pattern" in dirty and _state.get("voices") and p.get("steps"):
+        try:
+            pr = _build_pr_html(_state["voices"], p["steps"],
+                                _state.get("plocks") or None)
+            parts.append(f'<div id="pianoroll" hx-swap-oob="true">{pr}</div>')
+        except Exception:
+            pass
+
+    return "".join(parts)
+
+
+def _sse_signal(key: str) -> None:
+    """Marque un ??l??ment dirty et r??veille le broadcaster (thread-safe)."""
+    _sse_dirty.add(key)
+    if _sse_loop and _sse_event:
+        _sse_loop.call_soon_threadsafe(_sse_event.set)
+
+
+@app.get("/events")
+async def sse_stream(request: Request):
+    """Endpoint SSE ??? une connexion persistante par tab browser."""
+    q: asyncio.Queue = asyncio.Queue(maxsize=20)
+    _sse_clients.append(q)
+    async def _gen():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=15.0)
+                    yield f"data: {data}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ka\n\n"   # keepalive anti-timeout proxy
+        finally:
+            if q in _sse_clients:
+                _sse_clients.remove(q)
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def render(template_name: str, **ctx) -> HTMLResponse:
@@ -871,9 +986,9 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
         base = morph_dna("x---x---x---x---", "x---?---x↺--░---", mutation_rate=chaos * 0.5)
         return [
             (36, mutate_dna(base, intensity=chaos * 0.6), "drum"),
-            (38, "----x-------x---",                       "drum"),
-            (42, "x-x-x-x-x-x-x-x",                       "drum"),
-            (24, "x-?-░",                                  "drum"),
+            (38, mutate_dna("----x-------x---",  intensity=chaos * 0.25), "drum"),
+            (42, mutate_dna("x-x-x-x-x-x-x-x",  intensity=chaos * 0.2),  "drum"),
+            (24, mutate_dna("x-?-░",              intensity=chaos * 0.3),  "drum"),
         ]
 
     if mode == "weather":
@@ -885,9 +1000,9 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
     if mode in ("markov", "phase2"):
         voices = [
             (36, mutate_dna("x---x---", intensity=chaos * 0.4), "drum"),
-            (38, "----x-------x---",                             "drum"),
-            (42, "x-x-x-x-x-x-x-x",                             "drum"),
-            (24, "x-?-░",                                        "markov"),
+            (38, mutate_dna("----x-------x---",  intensity=chaos * 0.25), "drum"),
+            (42, mutate_dna("x-x-x-x-x-x-x-x",  intensity=chaos * 0.2),  "drum"),
+            (24, mutate_dna("x-?-░",              intensity=chaos * 0.3),  "markov"),
         ]
         if mode == "phase2":
             cc_peak = int(20 + p["cc_depth"] * 100)
@@ -928,25 +1043,25 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
     if mode == "babka":
         if chaos < 0.4:
             return [
-                (36, "x---x---",            "babka"),
-                (38, "x(3,8)",              "babka"),
-                (42, "[x x]-x-[x x]-x-",   "babka"),
-                (24, "?-░-",               "babka"),
+                (36, mutate_dna("x---x---",          intensity=chaos * 0.3),  "babka"),
+                (38, mutate_dna("x(3,8)",            intensity=chaos * 0.2),  "babka"),
+                (42, mutate_dna("[x x]-x-[x x]-x-", intensity=chaos * 0.15), "babka"),
+                (24, mutate_dna("?-░-",             intensity=chaos * 0.3),  "babka"),
             ]
         elif chaos < 0.7:
             return [
-                (36, "<x---x--- x-[x-]x-->",     "babka"),
-                (38, "?(3,8)",                    "babka"),
-                (42, "<[x x]-x- x-[x x]->",      "babka"),
-                (24, "↺(2,8)",                   "babka"),
+                (36, mutate_dna("<x---x--- x-[x-]x-->",  intensity=chaos * 0.25), "babka"),
+                (38, mutate_dna("?(3,8)",                 intensity=chaos * 0.2),  "babka"),
+                (42, mutate_dna("<[x x]-x- x-[x x]->",   intensity=chaos * 0.15), "babka"),
+                (24, mutate_dna("↺(2,8)",                 intensity=chaos * 0.25), "babka"),
             ]
         else:
             n_snare = min(7, max(2, int(chaos * 8)))
             return [
-                (36, "<x-[x x]- [x x]-->",             "babka"),
-                (38, f"?({n_snare},8)",                 "babka"),
-                (42, "<[x x x]-x- x-[x x]->",          "babka"),
-                (24, "<↺(2,8) ░(3,8)>",               "babka"),
+                (36, mutate_dna("<x-[x x]- [x x]-->",        intensity=chaos * 0.3),  "babka"),
+                (38, mutate_dna(f"?({n_snare},8)",            intensity=chaos * 0.25), "babka"),
+                (42, mutate_dna("<[x x x]-x- x-[x x]->",     intensity=chaos * 0.2),  "babka"),
+                (24, mutate_dna("<↺(2,8) ░(3,8)>",       intensity=chaos * 0.3),  "babka"),
             ]
 
     if mode == "bassline":
@@ -1273,7 +1388,7 @@ def _sync_vary() -> None:
     locked    = _state.get("locked_voices", set())
     new_voices = []
     for idx, (note, dna, vtype) in enumerate(_state["voices"]):
-        if idx in locked or vtype in ("cc", "babka"):
+        if idx in locked or vtype == "cc":
             new_voices.append((note, dna, vtype))
         else:
             new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
@@ -1334,6 +1449,7 @@ def _osc_handle_param(address: str, *args) -> None:
         return
     _state["last_p"][name] = val
     _state["engine"] = _assemble_engine(_state["last_p"], _state["voices"] or [])
+    _sse_signal(f"param:{name}")
     if name in ("chaos", "gravity", "swing") and _state.get("voices"):
         _schedule_regen()
 
@@ -1341,11 +1457,13 @@ def _osc_handle_param(address: str, *args) -> None:
 def _osc_handle_generate(address: str, *args) -> None:
     _osc_log_entry("RX", address, args)
     _sync_generate()
+    _sse_signal("pattern")
 
 
 def _osc_handle_vary(address: str, *args) -> None:
     _osc_log_entry("RX", address, args)
     _sync_vary()
+    _sse_signal("pattern")
 
 
 def _osc_handle_density(address: str, *args) -> None:
@@ -1361,6 +1479,7 @@ def _osc_handle_density(address: str, *args) -> None:
     except (TypeError, ValueError):
         return
     _state["voice_density"][name] = val
+    _sse_signal(f"density:{name}")
     if _state.get("voices"):
         _schedule_regen()
 
@@ -2933,7 +3052,7 @@ async def vary():
     locked = _state.get("locked_voices", set())
     new_voices = []
     for idx, (note, dna, vtype) in enumerate(_state["voices"]):
-        if idx in locked or vtype in ("cc", "babka"):
+        if idx in locked or vtype == "cc":
             new_voices.append((note, dna, vtype))
         else:
             new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
@@ -2951,7 +3070,7 @@ async def voice_vary(idx: Annotated[int, Form()]):
     if not (0 <= idx < len(_state["voices"])):
         return HTMLResponse("")
     note, dna, vtype = _state["voices"][idx]
-    if idx in _state.get("locked_voices", set()) or vtype in ("cc", "babka"):
+    if idx in _state.get("locked_voices", set()) or vtype == "cc":
         return HTMLResponse(_build_voices_html(_state["voices"]))
     _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
     new_dna = mutate_dna(dna, intensity=0.15)
@@ -3248,6 +3367,53 @@ async def ab_load(slot: Annotated[str, Form()] = "a"):
 
 
 
+
+@app.post("/ctrl")
+async def ctrl_param(
+    key: Annotated[str,   Form()],
+    val: Annotated[str,   Form()],
+):
+    from starlette.responses import Response as _R
+    p2 = _state.get("last_p")
+    if p2 is not None and key in p2:
+        try:
+            if key in ("bpm", "steps", "vel_floor", "vel_ceiling", "markov_channel"):
+                p2[key] = int(float(val))
+            else:
+                p2[key] = round(float(val), 4)
+        except (ValueError, TypeError):
+            pass
+    return _R(status_code=204)
+
+
+@app.get("/live", response_class=HTMLResponse)
+async def live_dashboard():
+    p2  = _state.get("last_p") or {}
+    vs  = _state.get("voices") or []
+    den = _state.get("voice_density", {})
+    locked = _state.get("locked_voices", set())
+    NOTE_NAMES = {
+        36:"Kick", 38:"Snare", 42:"HH", 46:"OH", 47:"Tom",
+        49:"Crash", 51:"Ride", 24:"Bass", 33:"Bass2", 48:"Tom2",
+        40:"Snare2", 43:"Tom3",
+    }
+    voices_data = []
+    for idx, (note, dna, vtype) in enumerate(vs):
+        if vtype == "cc":
+            continue
+        name = NOTE_NAMES.get(note, f"V{note}")
+        density = den.get(name, den.get(name.lower(), 0.5))
+        voices_data.append({
+            "idx": idx, "note": note, "name": name, "vtype": vtype,
+            "density": round(float(density), 3), "locked": idx in locked,
+        })
+    tpl = jinja.get_template("live.html")
+    return HTMLResponse(tpl.render(
+        p=p2, voices=voices_data,
+        modes=["morph","random","babka","noise","ambient","weather","markov","phase2","bassline"],
+        version=APP_VERSION,
+    ))
+
 @app.get("/params/live")
 async def params_live():
     p = _state.get("last_p") or {}
@@ -3385,6 +3551,7 @@ async def session_export():
         "voice_chords":  _state["voice_chords"],
         "note_remap":    _state["note_remap"],
         "max_poly":     _state["max_poly"],
+        "locked_voices": sorted(_state["locked_voices"]),
     }
     content = json.dumps(payload, ensure_ascii=False, indent=2)
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")

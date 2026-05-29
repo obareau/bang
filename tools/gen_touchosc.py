@@ -188,11 +188,12 @@ def build_page2(pager_ch):
     add_sep(ch, 40, 68, W - 80)
 
     voices = [
-        ("Kick",   "/bang/density/Kick"),
-        ("Snare",  "/bang/density/Snare"),
-        ("HiHat",  "/bang/density/HiHat"),
-        ("Bass",   "/bang/density/Bass"),
-        ("Markov", "/bang/density/Markov"),
+        ("Punch", "/bang/density/Punch"),
+        ("Snap",  "/bang/density/Snap"),
+        ("HH",    "/bang/density/HH"),
+        ("OH",    "/bang/density/OH"),
+        ("Perc",  "/bang/density/Perc"),
+        ("Acc",   "/bang/density/Acc"),
     ]
     FH, GAP, LFT, TOP = 96, 10, 40, 80
     LW = 140
@@ -210,7 +211,7 @@ def build_page2(pager_ch):
     TH = FH
     add_label(ch, "LOCK", TX, TOP - 2, TW, 32, size=18, color=DIM)
 
-    for i, (name, _) in enumerate(voices[:4]):
+    for i, (name, _) in enumerate(voices):
         y = TOP + 34 + i * (FH + GAP)
         add_button(ch, name, f"/bang/lock/{i}", TX, y, TW, TH,
                    toggle=True, color=RED)

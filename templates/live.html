@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>BANG! Live — v{{ version }}</title>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #16161a;
+  --card: #1e1e24;
+  --accent: #7b5ea7;
+  --accent2: #4ecdc4;
+  --danger: #e05a5a;
+  --text: #e8e8f0;
+  --muted: #666680;
+  --border: #2a2a38;
+  --track-h: 6px;
+  --thumb-r: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; font-size: 14px; overscroll-behavior: none; }
+
+/* ── Layout ───────────────────────────────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100dvh; gap: 0; }
+header { padding: 10px 14px 8px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent2); }
+#status { font-size: 11px; color: var(--muted); }
+
+#main { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.card-title { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+
+/* ── Sliders ─────────────────────────────────────────────────── */
+.param-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.param-row:last-child { margin-bottom: 0; }
+.param-label { font-size: 12px; color: var(--muted); min-width: 72px; flex-shrink: 0; }
+.param-val { font-size: 12px; font-weight: 600; min-width: 36px; text-align: right; flex-shrink: 0; color: var(--text); }
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: var(--track-h); border-radius: 3px;
+  background: var(--border); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(var(--thumb-r) * 2); height: calc(var(--thumb-r) * 2);
+  border-radius: 50%; background: var(--accent);
+  border: 2px solid var(--bg); cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+input[type=range]::-moz-range-thumb {
+  width: calc(var(--thumb-r) * 2); height: calc(var(--thumb-r) * 2);
+  border-radius: 50%; background: var(--accent);
+  border: 2px solid var(--bg); cursor: pointer;
+}
+
+/* ── Mode + Steps ─────────────────────────────────────────────── */
+.select-row { display: flex; align-items: center; gap: 10px; }
+select {
+  flex: 1; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; appearance: none;
+  cursor: pointer; outline: none;
+}
+
+/* ── Action buttons ───────────────────────────────────────────── */
+#actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px; border-radius: 12px; border: none; font-size: 15px;
+  font-weight: 700; letter-spacing: 0.04em; cursor: pointer;
+  transition: filter .1s, transform .1s; user-select: none;
+  -webkit-user-select: none; touch-action: manipulation;
+}
+.btn:active { filter: brightness(.85); transform: scale(.97); }
+.btn-generate { background: var(--accent); color: #fff; }
+.btn-vary     { background: var(--surface); color: var(--accent2); border: 2px solid var(--accent2); }
+
+/* ── Voices ───────────────────────────────────────────────────── */
+.voice-strip { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.voice-strip:last-child { border-bottom: none; }
+.voice-name { font-size: 12px; font-weight: 600; min-width: 50px; flex-shrink: 0; }
+.voice-density { flex: 1; }
+.btn-lock {
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; transition: background .15s, color .15s;
+  -webkit-user-select: none; touch-action: manipulation;
+}
+.btn-lock.locked { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* ── SSE dot ──────────────────────────────────────────────────── */
+#sse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 6px; transition: background .3s; }
+#sse-dot.ok { background: #4caf50; }
+#sse-dot.err { background: var(--danger); }
+
+/* ── BPM big display ──────────────────────────────────────────── */
+#bpm-display { font-size: 32px; font-weight: 800; color: var(--accent2); text-align: center; line-height: 1; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>BANG! <span style="color:var(--muted);font-weight:400;font-size:12px">live</span></h1>
+    <span id="status"><span id="sse-dot"></span><span id="sse-label">connecting…</span></span>
+  </header>
+
+  <div id="main">
+
+    <!-- Actions -->
+    <div id="actions">
+      <button class="btn btn-generate" onclick="doGenerate()">⚡ Generate</button>
+      <button class="btn btn-vary"     onclick="doVary()">↭ Vary</button>
+    </div>
+
+    <!-- Global params -->
+    <div class="card">
+      <div class="card-title">Paramètres globaux</div>
+
+      <div id="bpm-display">{{ p.bpm|default(120) }}</div>
+
+      <div class="param-row">
+        <span class="param-label">BPM</span>
+        <input type="range" id="sl-bpm" min="40" max="240" step="1"
+               value="{{ p.bpm|default(120) }}"
+               oninput="updateDisplay(this,'disp-bpm')"
+               onchange="sendCtrl('bpm', this.value)">
+        <span class="param-val" id="disp-bpm">{{ p.bpm|default(120) }}</span>
+      </div>
+
+      <div class="param-row">
+        <span class="param-label">Chaos</span>
+        <input type="range" id="sl-chaos" min="0" max="1" step="0.01"
+               value="{{ p.chaos|default(0.5) }}"
+               oninput="updateDisplay(this,'disp-chaos')"
+               onchange="sendCtrl('chaos', this.value)">
+        <span class="param-val" id="disp-chaos">{{ "%.2f"|format(p.chaos|default(0.5)) }}</span>
+      </div>
+
+      <div class="param-row">
+        <span class="param-label">Gravity</span>
+        <input type="range" id="sl-gravity" min="0" max="1" step="0.01"
+               value="{{ p.gravity|default(0.7) }}"
+               oninput="updateDisplay(this,'disp-gravity')"
+               onchange="sendCtrl('gravity', this.value)">
+        <span class="param-val" id="disp-gravity">{{ "%.2f"|format(p.gravity|default(0.7)) }}</span>
+      </div>
+
+      <div class="param-row">
+        <span class="param-label">Swing</span>
+        <input type="range" id="sl-swing" min="0" max="1" step="0.01"
+               value="{{ p.swing|default(0) }}"
+               oninput="updateDisplay(this,'disp-swing')"
+               onchange="sendCtrl('swing', this.value)">
+        <span class="param-val" id="disp-swing">{{ "%.2f"|format(p.swing|default(0)) }}</span>
+      </div>
+
+      <div class="param-row">
+        <span class="param-label">Microtiming</span>
+        <input type="range" id="sl-microtiming" min="0" max="1" step="0.01"
+               value="{{ p.microtiming|default(0) }}"
+               oninput="updateDisplay(this,'disp-microtiming')"
+               onchange="sendCtrl('microtiming', this.value)">
+        <span class="param-val" id="disp-microtiming">{{ "%.2f"|format(p.microtiming|default(0)) }}</span>
+      </div>
+    </div>
+
+    <!-- Mode / Steps -->
+    <div class="card">
+      <div class="card-title">Mode &amp; Steps</div>
+      <div class="select-row">
+        <span class="param-label">Mode</span>
+        <select id="sel-mode" onchange="sendCtrl('mode', this.value)">
+          {% for m in modes %}
+          <option value="{{ m }}" {% if m == p.mode|default('random') %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="select-row" style="margin-top:10px">
+        <span class="param-label">Steps</span>
+        <select id="sel-steps" onchange="sendCtrl('steps', this.value)">
+          {% for s in [8, 12, 16, 24, 32] %}
+          <option value="{{ s }}" {% if s == p.steps|default(16)|int %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Voices -->
+    <div class="card">
+      <div class="card-title">Voix</div>
+      {% for v in voices %}
+      <div class="voice-strip" data-idx="{{ v.idx }}">
+        <span class="voice-name">{{ v.name }}</span>
+        <input type="range" class="voice-density" min="0" max="1" step="0.01"
+               value="{{ v.density }}"
+               oninput="updateVoiceDensityDisplay(this, {{ v.idx }})"
+               onchange="sendDensity('{{ v.name }}', this.value)">
+        <button class="btn-lock {% if v.locked %}locked{% endif %}"
+                data-idx="{{ v.idx }}"
+                onclick="toggleLock(this, {{ v.idx }})">🔒</button>
+      </div>
+      {% else %}
+      <p style="color:var(--muted);font-size:12px">Aucune voix — générez d'abord.</p>
+      {% endfor %}
+    </div>
+
+  </div><!-- #main -->
+</div><!-- #app -->
+
+<script>
+const BASE = '';
+
+// ── SSE ──────────────────────────────────────────────────────────
+const dot   = document.getElementById('sse-dot');
+const label = document.getElementById('sse-label');
+let es;
+
+function connectSSE() {
+  es = new EventSource(BASE + '/events');
+  es.onopen = () => { dot.className = 'ok'; label.textContent = 'live'; };
+  es.onerror = () => { dot.className = 'err'; label.textContent = 'offline'; };
+  es.onmessage = (ev) => {
+    try { applySSE(JSON.parse(ev.data)); } catch(e) {}
+  };
+}
+
+function applySSE(data) {
+  // data may be partial — only update fields present
+  if (data.bpm     !== undefined) setSlider('sl-bpm',         data.bpm,         'disp-bpm');
+  if (data.chaos   !== undefined) setSlider('sl-chaos',       data.chaos,       'disp-chaos');
+  if (data.gravity !== undefined) setSlider('sl-gravity',     data.gravity,     'disp-gravity');
+  if (data.swing   !== undefined) setSlider('sl-swing',       data.swing,       'disp-swing');
+  if (data.microtiming !== undefined) setSlider('sl-microtiming', data.microtiming, 'disp-microtiming');
+  if (data.mode    !== undefined) { const s = document.getElementById('sel-mode'); if (s) s.value = data.mode; }
+  if (data.steps   !== undefined) { const s = document.getElementById('sel-steps'); if (s) s.value = data.steps; }
+  if (data.bpm     !== undefined) document.getElementById('bpm-display').textContent = data.bpm;
+
+  if (data.voice_density) {
+    // { "Kick": 0.8, … }
+    document.querySelectorAll('.voice-strip').forEach(strip => {
+      const name = strip.querySelector('.voice-name').textContent.trim();
+      const val  = data.voice_density[name] ?? data.voice_density[name.toLowerCase()];
+      if (val === undefined) return;
+      const sl = strip.querySelector('input[type=range]');
+      if (sl) sl.value = val;
+    });
+  }
+  if (data.locked_voices !== undefined) {
+    document.querySelectorAll('.btn-lock').forEach(btn => {
+      const idx = parseInt(btn.dataset.idx);
+      btn.classList.toggle('locked', data.locked_voices.includes(idx));
+    });
+  }
+}
+
+function setSlider(id, val, dispId) {
+  const sl = document.getElementById(id);
+  if (!sl) return;
+  sl.value = val;
+  if (dispId) {
+    const d = document.getElementById(dispId);
+    if (d) d.textContent = id === 'sl-bpm' ? Math.round(val) : parseFloat(val).toFixed(2);
+  }
+  if (id === 'sl-bpm') document.getElementById('bpm-display').textContent = Math.round(val);
+}
+
+// ── Slider live display ───────────────────────────────────────────
+function updateDisplay(el, dispId) {
+  const d = document.getElementById(dispId);
+  if (!d) return;
+  d.textContent = el.id === 'sl-bpm' ? Math.round(el.value) : parseFloat(el.value).toFixed(2);
+  if (el.id === 'sl-bpm') document.getElementById('bpm-display').textContent = Math.round(el.value);
+}
+
+function updateVoiceDensityDisplay(el, idx) {
+  // No separate display — just live feedback via slider track fill could be added later
+}
+
+// ── API calls ─────────────────────────────────────────────────────
+async function sendCtrl(key, val) {
+  await fetch(BASE + '/ctrl', {
+    method: 'POST',
+    body: new URLSearchParams({ key, val }),
+  }).catch(() => {});
+}
+
+async function sendDensity(name, density) {
+  await fetch(BASE + '/voice/density', {
+    method: 'POST',
+    body: new URLSearchParams({ name, density }),
+  }).catch(() => {});
+}
+
+async function toggleLock(btn, idx) {
+  btn.classList.toggle('locked');
+  await fetch(BASE + '/lock_voice', {
+    method: 'POST',
+    body: new URLSearchParams({ idx }),
+  }).catch(() => {});
+}
+
+async function doGenerate() {
+  // Collect current params from sliders
+  const params = {
+    bpm:         document.getElementById('sl-bpm')?.value,
+    chaos:       document.getElementById('sl-chaos')?.value,
+    gravity:     document.getElementById('sl-gravity')?.value,
+    swing:       document.getElementById('sl-swing')?.value,
+    microtiming: document.getElementById('sl-microtiming')?.value,
+    mode:        document.getElementById('sel-mode')?.value,
+    steps:       document.getElementById('sel-steps')?.value,
+  };
+  await fetch(BASE + '/generate', {
+    method: 'POST',
+    body: new URLSearchParams(params),
+  }).catch(() => {});
+  // Reload page to refresh voice list (server will push SSE too)
+  setTimeout(() => location.reload(), 600);
+}
+
+async function doVary() {
+  await fetch(BASE + '/vary', { method: 'POST' }).catch(() => {});
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+connectSSE();
+</script>
+</body>
+</html>

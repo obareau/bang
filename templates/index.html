@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BANG — Dark Umbrae</title>
-  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script src="/static/js/htmx.min.js"></script>
+  <script src="/static/js/sse.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1052,6 +1053,8 @@
   </style>
 </head>
 <body>
+<!-- SSE live sync -->
+<div id="sse-sink" hx-ext="sse" sse-connect="/events" sse-swap="message" hx-swap="innerHTML" style="display:none"></div>
 
 <header>
   <h1>BANG · Dark Umbrae Sequencer</h1>
@@ -1082,12 +1085,12 @@
 
     <div class="tb-group">
       <label>CHAOS</label>
-      <input type="number" name="chaos" value="{{ last_p.chaos if last_p else 0.30 }}" min="0" max="1" step="0.05" class="tb-w-sm">
+      <input type="number" name="chaos" id="inp-chaos" value="{{ last_p.chaos if last_p else 0.30 }}" min="0" max="1" step="0.05" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
       <label>STEPS</label>
-      <input type="number" name="steps" value="{{ last_p.steps if last_p else 64 }}" min="8" max="256" class="tb-w-sm">
+      <input type="number" name="steps" id="inp-steps" value="{{ last_p.steps if last_p else 64 }}" min="8" max="256" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
@@ -1123,7 +1126,7 @@
 
     <div class="tb-group">
       <label>GRAVITY</label>
-      <input type="number" name="gravity" value="{{ last_p.gravity if last_p else 0.70 }}" min="0" max="1" step="0.05" class="tb-w-sm">
+      <input type="number" name="gravity" id="inp-gravity" value="{{ last_p.gravity if last_p else 0.70 }}" min="0" max="1" step="0.05" class="tb-w-sm">
     </div>
 
     <div class="tb-group">
@@ -1259,6 +1262,8 @@
     <button class="btn-met" onclick="openStrudelModal()" title="Exporter en mini-notation Strudel / TidalCycles">Strudel</button>
 
     <button class="btn-met" onclick="openAbletonModal()" title="Envoyer les patterns dans Ableton Live via AbletonOSC">→ Abl</button>
+
+    <button class="btn-met" onclick="window.open('/live','_blank')" title="Dashboard live touch-friendly">📱 Live</button>
 
     <button class="btn-met" id="seq-toggle-btn" onclick="bangToggleSeqPanel(this)" title="Séquenceur de presets — 8 slots, avance automatique">SEQ</button>
 
@@ -3417,7 +3422,7 @@ function setTheme(theme) {
       .then(d => {
         if (!d) return;
         ['bpm','chaos','gravity','steps','swing','microtiming'].forEach(k => {
-          const el = document.querySelector('[name= + k + ]');
+          const el = document.querySelector(`[name="${k}"]`);
           if (el && document.activeElement !== el) el.value = d[k];
         });
         const swingVal = document.getElementById('swing-val');

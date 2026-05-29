@@ -78,6 +78,7 @@
     {# ── DENSITY — barre pleine largeur sous le header ───────────────────── #}
     {% if vtype != "cc" %}
     <input type="range" class="density-slider"
+           id="inp-density-{{ name }}"
            min="0" max="1" step="0.05" value="{{ cur_density }}" name="density"
            hx-post="/voice/density" hx-vals='{"name": "{{ name }}"}'
            hx-include="this" hx-target="#voices" hx-swap="innerHTML"
