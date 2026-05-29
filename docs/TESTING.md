@@ -92,12 +92,14 @@ historique « bouton Generate mort »). La passe navigateur :
 
 ---
 
-## Bugs connus (ouverts dans Todoist → projet BANG! / 🐛 Bugs)
+## Bugs corrigés (2026-05-29)
 
-| Bug | Cause | Piste de fix |
+Les 2 findings de la première passe ont été corrigés ; harnais désormais **95/95**.
+
+| Bug | Cause | Fix appliqué |
 |-----|-------|--------------|
-| `/voice/vary` no-op intermittent | `mutate_dna(intensity=0.15)` ne garantit pas ≥1 flip sur motif court | forcer ≥1 mutation (boucler jusqu'à diff) |
-| seed non reproductible | `_build_voices`/`mutate_dna` utilisent le RNG global non-seedé ; le seed d'entrée n'est threadé que dans le chemin export/engine | `random.seed(p['seed'])` avant `_build_voices` si seed non vide |
+| `/voice/vary` no-op intermittent | `mutate_dna(intensity=0.15)` ne garantit pas ≥1 flip sur motif court | boucle de retry (≤8) jusqu'à ce que `new_dna != dna` — `web.py voice_vary()` |
+| seed non reproductible | `_build_voices`/`mutate_dna` utilisaient le RNG global non-seedé | `random.seed(_seed_to_int(p['seed']))` en tête de `_build_voices` si seed non vide |
 
 ---
 

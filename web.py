@@ -43,6 +43,7 @@ from bang_engine import (
     morph_dna,
     mutate_dna,
     random_dna,
+    _seed_to_int,
     weather_cc_breakpoints,
     weather_dna,
 )
@@ -975,6 +976,9 @@ def dna_html(dna: str, max_len: int = 24) -> str:
 
 
 def _build_voices(p: dict) -> list[tuple[int, str, str]]:
+    # Fix seed: reproductibilite des motifs quand un seed est fourni
+    if p.get("seed"):
+        random.seed(_seed_to_int(p["seed"]))
     chaos = p["chaos"]
     mode  = p["mode"]
     w     = _state["weather"] or {"temperature": 10.0, "wind_speed": 10.0}
@@ -3074,6 +3078,10 @@ async def voice_vary(idx: Annotated[int, Form()]):
         return HTMLResponse(_build_voices_html(_state["voices"]))
     _state["history"].append((list(_state["voices"]), list(_state["plocks"]), dict(_state["last_p"])))
     new_dna = mutate_dna(dna, intensity=0.15)
+    for _ in range(8):                 # garantit >=1 mutation reelle
+        if new_dna != dna:
+            break
+        new_dna = mutate_dna(dna, intensity=0.15)
     voices  = list(_state["voices"])
     voices[idx] = (note, new_dna, vtype)
     _state["voices"] = voices
