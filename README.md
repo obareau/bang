@@ -122,6 +122,25 @@ WantedBy=multi-user.target
 
 ---
 
+## Tests
+
+Harnais de test automatisé — voir **[`docs/TESTING.md`](docs/TESTING.md)** pour le détail complet.
+
+```bash
+# Régression + smoke + fuzz (stdlib pur, ~95 checks, snapshot/restore non destructif)
+python3 tests/test_bang.py            # cible http://localhost:7777 par défaut
+python3 tests/test_bang.py http://192.168.1.100:7777
+```
+
+- Exit code `0` = tout vert, `1` = au moins un échec ; dernière ligne = `BANG_TEST_JSON={...}`.
+- Couvre les 5 régressions historiques (déterminisme, régénération de toutes les voix, `/vary`, lock, front-end local) + bornes de params, les 14 modes, et le fuzz des 20 opérations par voix.
+- Oracle de vérité : `GET /session/export`. Le harnais sauvegarde puis restaure la session — **le motif de travail n'est jamais détruit**.
+- ⚠️ Ne jamais `kill` le process serveur : utiliser `sudo systemctl restart bang.service` (cf. `docs/TESTING.md`).
+
+Depuis Claude Code : la commande `/test-bang` lance le harnais + une passe navigateur (Puppeteer) et peut filer les échecs dans Todoist.
+
+---
+
 ## Dépendances
 
 | Paquet | Usage |
