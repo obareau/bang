@@ -1937,7 +1937,7 @@ function _synthNote(note, vel, tS, durS, vtype) {
     else if (note >= 48 && note <= 53)             _synthTom(amp, tS, note);
     else                                           _synthKick(amp * 0.55, tS);
   } else {
-    _synthTone(note, amp, tS, Math.min(durS, 0.6));
+    _synthTone(note, amp, tS, Math.min(durS, 0.6), vtype);
   }
 }
 
@@ -2006,18 +2006,56 @@ function _synthTom(amp, tS, note) {
   osc.start(tS); osc.stop(tS + 0.32);
 }
 
-function _synthTone(note, amp, tS, durS) {
+// Multi-timbral : un patch distinct par type de voix (basse / lead / pad).
+// Aucun impact sur le MIDI out — uniquement le synthé navigateur.
+function _synthTone(note, amp, tS, durS, vtype) {
   const freq = 440 * Math.pow(2, (note - 69) / 12);
+  vtype = vtype || '';
+
+  // Sélection du patch : bl ou registre grave → basse ; ksp → pad ; sinon lead
+  const isBass = vtype === 'bl' || note < 36;
+  const isPad  = vtype.startsWith('ksp');
+
+  let patch;
+  if (isBass) {
+    patch = { wave: 'square',   cutoff: 500,  gain: 0.34, attack: 0.004, rel: Math.max(0.12, durS) };
+  } else if (isPad) {
+    patch = { wave: 'sawtooth', cutoff: 1100, gain: 0.18, attack: 0.06,  rel: Math.max(0.20, durS) };
+  } else {
+    patch = { wave: 'sawtooth', cutoff: 1800, gain: 0.25, attack: 0.005, rel: Math.max(0.05, durS) };
+  }
+
   const osc  = _audioCtx.createOscillator();
-  osc.type   = 'sawtooth';
+  osc.type   = patch.wave;
+  osc.frequency.value = freq;
   const filt = _audioCtx.createBiquadFilter();
-  filt.type  = 'lowpass'; filt.frequency.value = 1800;
+  filt.type  = 'lowpass';
+  filt.frequency.value = patch.cutoff;
   const g    = _audioCtx.createGain();
   osc.connect(filt); filt.connect(g); g.connect(_masterGain);
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(amp * 0.25, tS);
-  g.gain.exponentialRampToValueAtTime(0.001, tS + Math.max(0.05, durS));
-  osc.start(tS); osc.stop(tS + Math.max(0.05, durS) + 0.01);
+
+  // Enveloppe AR — attaque douce (anti-clic) + release
+  const peak = amp * patch.gain;
+  g.gain.setValueAtTime(0.0001, tS);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), tS + patch.attack);
+  g.gain.exponentialRampToValueAtTime(0.001, tS + patch.attack + patch.rel);
+
+  // Sub-oscillateur une octave en dessous pour épaissir la basse
+  let sub = null, sg = null;
+  if (isBass) {
+    sub = _audioCtx.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.value = freq / 2;
+    sg = _audioCtx.createGain();
+    sub.connect(sg); sg.connect(_masterGain);
+    sg.gain.setValueAtTime(0.0001, tS);
+    sg.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * 0.6), tS + patch.attack);
+    sg.gain.exponentialRampToValueAtTime(0.001, tS + patch.attack + patch.rel);
+  }
+
+  const stopAt = tS + patch.attack + patch.rel + 0.02;
+  osc.start(tS); osc.stop(stopAt);
+  if (sub) { sub.start(tS); sub.stop(stopAt); }
 }
 
 // ---------------------------------------------------------------------------

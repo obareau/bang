@@ -1079,10 +1079,26 @@ def _build_voices(p: dict) -> list[tuple[int, str, str]]:
         else:
             trig_a = mutate_dna("x-x--x-?", intensity=chaos * 0.55)
             trig_b = mutate_dna("?--x-x--x---?---", intensity=chaos * 0.45)
+        # Batterie qui accompagne la basse — groove adapté au chaos
+        if chaos < 0.30:
+            kick_dna  = "x---x---x---x---"
+            snare_dna = "----x-------x---"
+            hh_dna    = "x-x-x-x-x-x-x-x"
+        elif chaos < 0.55:
+            kick_dna  = mutate_dna("x---x--x x---x---", intensity=chaos * 0.4)
+            snare_dna = mutate_dna("----x-------x---",  intensity=chaos * 0.3)
+            hh_dna    = mutate_dna("x-x-x-x-x?x-x-x-",  intensity=chaos * 0.25)
+        else:
+            kick_dna  = mutate_dna("x--x-x--x-x--x-?",  intensity=chaos * 0.5)
+            snare_dna = mutate_dna("----x---?---x-?-",  intensity=chaos * 0.4)
+            hh_dna    = mutate_dna("x?x-x?x-x?x-x?x-",  intensity=chaos * 0.35)
         cc_peak = int(20 + p["cc_depth"] * 80)
         voices = [
-            (33, trig_a, "bl"),   # A1 — ligne principale
-            (33, trig_b, "bl"),   # A1 — contre-rythme
+            (33, trig_a, "bl"),     # A1 — ligne principale
+            (33, trig_b, "bl"),     # A1 — contre-rythme
+            (36, kick_dna,  "drum"),  # Kick
+            (38, snare_dna, "drum"),  # Snare
+            (42, hh_dna,    "drum"),  # Hi-hat
             (0, f"CC74 → 20…{cc_peak}…20", "cc"),
         ]
         if chaos > 0.35:
