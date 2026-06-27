@@ -1095,7 +1095,7 @@
 
     <div class="tb-group">
       <label>BPM</label>
-      <input type="number" name="bpm" id="bpm-input" value="{{ last_p.bpm if last_p else 110 }}" min="40" max="200" class="tb-w-sm">
+      <input type="number" name="bpm" id="bpm-input" value="{{ last_p.bpm if last_p else 110 }}" min="40" max="200" class="tb-w-sm" oninput="bangSetBpm(this.value)">
       <button type="button" id="tap-btn" onclick="bangTap()" title="Tap tempo — taper le rythme">TAP</button>
       <button type="button" id="sync-btn" onclick="toggleMidiSync()" title="MIDI Clock sync (Chrome) — synchronise BPM sur horloge MIDI entrante · transport Start/Stop auto">SYNC</button>
     </div>
@@ -1703,6 +1703,32 @@ function selectMidiOut() {
 
 async function togglePlay() {
   _playing ? _stop() : await _start();
+}
+
+// BPM live : persiste côté serveur (last_p) ET retune le scheduler en cours de lecture
+function bangSetBpm(v) {
+  const bpm = Math.max(40, Math.min(200, parseInt(v) || 110));
+  // Persiste dans _state["last_p"] → utilisé par Play, Export, Strudel, OSC
+  fetch('/ctrl', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `key=bpm&val=${bpm}`,
+  });
+  if (!_pattern) return;
+  const oldStepS = _pattern.step_ms / 1000;
+  _pattern.bpm     = bpm;
+  _pattern.step_ms = 60000 / (bpm * 4);
+  // Si en lecture : rebase _startTime pour préserver la position courante (pas de saut)
+  if (_playing && _audioCtx) {
+    const nowS    = _audioCtx.currentTime;
+    const curStep = (nowS - _startTime) / oldStepS;
+    _startTime    = nowS - curStep * (_pattern.step_ms / 1000);
+    _scheduledSteps.clear();
+    const ps = document.getElementById('play-status');
+    if (ps && /BPM/.test(ps.textContent)) {
+      ps.textContent = ps.textContent.replace(/^[\d.]+ BPM/, `${bpm} BPM`);
+    }
+  }
 }
 
 async function _start() {
