@@ -181,7 +181,8 @@ class BANGQt(QMainWindow):
     # ------------------------------------------------------------------
 
     def on_generate(self, params: dict):
-        self.session.generate(**params)
+        gen_params = {k: v for k, v in params.items() if k != "midi_type"}
+        self.session.generate(**gen_params)
         self.voice_rack.set_voices(self.session.voices)
         self.midi_routing.engine = self.session.engine
         n = len(self.session.voices)
@@ -203,7 +204,10 @@ class BANGQt(QMainWindow):
 
         chosen_path = Path(chosen)
         try:
-            path = self.session.export_midi(filename=chosen_path.name, dest_dir=str(chosen_path.parent))
+            path = self.session.export_midi(
+                filename=chosen_path.name, dest_dir=str(chosen_path.parent),
+                midi_type=params.get("midi_type", 1),
+            )
             self.status_bar.showMessage(f"Exported: {path}")
             QMessageBox.information(self, "Export réussi", f"Fichier MIDI exporté :\n{path}")
         except Exception as e:

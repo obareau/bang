@@ -119,6 +119,12 @@ class GeneratorPanel(QWidget):
         self.out_edit = QLineEdit("bang_out.mid")
         grid.addWidget(self.out_edit, 11, 1, 1, 2)
 
+        grid.addWidget(QLabel("MIDI type:"), 12, 0)
+        self.midi_type_combo = QComboBox()
+        self.midi_type_combo.addItem("Type 1 (multi-piste)", 1)
+        self.midi_type_combo.addItem("Type 0 (piste unique)", 0)
+        grid.addWidget(self.midi_type_combo, 12, 1, 1, 2)
+
         outer.addWidget(gen_group)
 
         # --- Velocity shaping ---
@@ -188,6 +194,7 @@ class GeneratorPanel(QWidget):
             "microtiming": self.microtiming_slider.value() / 100,
             "temporal": self.temporal_check.isChecked(),
             "out": self.out_edit.text().strip() or "bang_out.mid",
+            "midi_type": self.midi_type_combo.currentData(),
         }
 
     def _emit_generate(self):

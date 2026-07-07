@@ -122,7 +122,8 @@ class BangSession:
 
         return voices
 
-    def export_midi(self, filename: str | None = None, dest_dir: str | None = None) -> str:
+    def export_midi(self, filename: str | None = None, dest_dir: str | None = None,
+                     midi_type: int = 1) -> str:
         """Exporte le pattern courant en fichier MIDI (mirror web.py `/export`, web.py:2002-2093)."""
         if self.engine is None:
             if not self.last_p:
@@ -138,8 +139,9 @@ class BangSession:
         out_name = filename or p.get("out", "bang_out.mid")
         export_path = str(target_dir / out_name)
 
-        densities = [self.voice_density.get(pl.voice_label(n, t), 1.0) for n, _d, t in self.voices]
-        chord_types = [self.voice_chords.get(pl.voice_label(n, t), "mono") for n, _d, t in self.voices]
+        voice_names = [pl.voice_label(n, t) for n, _d, t in self.voices]
+        densities = [self.voice_density.get(name, 1.0) for name in voice_names]
+        chord_types = [self.voice_chords.get(name, "mono") for name in voice_names]
 
         self.engine.export_midi(
             num_steps=p["steps"],
@@ -153,6 +155,8 @@ class BangSession:
             densities=densities,
             voice_chords=chord_types,
             microtiming=p.get("microtiming", 1.0),
+            midi_type=midi_type,
+            voice_names=voice_names,
         )
         self.last_seed = self.engine.last_seed
         return export_path

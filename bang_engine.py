@@ -474,6 +474,8 @@ class BangEngine:
         densities: list[float] | None = None,
         voice_chords: list[str] | None = None,
         microtiming: float = 1.0,
+        midi_type: int = 1,
+        voice_names: list[str] | None = None,
     ) -> str:
         """
         temporal_jitter=True : chaque note dont jit>0 reçoit un décalage supplémentaire
@@ -612,18 +614,23 @@ class BangEngine:
                 cv.append((i * self.ticks_per_step, 0, 'control_change', channel, control, max(0, min(127, val))))
             cc_events.append(cv)
 
-        # --- Assemblage MIDI multi-piste (type 1) ---
+        # --- Assemblage MIDI (type 0 = single-track, type 1 = multi-track) ---
         basename = os.path.splitext(os.path.basename(filename))[0]
-        mid = MidiFile(type=1, ticks_per_beat=480)
+        midi_type = 0 if midi_type == 0 else 1
+        mid = MidiFile(type=midi_type, ticks_per_beat=480)
 
-        # Track 0 : tempo + métadonnées
-        tempo_track = MidiTrack()
-        mid.tracks.append(tempo_track)
-        tempo_track.append(MetaMessage('track_name', name=basename, time=0))
-        tempo_track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
-        tempo_track.append(MetaMessage('set_tempo', tempo=int(60_000_000 / self.bpm), time=0))
+        def _track_name(vi: int, voice: dict) -> str:
+            if voice_names and vi < len(voice_names):
+                return voice_names[vi]
+            vtype = voice["type"]
+            ch = voice.get("channel", 0)
+            if vtype == "markov":
+                return f"markov-ch{ch + 1}"
+            if vtype in ("babka", "drum"):
+                return f"{vtype}-{voice.get('note', vi)}"
+            return f"{vtype}-{vi}"
 
-        def _write_track(trk: MidiTrack, evts: list[tuple]) -> None:
+        def _write_events(trk: MidiTrack, evts: list[tuple]) -> None:
             evts.sort(key=lambda e: (e[0], e[1]))
             cur = 0
             for abs_tick, _, msg_type, ch, param, value in evts:
@@ -634,27 +641,41 @@ class BangEngine:
                     trk.append(Message(msg_type, note=param, velocity=value, channel=ch, time=delta))
                 cur = abs_tick
 
-        # Une track par voix note
-        for vi, (voice, v_events) in enumerate(zip(self.voices, voice_events)):
-            vtype = voice["type"]
-            ch    = voice.get("channel", 0)
-            if vtype == "markov":
-                tname = f"markov-ch{ch + 1}"
-            elif vtype in ("babka", "drum"):
-                tname = f"{vtype}-{voice.get('note', vi)}"
-            else:
-                tname = f"{vtype}-{vi}"
-            trk = MidiTrack()
-            mid.tracks.append(trk)
-            trk.append(MetaMessage('track_name', name=tname, time=0))
-            _write_track(trk, v_events)
+        if midi_type == 1:
+            # Track 0 : tempo + métadonnées
+            tempo_track = MidiTrack()
+            mid.tracks.append(tempo_track)
+            tempo_track.append(MetaMessage('track_name', name=basename, time=0))
+            tempo_track.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+            tempo_track.append(MetaMessage('set_tempo', tempo=int(60_000_000 / self.bpm), time=0))
 
-        # Une track par drone CC
-        for cc, cv in zip(self.cc_tracks, cc_events):
+            # Une track par voix note, nommée proprement
+            for vi, (voice, v_events) in enumerate(zip(self.voices, voice_events)):
+                trk = MidiTrack()
+                mid.tracks.append(trk)
+                trk.append(MetaMessage('track_name', name=_track_name(vi, voice), time=0))
+                _write_events(trk, v_events)
+
+            # Une track par drone CC
+            for cc, cv in zip(self.cc_tracks, cc_events):
+                trk = MidiTrack()
+                mid.tracks.append(trk)
+                trk.append(MetaMessage('track_name', name=f"CC{cc['control']}", time=0))
+                _write_events(trk, cv)
+        else:
+            # Type 0 : tout dans une seule track, les canaux distinguent les voix
             trk = MidiTrack()
             mid.tracks.append(trk)
-            trk.append(MetaMessage('track_name', name=f"CC{cc['control']}", time=0))
-            _write_track(trk, cv)
+            trk.append(MetaMessage('track_name', name=basename, time=0))
+            trk.append(MetaMessage('text', text=f'BANG_SEED:{seed}', time=0))
+            trk.append(MetaMessage('set_tempo', tempo=int(60_000_000 / self.bpm), time=0))
+
+            merged: list[tuple] = []
+            for v_events in voice_events:
+                merged.extend(v_events)
+            for cv in cc_events:
+                merged.extend(cv)
+            _write_events(trk, merged)
 
         mid.save(filename)
         _log_session(filename, seed, self, weather=weather, temporal_jitter=temporal_jitter)
