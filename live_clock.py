@@ -29,11 +29,13 @@ class LiveClock:
     algorithme que _midi_srv_clock_loop dans web.py.
     """
 
-    def __init__(self, session: BangSession, port_name: str, drum_channel: int = 9):
+    def __init__(self, session: BangSession, port_name: str | None = None,
+                 drum_channel: int = 9, use_preview_synth: bool = False):
         self.session = session
         self.port_name = port_name
         self.drum_channel = drum_channel  # 0-based (9 = MIDI ch10, drums GM)
-        self._port: mido.ports.BaseOutput | None = None
+        self.use_preview_synth = use_preview_synth
+        self._port = None
         self._thread: threading.Thread | None = None
         self._running = threading.Event()
 
@@ -72,7 +74,11 @@ class LiveClock:
     def start(self) -> None:
         if self._running.is_set():
             return
-        self._port = mido.open_output(self.port_name)
+        if self.use_preview_synth:
+            from synth_preview import FluidSynthPort
+            self._port = FluidSynthPort(drum_channel=self.drum_channel)
+        else:
+            self._port = mido.open_output(self.port_name)
         self._running.set()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -112,6 +118,11 @@ class LiveClock:
 
             bpm      = p["bpm"]
             n_steps  = p["steps"]
+            # Le pattern a pu être régénéré (steps différents) pendant la
+            # lecture — reclamp avant toute indexation pour éviter un
+            # IndexError sur markov_notes/[note]*n_steps.
+            if step >= n_steps:
+                step = 0
             step_dur = 60.0 / (bpm * 4)
             gate_dur = step_dur * 0.75
             ch_drums   = self.drum_channel

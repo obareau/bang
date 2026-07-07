@@ -184,10 +184,23 @@ class VoiceRowWidget(QWidget):
 
         outer.addLayout(header)
 
-        # --- DNA grid ---
+        # --- DNA grid — its own horizontal-only scroll area, decoupled from
+        # the row chrome (badge/mute/solo/lock stay put; only the step grid
+        # scrolls when the pattern is longer than the visible width). ---
         self.grid = DNAGridWidget(dna)
         self.grid.dna_changed.connect(lambda s: self.dna_edited.emit(self.idx, s))
-        outer.addWidget(self.grid, alignment=Qt.AlignLeft)
+
+        self.grid_scroll = QScrollArea()
+        self.grid_scroll.setWidgetResizable(False)
+        self.grid_scroll.setFixedHeight(DNAGridWidget.CELL_H + 12)
+        self.grid_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.grid_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.grid_scroll.setStyleSheet(
+            "QScrollArea { background: #141a26; border: none; }"
+        )
+        self.grid_scroll.setWidget(self.grid)
+        self.grid.adjustSize()
+        outer.addWidget(self.grid_scroll)
 
         # --- Controls row: transforms + density + chord + channel ---
         controls = QHBoxLayout()
@@ -296,6 +309,7 @@ class VoiceRowWidget(QWidget):
     def set_dna(self, dna: str) -> None:
         """Update the grid without emitting dna_edited."""
         self.grid.set_dna(dna)
+        self.grid.adjustSize()
 
     def set_playhead(self, step: int) -> None:
         self.grid.set_playhead(step)

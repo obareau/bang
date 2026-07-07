@@ -71,9 +71,10 @@ class BANGQt(QMainWindow):
         splitter.addWidget(right)
 
         splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(1, 3)
         splitter.setStretchFactor(2, 1)
-        splitter.setSizes([340, 700, 420])
+        splitter.setCollapsible(1, False)
+        splitter.setSizes([320, 860, 320])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -91,11 +92,20 @@ class BANGQt(QMainWindow):
         t_layout = QVBoxLayout()
         transport_group.setLayout(t_layout)
 
-        self.play_btn = QPushButton("▶ Play")
+        play_row = QHBoxLayout()
+        self.play_btn = QPushButton("▶ Play (MIDI out)")
         self.stop_btn = QPushButton("⏹ Stop")
         self.stop_btn.setEnabled(False)
-        t_layout.addWidget(self.play_btn)
-        t_layout.addWidget(self.stop_btn)
+        play_row.addWidget(self.play_btn)
+        play_row.addWidget(self.stop_btn)
+        t_layout.addLayout(play_row)
+
+        self.preview_btn = QPushButton("🔊 Preview (built-in synth)")
+        self.preview_btn.setStyleSheet(
+            "QPushButton { background: #5ec7c2; color: #0a0e14; font-weight: bold; padding: 6px; }"
+        )
+        t_layout.addWidget(self.preview_btn)
+
         layout.addWidget(transport_group)
 
         return container
@@ -113,8 +123,9 @@ class BANGQt(QMainWindow):
         stats_layout.addStretch()
         tabs.addTab(stats_widget, "Status")
 
-        # Pianoroll preview (read-only, driven by session.engine)
-        self.pianoroll = PianorollWidget(self.session.engine)
+        # Pianoroll preview (read-only, driven directly by the session — auto
+        # reflects whatever session.voices/last_p are at any given time)
+        self.pianoroll = PianorollWidget(self.session)
         tabs.addTab(self.pianoroll, "Pianoroll")
 
         # MIDI Routing tab (port selection feeds LiveClock)
@@ -157,6 +168,7 @@ class BANGQt(QMainWindow):
         self.voice_rack.midi_channel_changed.connect(self.on_midi_channel_changed)
 
         self.play_btn.clicked.connect(self.on_play)
+        self.preview_btn.clicked.connect(self.on_preview)
         self.stop_btn.clicked.connect(self.on_stop)
 
     def setup_timers(self):
@@ -171,7 +183,6 @@ class BANGQt(QMainWindow):
     def on_generate(self, params: dict):
         self.session.generate(**params)
         self.voice_rack.set_voices(self.session.voices)
-        self.pianoroll.engine = self.session.engine
         self.midi_routing.engine = self.session.engine
         n = len(self.session.voices)
         self.status_bar.showMessage(f"Generated {n} voices — mode={params['mode']} bpm={params['bpm']}")
@@ -182,6 +193,7 @@ class BANGQt(QMainWindow):
         try:
             path = self.session.export_midi(filename=params.get("out") or "bang_out.mid")
             self.status_bar.showMessage(f"Exported: {path}")
+            QMessageBox.information(self, "Export réussi", f"Fichier MIDI exporté :\n{path}")
         except Exception as e:
             QMessageBox.warning(self, "Export failed", str(e))
 
@@ -246,6 +258,7 @@ class BANGQt(QMainWindow):
     # ------------------------------------------------------------------
 
     def on_play(self):
+        """Play out to a real/virtual MIDI port (external synth/DAW/hardware)."""
         if not self.session.last_p:
             self.status_bar.showMessage("Generate a pattern first")
             return
@@ -267,8 +280,31 @@ class BANGQt(QMainWindow):
             return
 
         self.play_btn.setEnabled(False)
+        self.preview_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.status_bar.showMessage(f"▶ Playing on {port_name}")
+
+    def on_preview(self):
+        """Play through the built-in FluidSynth preview — no external MIDI needed."""
+        if not self.session.last_p:
+            self.status_bar.showMessage("Generate a pattern first")
+            return
+
+        self.live_clock = LiveClock(self.session, use_preview_synth=True)
+        try:
+            self.live_clock.start()
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Preview synth error",
+                f"{e}\n\nInstall a GM soundfont, e.g.:\nsudo apt install fluid-soundfont-gm"
+            )
+            self.live_clock = None
+            return
+
+        self.play_btn.setEnabled(False)
+        self.preview_btn.setEnabled(False)
+        self.stop_btn.setEnabled(True)
+        self.status_bar.showMessage("🔊 Previewing (built-in synth)")
 
     def on_stop(self):
         if self.live_clock:
@@ -276,6 +312,7 @@ class BANGQt(QMainWindow):
             self.live_clock = None
         self.voice_rack.set_playhead(-1)
         self.play_btn.setEnabled(True)
+        self.preview_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.status_bar.showMessage("⏹ Stopped")
 

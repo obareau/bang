@@ -93,7 +93,7 @@ class GeneratorPanel(QWidget):
         grid.addWidget(QLabel("Steps:"), 7, 0)
         self.steps_spin = QSpinBox()
         self.steps_spin.setRange(1, 256)
-        self.steps_spin.setValue(64)
+        self.steps_spin.setValue(16)
         grid.addWidget(self.steps_spin, 7, 1, 1, 2)
 
         grid.addWidget(QLabel("Root:"), 8, 0)
@@ -114,6 +114,10 @@ class GeneratorPanel(QWidget):
 
         self.temporal_check = QCheckBox("Temporal jitter (entropie microseconde)")
         grid.addWidget(self.temporal_check, 10, 0, 1, 3)
+
+        grid.addWidget(QLabel("Filename:"), 11, 0)
+        self.out_edit = QLineEdit("bang_out.mid")
+        grid.addWidget(self.out_edit, 11, 1, 1, 2)
 
         outer.addWidget(gen_group)
 
@@ -183,6 +187,7 @@ class GeneratorPanel(QWidget):
             "vel_humanize": self.vel_humanize_spin.value(),
             "microtiming": self.microtiming_slider.value() / 100,
             "temporal": self.temporal_check.isChecked(),
+            "out": self.out_edit.text().strip() or "bang_out.mid",
         }
 
     def _emit_generate(self):
