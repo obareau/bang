@@ -11,7 +11,9 @@ dependencies = [
     "python-osc>=1.10.2",
     "python-rtmidi>=1.5.8",
     "textual>=8.2.6",
+    "PySide6>=6.8.0",
 ]
 
 [project.scripts]
 bang = "cli:main"
+bang-qt = "qt_app:main"
