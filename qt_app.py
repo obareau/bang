@@ -28,6 +28,10 @@ from midi_routing import MIDIRoutingWidget
 from osc_debugger import OSCDebuggerWidget
 from nts1_panel import NTS1PanelWidget
 from microfreak_panel import MicrofreaklockPanelWidget
+from sequencer_panel import SequencerPanel
+from song_panel import SongPanel
+from presets_panel import PresetsPanel
+from midi_activity_widget import MIDIActivityWidget
 
 
 class BANGQt(QMainWindow):
@@ -143,6 +147,22 @@ class BANGQt(QMainWindow):
         self.microfreak_panel = MicrofreaklockPanelWidget(self.session.engine)
         tabs.addTab(self.microfreak_panel, "Microfreak")
 
+        # MIDI activity monitor — live note status ("status MIDI des notes")
+        self.midi_activity = MIDIActivityWidget(lambda: self.live_clock)
+        tabs.addTab(self.midi_activity, "📡 Activity")
+
+        # Sequencer (8 slots, weighted advance, A/B compare)
+        self.sequencer_panel = SequencerPanel()
+        tabs.addTab(self.sequencer_panel, "Seq")
+
+        # Song mode (macro-arrangement export)
+        self.song_panel = SongPanel()
+        tabs.addTab(self.song_panel, "Song")
+
+        # Presets (drum machine / groove / KSP) + session JSON I/O
+        self.presets_panel = PresetsPanel()
+        tabs.addTab(self.presets_panel, "Presets")
+
         return tabs
 
     # ------------------------------------------------------------------
@@ -166,10 +186,36 @@ class BANGQt(QMainWindow):
         self.voice_rack.density_changed.connect(self.on_density_changed)
         self.voice_rack.chord_changed.connect(self.on_chord_changed)
         self.voice_rack.midi_channel_changed.connect(self.on_midi_channel_changed)
+        self.voice_rack.thin_changed.connect(lambda idx, f: self._set_voice_modifier(idx, "set_voice_thin", f))
+        self.voice_rack.offset_changed.connect(lambda idx, n: self._set_voice_modifier(idx, "set_voice_offset", n))
+        self.voice_rack.drop_changed.connect(lambda idx, pct: self._set_voice_modifier(idx, "set_voice_drop", pct))
+        self.voice_rack.lfo_changed.connect(self.on_lfo_changed)
 
         self.play_btn.clicked.connect(self.on_play)
         self.preview_btn.clicked.connect(self.on_preview)
         self.stop_btn.clicked.connect(self.on_stop)
+
+        # Sequencer
+        self.sequencer_panel.save_requested.connect(self.on_seq_save)
+        self.sequencer_panel.load_requested.connect(self.on_seq_load)
+        self.sequencer_panel.clear_requested.connect(self.on_seq_clear)
+        self.sequencer_panel.weight_changed.connect(lambda idx, w: self.session.seq_set_weight(idx, w))
+        self.sequencer_panel.cycles_changed.connect(self.session.seq_set_cycles)
+        self.sequencer_panel.advance_requested.connect(self.on_seq_advance)
+        self.sequencer_panel.store_a_requested.connect(lambda: self.on_ab_store("a"))
+        self.sequencer_panel.store_b_requested.connect(lambda: self.on_ab_store("b"))
+        self.sequencer_panel.load_a_requested.connect(lambda: self.on_ab_load("a"))
+        self.sequencer_panel.load_b_requested.connect(lambda: self.on_ab_load("b"))
+
+        # Song mode
+        self.song_panel.export_song_requested.connect(self.on_export_song)
+
+        # Presets
+        self.presets_panel.drum_preset_requested.connect(self.on_drum_preset)
+        self.presets_panel.groove_requested.connect(self.on_groove)
+        self.presets_panel.ksp_preset_requested.connect(self.on_ksp_preset)
+        self.presets_panel.session_exported.connect(self.on_session_export)
+        self.presets_panel.session_import_requested.connect(self.on_session_import)
 
     def setup_timers(self):
         self.update_timer = QTimer()
@@ -268,6 +314,127 @@ class BANGQt(QMainWindow):
         name = self._voice_name(idx)
         if name:
             self.session.set_voice_midi_channel(name, channel)
+
+    def _set_voice_modifier(self, idx: int, method_name: str, value) -> None:
+        name = self._voice_name(idx)
+        if name:
+            getattr(self.session, method_name)(name, value)
+
+    def on_lfo_changed(self, idx: int, shape: str, target: str, freq: float, depth: float):
+        name = self._voice_name(idx)
+        if name:
+            self.session.set_voice_lfo(name, shape, target, freq, depth)
+
+    # ------------------------------------------------------------------
+    # Sequencer / Song / A-B compare
+    # ------------------------------------------------------------------
+
+    def _refresh_seq_ui(self):
+        filled = [slot is not None for slot in self.session.seq_slots]
+        self.sequencer_panel.set_slot_states(filled, self.session.seq_current)
+        self.sequencer_panel.set_weights(list(self.session.seq_weights))
+        self.sequencer_panel.set_cycles(self.session.seq_cycles)
+        self.sequencer_panel.set_ab_states(self.session.slot_a is not None, self.session.slot_b is not None)
+
+    def on_seq_save(self, idx: int):
+        self.session.seq_save(idx)
+        self._refresh_seq_ui()
+        self.status_bar.showMessage(f"Saved to slot {idx + 1}")
+
+    def on_seq_load(self, idx: int):
+        if self.session.seq_load(idx):
+            self.voice_rack.set_voices(self.session.voices)
+            self._refresh_seq_ui()
+            self.status_bar.showMessage(f"Loaded slot {idx + 1}")
+        else:
+            self.status_bar.showMessage(f"Slot {idx + 1} is empty")
+
+    def on_seq_clear(self, idx: int):
+        self.session.seq_clear(idx)
+        self._refresh_seq_ui()
+        self.status_bar.showMessage(f"Cleared slot {idx + 1}")
+
+    def on_seq_advance(self):
+        picked = self.session.seq_advance()
+        if picked >= 0:
+            self.voice_rack.set_voices(self.session.voices)
+            self._refresh_seq_ui()
+            self.status_bar.showMessage(f"Advanced to slot {picked + 1}")
+        else:
+            self.status_bar.showMessage("No slots filled yet")
+
+    def on_ab_store(self, slot: str):
+        self.session.ab_store(slot)
+        self._refresh_seq_ui()
+        self.status_bar.showMessage(f"Stored to slot {slot.upper()}")
+
+    def on_ab_load(self, slot: str):
+        if self.session.ab_load(slot):
+            self.voice_rack.set_voices(self.session.voices)
+            self.status_bar.showMessage(f"Loaded slot {slot.upper()}")
+        else:
+            self.status_bar.showMessage(f"Slot {slot.upper()} is empty")
+
+    def on_export_song(self, params: dict):
+        default_name = params.get("out") or "bang_song.mid"
+        from pathlib import Path
+        default_dir = str(Path(__file__).parent / "exports")
+        chosen, _ = QFileDialog.getSaveFileName(
+            self, "Exporter la chanson", str(Path(default_dir) / default_name),
+            "Fichiers MIDI (*.mid)"
+        )
+        if not chosen:
+            return
+        chosen_path = Path(chosen)
+        try:
+            path = self.session.export_song_midi(
+                filename=chosen_path.name, dest_dir=str(chosen_path.parent),
+                chaos=params["chaos"], bpm=params["bpm"],
+                gravity=params["gravity"], cc_depth=params["cc_depth"],
+            )
+            self.status_bar.showMessage(f"Song exported: {path}")
+            QMessageBox.information(self, "Song exporté", f"Chanson complète exportée :\n{path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Export failed", str(e))
+
+    # ------------------------------------------------------------------
+    # Presets
+    # ------------------------------------------------------------------
+
+    def on_drum_preset(self, name: str):
+        self.session.apply_drum_preset(name)
+        if self.session.voices:
+            self.voice_rack.set_voices(self.session.voices)
+        self.status_bar.showMessage(f"Drum preset: {name}")
+
+    def on_groove(self, name: str):
+        if self.session.apply_groove(name):
+            self.voice_rack.set_voices(self.session.voices)
+            self.status_bar.showMessage(f"Groove: {name}")
+        else:
+            self.status_bar.showMessage("Generate a pattern first")
+
+    def on_ksp_preset(self, name: str):
+        if self.session.apply_ksp_preset(name):
+            self.status_bar.showMessage(f"KSP preset: {name} (regenerate to hear it)")
+        else:
+            self.status_bar.showMessage("Generate a pattern first")
+
+    def on_session_export(self, path: str):
+        try:
+            self.session.export_session_json(path)
+            self.status_bar.showMessage(f"Session exported: {path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Export failed", str(e))
+
+    def on_session_import(self, path: str):
+        try:
+            self.session.import_session_json(path)
+            self.voice_rack.set_voices(self.session.voices)
+            self._refresh_seq_ui()
+            self.status_bar.showMessage(f"Session imported: {path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Import failed", str(e))
 
     # ------------------------------------------------------------------
     # Transport (real MIDI clock)
