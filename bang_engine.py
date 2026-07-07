@@ -388,6 +388,19 @@ class BangEngine:
         self.voices: list[dict] = []
         self.cc_tracks: list[dict] = []
         self.last_seed: str | None = None
+        self.playing: bool = False
+
+    @property
+    def state(self) -> dict:
+        """Get current engine state as dict (for Qt UI compatibility)."""
+        return {
+            "bpm": self.bpm,
+            "voices": self.voices,
+            "cc_tracks": self.cc_tracks,
+            "playing": self.playing,
+            "last_seed": self.last_seed,
+            "ticks_per_step": self.ticks_per_step,
+        }
 
     def add_voice(self, note: int, dna: str | list[str], channel: int = 0) -> "BangEngine":
         """

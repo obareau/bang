@@ -27,7 +27,8 @@ class BANGQt(QMainWindow):
 
         # Initialize engine
         self.engine = BangEngine()
-        self.state = self.engine.state.copy()
+        self.bpm = self.engine.bpm
+        self.playing = False
 
         # UI
         self.init_ui()
@@ -140,12 +141,14 @@ class BANGQt(QMainWindow):
 
     def on_play(self):
         """Play current sequence."""
-        self.engine.play()
+        self.playing = True
+        self.engine.playing = True
         self.status_bar.showMessage("▶ Playing...")
 
     def on_stop(self):
         """Stop playback."""
-        self.engine.stop()
+        self.playing = False
+        self.engine.playing = False
         self.status_bar.showMessage("⏹ Stopped")
 
     def on_randomize(self):
@@ -163,15 +166,15 @@ class BANGQt(QMainWindow):
 
     def on_bpm_changed(self, bpm):
         """Handle BPM change."""
-        self.engine.state["bpm"] = bpm
+        self.engine.bpm = bpm
         self.status_bar.showMessage(f"BPM: {bpm}")
 
     def update_status(self):
         """Update status display from engine."""
         status_text = f"""Engine Status:
-Running: {self.engine.state.get('playing', False)}
-BPM: {self.engine.state.get('bpm', 120)}
-Voices: {len(self.engine.state.get('voices', []))}
+Running: {self.playing}
+BPM: {self.engine.bpm}
+Voices: {len(self.engine.voices)}
 Mode: {self.synth_combo.currentText()}"""
         self.stats_label.setText(status_text)
 
