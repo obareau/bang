@@ -33,6 +33,7 @@ class GeneratorPanel(QWidget):
     export_requested = Signal(dict)
     vary_all_requested = Signal()
     undo_requested = Signal()
+    strudel_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -159,10 +160,12 @@ class GeneratorPanel(QWidget):
         self.generate_btn = QPushButton("⚡ Generate")
         self.generate_btn.setStyleSheet("background: #b8956a; color: #0a0e14; font-weight: bold;")
         self.export_btn = QPushButton("💾 Export MIDI")
+        self.strudel_btn = QPushButton("🌀 Strudel")
         self.vary_btn = QPushButton("🎲 Vary All")
         self.undo_btn = QPushButton("↩ Undo")
         actions.addWidget(self.generate_btn)
         actions.addWidget(self.export_btn)
+        actions.addWidget(self.strudel_btn)
         actions.addWidget(self.vary_btn)
         actions.addWidget(self.undo_btn)
         outer.addLayout(actions)
@@ -171,6 +174,7 @@ class GeneratorPanel(QWidget):
 
         self.generate_btn.clicked.connect(self._emit_generate)
         self.export_btn.clicked.connect(self._emit_export)
+        self.strudel_btn.clicked.connect(self.strudel_requested.emit)
         self.vary_btn.clicked.connect(self.vary_all_requested.emit)
         self.undo_btn.clicked.connect(self.undo_requested.emit)
 
