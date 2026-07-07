@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
+from midi_cc_router import MIDICCRouter
+from p_locks import InterpolationMode
 
 
 class NTS1PanelWidget(QWidget):
@@ -28,7 +30,13 @@ class NTS1PanelWidget(QWidget):
         self.engine = engine
         self.current_step = 0
         self.p_locks = {}  # {step: {param: value}}
+
+        # Initialize MIDI router
+        self.router = MIDICCRouter(engine)
+        self.router.setup_nts1_plock_seq()
+
         self.init_ui()
+        self.setup_connections()
 
     def init_ui(self):
         """Build NTS-1 6-section panel."""
@@ -250,3 +258,63 @@ class NTS1PanelWidget(QWidget):
         else:
             status = f"Step {step}: No p-locks"
         self.plock_status.setText(status)
+
+    def setup_connections(self):
+        """Connect panel sliders to MIDI router."""
+        # OSC
+        self.osc_shape_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("oscshp", v)
+        )
+        self.osc_alt_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("oscalt", v)
+        )
+
+        # FILTER
+        self.filt_cutoff_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("cutoff", v)
+        )
+        self.filt_reso_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("reso", v)
+        )
+
+        # LFO
+        self.lfo_rate_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("lfoint", v)
+        )
+        self.lfo_int_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("lfoint", v)
+        )
+
+        # EG
+        self.eg_atk_slider.valueChanged.connect(lambda v: self.send_cc(73, v))
+        self.eg_rel_slider.valueChanged.connect(lambda v: self.send_cc(72, v))
+
+        # FX
+        self.fx_reverb_slider.valueChanged.connect(
+            lambda v: self.router.apply_nts1_slider("revmix", v)
+        )
+
+        # P-lock controls
+        self.random_btn.clicked.connect(self.randomize_plocks)
+        self.interp_combo.currentTextChanged.connect(self.on_interpolation_changed)
+
+    def send_cc(self, cc: int, value: int):
+        """Send raw CC via router."""
+        self.router.send_cc(cc, value)
+
+    def randomize_plocks(self):
+        """Randomize all p-locks on current step."""
+        for param in self.router.plock_seq.tracks.keys():
+            self.router.randomize_plock_track(param, density=0.7, min_val=30, max_val=120)
+        self.plock_status.setText(f"Step {self.current_step}: Randomized!")
+
+    def on_interpolation_changed(self, mode_name: str):
+        """Handle interpolation mode change."""
+        mode_map = {
+            "off": InterpolationMode.OFF,
+            "linear": InterpolationMode.LINEAR,
+            "cosine": InterpolationMode.COSINE,
+        }
+        mode = mode_map.get(mode_name, InterpolationMode.OFF)
+        self.router.plock_seq.set_interpolation(mode)
+        print(f"P-lock interpolation: {mode.value}")
