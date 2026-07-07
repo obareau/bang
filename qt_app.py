@@ -14,6 +14,7 @@ from bang_engine import BangEngine
 from pianoroll import PianorollWidget
 from midi_routing import MIDIRoutingWidget
 from osc_debugger import OSCDebuggerWidget
+from nts1_panel import NTS1PanelWidget
 
 
 class BANGQt(QMainWindow):
@@ -84,6 +85,12 @@ class BANGQt(QMainWindow):
         self.random_btn = QPushButton("🎲 Randomize Pattern")
         layout.addWidget(self.random_btn)
 
+        # NTS-1 panel (shown when NTS-1 selected)
+        layout.addWidget(QLabel(""))  # Spacer
+        self.nts1_panel = NTS1PanelWidget(self.engine)
+        self.nts1_panel.setVisible(False)
+        layout.addWidget(self.nts1_panel)
+
         layout.addStretch()
         group.setLayout(layout)
         return group
@@ -150,6 +157,9 @@ class BANGQt(QMainWindow):
         """Handle synth mode change."""
         print(f"Synth changed to: {synth_name}")
         self.status_bar.showMessage(f"Synth: {synth_name}")
+
+        # Show/hide NTS-1 panel based on selection
+        self.nts1_panel.setVisible(synth_name == "NTS-1")
 
     def on_bpm_changed(self, bpm):
         """Handle BPM change."""
