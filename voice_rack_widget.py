@@ -199,7 +199,7 @@ class VoiceRowWidget(QWidget):
             "QScrollArea { background: #141a26; border: none; }"
         )
         self.grid_scroll.setWidget(self.grid)
-        self.grid.adjustSize()
+        self.grid.resize(self.grid.sizeHint())
         outer.addWidget(self.grid_scroll)
 
         # --- Controls row: transforms + density + chord + channel ---
@@ -309,7 +309,7 @@ class VoiceRowWidget(QWidget):
     def set_dna(self, dna: str) -> None:
         """Update the grid without emitting dna_edited."""
         self.grid.set_dna(dna)
-        self.grid.adjustSize()
+        self.grid.resize(self.grid.sizeHint())
 
     def set_playhead(self, step: int) -> None:
         self.grid.set_playhead(step)

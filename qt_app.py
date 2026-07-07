@@ -12,7 +12,7 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTabWidget, QGroupBox, QStatusBar, QSplitter,
-    QMessageBox,
+    QMessageBox, QFileDialog,
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
@@ -190,8 +190,20 @@ class BANGQt(QMainWindow):
     def on_export(self, params: dict):
         if not self.session.last_p:
             self.on_generate(params)
+
+        default_name = params.get("out") or "bang_out.mid"
+        from pathlib import Path
+        default_dir = str(Path(__file__).parent / "exports")
+        chosen, _ = QFileDialog.getSaveFileName(
+            self, "Exporter le MIDI", str(Path(default_dir) / default_name),
+            "Fichiers MIDI (*.mid)"
+        )
+        if not chosen:
+            return  # annulé
+
+        chosen_path = Path(chosen)
         try:
-            path = self.session.export_midi(filename=params.get("out") or "bang_out.mid")
+            path = self.session.export_midi(filename=chosen_path.name, dest_dir=str(chosen_path.parent))
             self.status_bar.showMessage(f"Exported: {path}")
             QMessageBox.information(self, "Export réussi", f"Fichier MIDI exporté :\n{path}")
         except Exception as e:

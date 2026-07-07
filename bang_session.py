@@ -11,6 +11,7 @@ toute UI.
 """
 from __future__ import annotations
 
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -22,12 +23,19 @@ from bang_engine import BangEngine, mutate_dna, _seed_to_int
 
 @dataclass
 class BangSession:
+    """Note: generate()/mutation methods hold `_lock` while reassigning
+    voices/last_p/engine, so LiveClock (running on its own thread) can read
+    a consistent snapshot instead of racing a half-updated session while the
+    user hits Generate/Vary/Undo during playback."""
+
     weather: dict | None = None
 
     # État courant
     voices: list[tuple[int, str, str]] = field(default_factory=list)
     engine: BangEngine | None = None
     last_p: dict | None = None
+
+    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
     plocks: list = field(default_factory=list)
     last_seed: str | None = None
 
@@ -85,26 +93,32 @@ class BangSession:
             microtiming=microtiming,
         )
 
-        # Snapshot avant génération (pour undo) — mirror web.py:1985-1986
-        if self.voices and self.last_p:
-            self._push_history()
+        with self._lock:
+            # Snapshot avant génération (pour undo) — mirror web.py:1985-1986
+            if self.voices and self.last_p:
+                self._push_history()
 
-        self.last_p = p
-        # Fix seed: reproductibilité quand un seed est fourni (mirror web.py:980-981)
-        if p.get("seed"):
-            random.seed(_seed_to_int(p["seed"]))
-        voices = pl.build_voices(p, weather=self.weather)
-        voices = pl.apply_locks(voices, self.voices, self.locked_voices)
-        voices = pl.apply_note_remap(voices, self.note_remap)
-        voices = pl.apply_voice_steps(voices, self.voice_steps)
+            # Fix seed: reproductibilité quand un seed est fourni (mirror web.py:980-981)
+            if p.get("seed"):
+                random.seed(_seed_to_int(p["seed"]))
+            voices = pl.build_voices(p, weather=self.weather)
+            voices = pl.apply_locks(voices, self.voices, self.locked_voices)
+            voices = pl.apply_note_remap(voices, self.note_remap)
+            voices = pl.apply_voice_steps(voices, self.voice_steps)
 
-        self.voices = voices
-        self.engine = pl.assemble_engine(p, voices, weather=self.weather)
+            engine = pl.assemble_engine(p, voices, weather=self.weather)
+            plocks = (
+                pl.generate_plocks(voices, p)
+                if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak")
+                else []
+            )
 
-        if p["mode"] in ("volca_drum", "volca_kick", "volca_fm", "microfreak"):
-            self.plocks = pl.generate_plocks(voices, p)
-        else:
-            self.plocks = []
+            # Bascule atomique : last_p/voices/engine/plocks changent ensemble,
+            # jamais vus à moitié mis à jour par le thread du LiveClock.
+            self.last_p = p
+            self.voices = voices
+            self.engine = engine
+            self.plocks = plocks
 
         return voices
 
@@ -152,14 +166,16 @@ class BangSession:
 
     def undo(self) -> bool:
         """Mirror web.py `/undo` (web.py:3351-3361). Retourne False si rien à annuler."""
-        if not self.history:
-            return False
-        voices, plocks, last_p = self.history.pop()
-        self.voices = voices
-        self.plocks = plocks
-        self.last_p = last_p
-        self.engine = pl.assemble_engine(last_p, voices, weather=self.weather)
-        return True
+        with self._lock:
+            if not self.history:
+                return False
+            voices, plocks, last_p = self.history.pop()
+            engine = pl.assemble_engine(last_p, voices, weather=self.weather)
+            self.voices = voices
+            self.plocks = plocks
+            self.last_p = last_p
+            self.engine = engine
+            return True
 
     # ------------------------------------------------------------------
     # Locks
@@ -188,18 +204,19 @@ class BangSession:
 
     def _mutate_voice(self, idx: int, transform) -> bool:
         """Applique `transform(dna) -> new_dna` sur la voix idx, avec undo + lock check."""
-        if not self.voices or not (0 <= idx < len(self.voices)):
-            return False
-        if idx in self.locked_voices:
-            return False
-        note, dna, vtype = self.voices[idx]
-        self._push_history()
-        new_dna = transform(dna)
-        voices = list(self.voices)
-        voices[idx] = (note, new_dna, vtype)
-        self.voices = voices
-        self._reassemble()
-        return True
+        with self._lock:
+            if not self.voices or not (0 <= idx < len(self.voices)):
+                return False
+            if idx in self.locked_voices:
+                return False
+            note, dna, vtype = self.voices[idx]
+            self._push_history()
+            new_dna = transform(dna)
+            voices = list(self.voices)
+            voices[idx] = (note, new_dna, vtype)
+            self.voices = voices
+            self._reassemble()
+            return True
 
     def invert_voice(self, idx: int) -> bool:
         return self._mutate_voice(idx, pl.voice_invert)
@@ -236,47 +253,50 @@ class BangSession:
     def set_voice_pattern(self, idx: int, pattern: str) -> bool:
         """Écrase directement la DNA (mirror web.py `/voice/pattern`, web.py:3050-3064)."""
         pattern = pattern.strip()
-        if not pattern or not (0 <= idx < len(self.voices)):
-            return False
-        note, _old, vtype = self.voices[idx]
-        voices = list(self.voices)
-        voices[idx] = (note, pattern, vtype)
-        self.voices = voices
-        self._reassemble()
-        return True
+        with self._lock:
+            if not pattern or not (0 <= idx < len(self.voices)):
+                return False
+            note, _old, vtype = self.voices[idx]
+            voices = list(self.voices)
+            voices[idx] = (note, pattern, vtype)
+            self.voices = voices
+            self._reassemble()
+            return True
 
     def regen_voice(self, idx: int) -> bool:
         """Régénère une seule voix (mirror web.py `/voice/regen`, web.py:2933-2955)."""
-        if not self.voices or not self.last_p or not (0 <= idx < len(self.voices)):
-            return False
-        if idx in self.locked_voices:
-            return False
-        note, dna, vtype = self.voices[idx]
-        self._push_history()
-        fresh = pl.build_voices(self.last_p, weather=self.weather)
-        if idx < len(fresh):
-            _, new_dna, _ = fresh[idx]
-        else:
-            new_dna = mutate_dna(dna, intensity=0.9)
-        voices = list(self.voices)
-        voices[idx] = (note, new_dna, vtype)
-        self.voices = voices
-        self._reassemble()
-        return True
+        with self._lock:
+            if not self.voices or not self.last_p or not (0 <= idx < len(self.voices)):
+                return False
+            if idx in self.locked_voices:
+                return False
+            note, dna, vtype = self.voices[idx]
+            self._push_history()
+            fresh = pl.build_voices(self.last_p, weather=self.weather)
+            if idx < len(fresh):
+                _, new_dna, _ = fresh[idx]
+            else:
+                new_dna = mutate_dna(dna, intensity=0.9)
+            voices = list(self.voices)
+            voices[idx] = (note, new_dna, vtype)
+            self.voices = voices
+            self._reassemble()
+            return True
 
     def vary_all(self) -> None:
         """Mutation légère de toutes les voix non verrouillées (mirror web.py `/vary`, web.py:3067-3083)."""
-        if not self.voices or not self.last_p:
-            return
-        self._push_history()
-        new_voices = []
-        for idx, (note, dna, vtype) in enumerate(self.voices):
-            if idx in self.locked_voices or vtype == "cc":
-                new_voices.append((note, dna, vtype))
-            else:
-                new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
-        self.voices = new_voices
-        self._reassemble()
+        with self._lock:
+            if not self.voices or not self.last_p:
+                return
+            self._push_history()
+            new_voices = []
+            for idx, (note, dna, vtype) in enumerate(self.voices):
+                if idx in self.locked_voices or vtype == "cc":
+                    new_voices.append((note, dna, vtype))
+                else:
+                    new_voices.append((note, mutate_dna(dna, intensity=0.12), vtype))
+            self.voices = new_voices
+            self._reassemble()
 
     # ------------------------------------------------------------------
     # Modifiers par voix (dicts, pas de mutation DNA — appliqués à l'assemblage/rendu)

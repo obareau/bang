@@ -34,11 +34,18 @@ def find_default_soundfont() -> str | None:
 class FluidSynthPort:
     """Mido-output-shaped adapter around a FluidSynth instance.
 
-    Drum channel (default 9, 0-based = MIDI ch10) gets the GM percussion
-    bank (128) so drum-machine voices (vd*/vk/drum on ch10) sound like a kit
-    instead of a pitched instrument; every other channel gets bank 0 program 0
-    (Acoustic Grand) as a reasonable default preview voice.
+    Drum channel (default 9, 0-based = MIDI ch10) tries the GM2 "Electronic"
+    kit variant (bank 128, program 24 — TR-808/electro style; falls back to
+    the standard kit if the loaded soundfont doesn't have that variant) so
+    drum-machine voices (vd*/vk/drum on ch10) sound electro instead of an
+    acoustic kit. Every other channel gets GM program 38 "Synth Bass 1"
+    (bank 0) — the classic analog/Moog-style bass patch, on-brand for this
+    app's dark/electro aesthetic, since most melodic voices here are bass
+    registers (dark_chain/bass_chain).
     """
+
+    DRUM_KIT_PROGRAM = 24   # GM2 "Electronic" kit (falls back gracefully)
+    BASS_PROGRAM = 38       # GM "Synth Bass 1" — Moog-ish analog bass
 
     def __init__(self, soundfont_path: str | None = None, drum_channel: int = 9):
         import fluidsynth  # deferred import — optional dependency
@@ -54,8 +61,10 @@ class FluidSynthPort:
         self.fs.start()  # auto-selects an audio driver (pulseaudio/alsa/...)
         sfid = self.fs.sfload(sf_path)
         for ch in range(16):
-            bank = 128 if ch == drum_channel else 0
-            self.fs.program_select(ch, sfid, bank, 0)
+            if ch == drum_channel:
+                self.fs.program_select(ch, sfid, 128, self.DRUM_KIT_PROGRAM)
+            else:
+                self.fs.program_select(ch, sfid, 0, self.BASS_PROGRAM)
 
     def send(self, msg) -> None:
         if msg.type == "note_on":
