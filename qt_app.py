@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 
 from bang_engine import BangEngine
+from pianoroll import PianorollWidget
 
 
 class BANGQt(QMainWindow):
@@ -99,14 +100,9 @@ class BANGQt(QMainWindow):
         stats_widget.setLayout(stats_layout)
         tabs.addTab(stats_widget, "Status")
 
-        # Pianoroll preview tab (placeholder)
-        piano_widget = QWidget()
-        piano_layout = QVBoxLayout()
-        piano_label = QLabel("🎹 Pianoroll Preview\n(patterns will render here)")
-        piano_label.setAlignment(Qt.AlignCenter)
-        piano_layout.addWidget(piano_label)
-        piano_widget.setLayout(piano_layout)
-        tabs.addTab(piano_widget, "Pianoroll")
+        # Pianoroll tab
+        self.pianoroll = PianorollWidget(self.engine)
+        tabs.addTab(self.pianoroll, "Pianoroll")
 
         return tabs
 
