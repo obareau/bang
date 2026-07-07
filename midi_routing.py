@@ -144,6 +144,10 @@ class MIDIRoutingWidget(QWidget):
                 check.setChecked(enabled)
                 self.chan_table.setCellWidget(i, 2, check)
 
+    def selected_port(self) -> str:
+        """Currently selected MIDI output port name (for the transport bar)."""
+        return self.midi_combo.currentText()
+
     def on_midi_selected(self, port_name: str):
         """Handle MIDI port selection."""
         if port_name == "— Virtual —":
