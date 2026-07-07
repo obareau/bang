@@ -13,6 +13,7 @@ from PySide6.QtGui import QFont
 from bang_engine import BangEngine
 from pianoroll import PianorollWidget
 from midi_routing import MIDIRoutingWidget
+from osc_debugger import OSCDebuggerWidget
 
 
 class BANGQt(QMainWindow):
@@ -108,6 +109,11 @@ class BANGQt(QMainWindow):
         # MIDI Routing tab
         self.midi_routing = MIDIRoutingWidget(self.engine)
         tabs.addTab(self.midi_routing, "🔌 MIDI")
+
+        # OSC Debugger tab
+        self.osc_debugger = OSCDebuggerWidget(self.engine)
+        self.osc_debugger.log_example_messages()  # Demo messages
+        tabs.addTab(self.osc_debugger, "🔍 OSC")
 
         return tabs
 
