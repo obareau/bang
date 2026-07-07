@@ -12,6 +12,7 @@ from PySide6.QtGui import QFont
 
 from bang_engine import BangEngine
 from pianoroll import PianorollWidget
+from midi_routing import MIDIRoutingWidget
 
 
 class BANGQt(QMainWindow):
@@ -103,6 +104,10 @@ class BANGQt(QMainWindow):
         # Pianoroll tab
         self.pianoroll = PianorollWidget(self.engine)
         tabs.addTab(self.pianoroll, "Pianoroll")
+
+        # MIDI Routing tab
+        self.midi_routing = MIDIRoutingWidget(self.engine)
+        tabs.addTab(self.midi_routing, "🔌 MIDI")
 
         return tabs
 
