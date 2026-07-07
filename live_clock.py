@@ -9,6 +9,7 @@ QTimer de poll du playhead) est branchée séparément par l'app.
 """
 from __future__ import annotations
 
+import collections
 import random
 import threading
 import time
@@ -51,6 +52,15 @@ class LiveClock:
         self._markov_notes: dict[str, list[int]] = {}
         self._pending_off: list[tuple[float, int, int]] = []  # (time, channel, note)
 
+        # --- Moniteur d'activité MIDI (poll-able depuis un QTimer Qt) ---
+        # Ring-buffer des derniers note-on envoyés + set des notes en cours de
+        # résonance, protégés par un lock dédié (jamais bloqué par le timing).
+        self._activity_lock = threading.Lock()
+        # (timestamp, channel, note, velocity, voice_name)
+        self._recent_events: collections.deque = collections.deque(maxlen=64)
+        # (channel, note) -> voice_name  (note actuellement en train de sonner)
+        self._active_notes: dict[tuple[int, int], str] = {}
+
     # ------------------------------------------------------------------
     # État exposé (poll-able depuis un QTimer, pas de signal Qt ici)
     # ------------------------------------------------------------------
@@ -73,6 +83,24 @@ class LiveClock:
         with self._step_lock:
             self._current_step = step
             self._n_steps = n_steps
+
+    def recent_events(self) -> list[tuple[float, int, int, int, str]]:
+        """Copie thread-safe du ring-buffer des derniers note-on envoyés.
+
+        Chaque tuple : (timestamp, channel, note, velocity, voice_name).
+        Destiné à être poll-é par un QTimer côté UI.
+        """
+        with self._activity_lock:
+            return list(self._recent_events)
+
+    def active_notes(self) -> dict[tuple[int, int], str]:
+        """Copie thread-safe des notes en cours de résonance.
+
+        Clé = (channel, note), valeur = nom de la voix. Vidée au fur et à
+        mesure que les note-off partent (fin de gate).
+        """
+        with self._activity_lock:
+            return dict(self._active_notes)
 
     # ------------------------------------------------------------------
     # Contrôle
@@ -144,6 +172,8 @@ class LiveClock:
             except Exception:
                 pass
         self._pending_off.clear()
+        with self._activity_lock:
+            self._active_notes.clear()
 
     def _tick(self, port, p, voices, engine, voice_ch_map, voice_sw_map,
               voice_lfo_map, voice_drop_map, voice_density_map) -> None:
@@ -174,6 +204,8 @@ class LiveClock:
                     port.send(mido.Message('note_off', note=n, channel=ch))
                 except Exception:
                     pass
+                with self._activity_lock:
+                    self._active_notes.pop((ch, n), None)
             else:
                 still.append((off_t, ch, n))
         self._pending_off = still
@@ -210,7 +242,7 @@ class LiveClock:
             self._dropped_voices = dropped_voices
 
         # Collecte des triggers de ce step
-        events: list[tuple[float, int, int, int]] = []  # (trigger_t, ch, note, vel)
+        events: list[tuple[float, int, int, int, str]] = []  # (trigger_t, ch, note, vel, name)
         for note, dna, vtype in voices:
             if vtype in ("cc", "babka") or (note == 0 and not vtype.startswith("ksp")):
                 continue
@@ -236,17 +268,21 @@ class LiveClock:
                 midi_note = self._markov_notes.get(name, [note] * n_steps)[step] if is_melodic else note
                 sw = voice_sw_map.get(name, 0.0)
                 swing_delay = (sw * step_dur * 0.33) if (step % 2 == 1 and sw > 0) else 0.0
-                events.append((t0 + swing_delay, ch, int(midi_note) & 0x7F, int(vel) & 0x7F))
+                events.append((t0 + swing_delay, ch, int(midi_note) & 0x7F, int(vel) & 0x7F, name))
 
         # Envoi chronologique
         events.sort(key=lambda e: e[0])
-        for trigger_t, ch, midi_note, vel in events:
+        for trigger_t, ch, midi_note, vel, name in events:
             delay = trigger_t - time.perf_counter()
             if delay > 0:
                 time.sleep(delay)
             try:
                 port.send(mido.Message('note_on', note=midi_note, velocity=vel, channel=ch))
                 self._pending_off.append((time.perf_counter() + gate_dur, ch, midi_note))
+                # Moniteur d'activité : log l'événement + marque la note active.
+                with self._activity_lock:
+                    self._recent_events.append((time.time(), ch, midi_note, vel, name))
+                    self._active_notes[(ch, midi_note)] = name
             except Exception:
                 pass
 

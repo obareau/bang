@@ -58,6 +58,22 @@ class BangSession:
 
     locked_voices: set[int] = field(default_factory=set)
 
+    # Preset tracking (mirror _state["current_preset"]/["current_ksp_preset"])
+    current_preset: str = ""
+    current_ksp_preset: str = ""
+    max_poly: int = 0
+
+    # Sequencer slots (mirror _state["seq_*"], web.py:685-692) — 8 slots, chacun
+    # None ou un snapshot tuple (voices, plocks, last_p) comme l'undo history.
+    seq_slots: list = field(default_factory=lambda: [None] * 8)
+    seq_current: int = 0
+    seq_cycles: int = 2
+    seq_weights: list[int] = field(default_factory=lambda: [1] * 8)
+
+    # A/B compare (mirror _state["slot_a"]/["slot_b"]) — snapshot tuple ou None.
+    slot_a: tuple | None = None
+    slot_b: tuple | None = None
+
     # ------------------------------------------------------------------
     # Génération
     # ------------------------------------------------------------------
@@ -348,6 +364,363 @@ class BangSession:
 
     def set_voice_thin(self, name: str, factor: int) -> None:
         self.voice_thin[name] = max(1, factor)
+
+    # ------------------------------------------------------------------
+    # Presets — drum machine / groove / KSP (mirror web.py preset routes)
+    # ------------------------------------------------------------------
+
+    def apply_drum_preset(self, preset_name: str) -> bool:
+        """Apply a drum-machine note mapping (mirror web.py `/preset/apply`, web.py:3631).
+
+        Looks up built-in DRUM_PRESETS first, then custom presets on disk. Sets
+        note_remap, records current_preset, and reassembles the engine so the
+        remap takes effect immediately. Returns False if the name is unknown.
+        """
+        import presets_lib as pr
+        all_presets = {**pr.DRUM_PRESETS, **pr.load_custom_presets(self._presets_path())}
+        if preset_name not in all_presets:
+            return False
+        with self._lock:
+            self.note_remap = dict(all_presets[preset_name])
+            self.current_preset = preset_name
+            if self.last_p and self.voices:
+                voices = pl.apply_note_remap(pl.build_voices(self.last_p, weather=self.weather), self.note_remap)
+                voices = pl.apply_voice_steps(voices, self.voice_steps)
+                self.voices = voices
+                self.engine = pl.assemble_engine(self.last_p, voices, weather=self.weather)
+            return True
+
+    def apply_groove(self, groove_name: str) -> bool:
+        """Overwrite the first 4 voices' DNA from a groove (mirror web.py `/groove/apply`, web.py:3115).
+
+        Pushes undo history first, respects locked voices, skips CC voices, and
+        reassembles the engine. Returns False if nothing is loaded or the groove
+        name is unknown.
+        """
+        import presets_lib as pr
+        if groove_name not in pr.GROOVE_PRESETS:
+            return False
+        with self._lock:
+            if not self.voices or not self.last_p:
+                return False
+            self._push_history()
+            preset = pr.GROOVE_PRESETS[groove_name]
+            voices = list(self.voices)
+            pi = 0
+            for vi, (note, dna, vtype) in enumerate(voices):
+                if vtype == "cc":
+                    continue
+                if vi not in self.locked_voices and pi < len(preset) and preset[pi]:
+                    voices[vi] = (note, preset[pi], vtype)
+                pi += 1
+            self.voices = voices
+            self.engine = pl.assemble_engine(self.last_p, voices, weather=self.weather)
+            return True
+
+    def apply_ksp_preset(self, preset_name: str) -> bool:
+        """Apply a KSP scale preset (mirror web.py `/ksp/preset/load`, web.py:3701).
+
+        Sets root/scale/gravity on last_p and per-track chords on voice_chords,
+        records current_ksp_preset, and reassembles the engine. Looks up built-in
+        presets then custom presets on disk. Returns False if the name is unknown.
+        """
+        import presets_lib as pr
+        all_presets = {**pr.KSP_PRESETS_BUILTIN, **pr.load_ksp_presets(self._ksp_presets_path())}
+        if preset_name not in all_presets:
+            return False
+        preset = all_presets[preset_name]
+        with self._lock:
+            for voice_name, chord in preset.get("chords", {}).items():
+                if chord in pl.VALID_CHORDS:
+                    self.voice_chords[voice_name] = chord
+            if self.last_p:
+                self.last_p["root"]    = preset["root"]
+                self.last_p["scale"]   = preset["scale"]
+                self.last_p["gravity"] = preset["gravity"]
+                if self.voices:
+                    self.engine = pl.assemble_engine(self.last_p, self.voices, weather=self.weather)
+            self.current_ksp_preset = preset_name
+            return True
+
+    # ------------------------------------------------------------------
+    # Note remap (mirror web.py `/notes`, web.py:2372)
+    # ------------------------------------------------------------------
+
+    def set_note_remap(self, voice_name: str, note: int) -> None:
+        """Set/override the MIDI note a voice name maps to (clamped 0-127) and rebuild."""
+        with self._lock:
+            self.note_remap[voice_name] = max(0, min(127, int(note)))
+            self._rebuild_after_remap()
+
+    def clear_note_remap(self, voice_name: str) -> None:
+        """Remove a single voice-name remap and rebuild."""
+        with self._lock:
+            self.note_remap.pop(voice_name, None)
+            self._rebuild_after_remap()
+
+    def _rebuild_after_remap(self) -> None:
+        """Re-derive voices/engine from last_p with the current note_remap applied."""
+        if not self.last_p or not self.voices:
+            return
+        voices = pl.apply_voice_steps(
+            pl.apply_note_remap(pl.build_voices(self.last_p, weather=self.weather), self.note_remap),
+            self.voice_steps,
+        )
+        self.voices = voices
+        self.engine = pl.assemble_engine(self.last_p, voices, weather=self.weather)
+
+    # ------------------------------------------------------------------
+    # Session JSON export / import (mirror web.py `/session/*`, web.py:3565)
+    # ------------------------------------------------------------------
+
+    def _presets_path(self) -> str:
+        from pathlib import Path
+        return str(Path(__file__).parent / "bang_presets.json")
+
+    def _ksp_presets_path(self) -> str:
+        from pathlib import Path
+        return str(Path(__file__).parent / "bang_ksp_presets.json")
+
+    def export_session_json(self, path: str) -> str:
+        """Write the full session state to a JSON file. Returns the path written."""
+        import json
+        import presets_lib as pr
+        with self._lock:
+            data = pr.session_to_dict(self)
+        from pathlib import Path
+        Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=2))
+        return path
+
+    def import_session_json(self, path: str) -> None:
+        """Restore the full session state from a JSON file (in place)."""
+        import json
+        import presets_lib as pr
+        from pathlib import Path
+        data = json.loads(Path(path).read_text())
+        with self._lock:
+            pr.session_from_dict(self, data)
+
+    # ------------------------------------------------------------------
+    # Météo + polyphonie (mirror web.py `/weather`)
+    # ------------------------------------------------------------------
+
+    def fetch_weather(self) -> dict | None:
+        """Fetch current weather on demand and store it (mirror web.py `/weather`).
+
+        Thin wrapper around bang_engine.fetch_weather(); the result feeds
+        weather-driven DNA generation. Returns the dict (or None if offline).
+        """
+        import bang_engine
+        w = bang_engine.fetch_weather()
+        with self._lock:
+            self.weather = w
+        return w
+
+    def set_max_poly(self, n: int) -> None:
+        """Store the max polyphony limit (0 = unlimited) for the UI.
+
+        NOTE: voice-stealing enforcement is NOT wired into LiveClock yet — this
+        only persists the value. It's a genuine TODO, not a silent no-op.
+        """
+        self.max_poly = max(0, int(n))
+
+    # ------------------------------------------------------------------
+    # Sequencer slots (mirror web.py `/seq/*`, web.py:3185-3268)
+    # ------------------------------------------------------------------
+
+    def _snapshot(self) -> tuple:
+        """Snapshot courant (voices, plocks, last_p) — même format que l'undo history."""
+        return (list(self.voices), list(self.plocks),
+                dict(self.last_p) if self.last_p else {})
+
+    def _restore_snapshot(self, snap: tuple) -> None:
+        """Restaure un snapshot (voices, plocks, last_p) et réassemble l'engine."""
+        voices, plocks, last_p = snap
+        self.voices = list(voices)
+        self.plocks = list(plocks)
+        self.last_p = dict(last_p)
+        self.engine = pl.assemble_engine(self.last_p, self.voices, weather=self.weather)
+
+    def seq_save(self, idx: int) -> bool:
+        """Stocke le pattern courant dans le slot idx (mirror `/seq/save`, web.py:3185).
+
+        Retourne False si idx hors bornes ou si aucun pattern n'est chargé.
+        """
+        with self._lock:
+            if not (0 <= idx < 8) or not self.voices or not self.last_p:
+                return False
+            self.seq_slots[idx] = self._snapshot()
+            return True
+
+    def seq_load(self, idx: int) -> bool:
+        """Restaure le slot idx dans l'état courant (mirror `/seq/load`, web.py:3198).
+
+        Empile l'undo history, réassemble l'engine, met à jour seq_current.
+        Retourne False si idx hors bornes ou slot vide.
+        """
+        with self._lock:
+            if not (0 <= idx < 8) or self.seq_slots[idx] is None:
+                return False
+            if self.voices and self.last_p:
+                self._push_history()
+            self._restore_snapshot(self.seq_slots[idx])
+            self.seq_current = idx
+            return True
+
+    def seq_clear(self, idx: int) -> bool:
+        """Vide le slot idx (mirror `/seq/clear`, web.py:3220). False si hors bornes."""
+        with self._lock:
+            if not (0 <= idx < 8):
+                return False
+            self.seq_slots[idx] = None
+            return True
+
+    def seq_advance(self) -> int:
+        """Sélectionne aléatoirement (pondéré) un slot occupé et le charge.
+
+        Mirror `/seq/advance` (web.py:3230) : exclut le slot courant sauf s'il est
+        le seul occupé, pondère par seq_weights. Retourne l'index chargé, ou -1
+        si aucun slot n'est occupé.
+        """
+        with self._lock:
+            occupied = [i for i in range(8) if self.seq_slots[i] is not None]
+            if not occupied:
+                return -1
+            others = [i for i in occupied if i != self.seq_current]
+            pool = others if others else occupied
+            wts = [self.seq_weights[i] for i in pool]
+            next_idx = random.choices(pool, weights=wts, k=1)[0]
+            if self.voices and self.last_p:
+                self._push_history()
+            self._restore_snapshot(self.seq_slots[next_idx])
+            self.seq_current = next_idx
+            return next_idx
+
+    def seq_set_weight(self, idx: int, weight: int) -> None:
+        """Fixe le poids de sélection d'un slot (mirror `/seq/weight`, web.py:3263, clamp 1-9)."""
+        with self._lock:
+            if 0 <= idx < 8:
+                self.seq_weights[idx] = max(1, min(9, int(weight)))
+
+    def seq_set_cycles(self, n: int) -> None:
+        """Fixe le nombre de cycles avant advance (mirror `/seq/config`, web.py:3257, clamp 1-64)."""
+        with self._lock:
+            self.seq_cycles = max(1, min(64, int(n)))
+
+    # ------------------------------------------------------------------
+    # A/B compare (mirror web.py `/ab/*`, web.py:3364-3390)
+    # ------------------------------------------------------------------
+
+    def ab_store(self, slot: str) -> bool:
+        """Stocke le pattern courant dans le slot A ou B (mirror `/ab/store`, web.py:3364).
+
+        Retourne False si aucun pattern n'est chargé.
+        """
+        with self._lock:
+            if not self.voices or not self.last_p:
+                return False
+            snap = self._snapshot()
+            if slot == "b":
+                self.slot_b = snap
+            else:
+                self.slot_a = snap
+            return True
+
+    def ab_load(self, slot: str) -> bool:
+        """Restaure le slot A ou B (mirror `/ab/load`, web.py:3376). False si vide."""
+        with self._lock:
+            snap = self.slot_b if slot == "b" else self.slot_a
+            if snap is None:
+                return False
+            self._restore_snapshot(snap)
+            return True
+
+    # ------------------------------------------------------------------
+    # Song mode — macro-arrangement (mirror web.py `_generate_song`, web.py:2118)
+    # ------------------------------------------------------------------
+
+    def generate_song(self, chaos: float, bpm: int, gravity: float,
+                      cc_depth: float) -> tuple[BangEngine, int]:
+        """Assemble une song complète (intro→…→fin) en UN seul BangEngine.
+
+        Portage de web.py `_generate_song` (web.py:2118) : mêmes sections
+        (`_SONG_STRUCTURE`), mêmes rampes de chaos et même logique de morph
+        inter-variation. Là où web.py exporte 30 fichiers séparés, on concatène
+        toutes les variations sur une timeline unique — chaque voix d'une section
+        est ajoutée à l'engine maître avec une DNA préfixée/suffixée de silences
+        pour tenir sa place temporelle. Retourne (engine, num_steps_total).
+
+        Les modes de song (`ambient`/`noise`) ne produisent que des voix "drum"
+        (aucune CC ni p-lock), donc l'assemblage se réduit à `add_voice`.
+        """
+        total_steps = sum(steps * count
+                          for _g, _b, _m, _cs, _ce, steps, count, _br in SONG_STRUCTURE)
+        engine = BangEngine(bpm=max(1, int(bpm)))
+        chaos = max(0.0, min(1.0, float(chaos)))
+        offset = 0
+
+        for _grp, _basename, mode, cstart, cend, steps, count, is_break in SONG_STRUCTURE:
+            prev_voices: list | None = None
+            for i in range(count):
+                cmult = cstart if count == 1 else cstart + (i / (count - 1)) * (cend - cstart)
+                section_chaos = min(1.0, chaos * cmult)
+                p = pl.read_form(mode=mode, chaos=section_chaos, bpm=bpm,
+                                 steps=steps, gravity=gravity, cc_depth=cc_depth)
+                if is_break or prev_voices is None:
+                    voices = pl.apply_note_remap(
+                        pl.build_voices(p, weather=self.weather), self.note_remap)
+                else:
+                    morph_intensity = 0.08 + section_chaos * 0.06
+                    voices = [(n, mutate_dna(d, intensity=morph_intensity), t)
+                              for n, d, t in prev_voices]
+                prev_voices = voices
+
+                trailing = total_steps - offset - steps
+                for note, dna, vtype in voices:
+                    if vtype == "cc" or not dna:
+                        continue
+                    body = pl.resize_dna(dna, steps)
+                    padded = ("-" * offset) + body + ("-" * trailing)
+                    engine.add_voice(note, padded)
+                offset += steps
+
+        return engine, total_steps
+
+    def export_song_midi(self, filename: str, dest_dir: str | None,
+                         chaos: float, bpm: int, gravity: float,
+                         cc_depth: float) -> str:
+        """Génère et exporte une song en un seul fichier MIDI (mirror `/export/song`, web.py:2191).
+
+        Retourne le chemin absolu du fichier écrit.
+        """
+        from pathlib import Path
+        engine, num_steps = self.generate_song(chaos, bpm, gravity, cc_depth)
+        target_dir = Path(dest_dir).expanduser() if dest_dir else Path(__file__).parent / "exports"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        out_name = filename or "bang_song.mid"
+        if not out_name.endswith(".mid"):
+            out_name += ".mid"
+        export_path = str(target_dir / out_name)
+        engine.export_midi(num_steps=num_steps, filename=export_path, weather=self.weather)
+        self.last_seed = engine.last_seed
+        return export_path
+
+
+# ---------------------------------------------------------------------------
+# Structure de song macro-arrangement (portage de web.py `_SONG_STRUCTURE`,
+# web.py:2100) — (group, basename, mode, chaos_start, chaos_end, steps, count, is_break)
+# ---------------------------------------------------------------------------
+SONG_STRUCTURE = [
+    (1, "intro",      "ambient", 0.15, 0.35, 32, 4, False),
+    (2, "transition", "noise",   0.55, 0.70, 16, 1, False),
+    (3, "couplet",    "noise",   0.70, 1.00, 32, 8, False),
+    (4, "break",      "ambient", 0.05, 0.12, 32, 1, True),
+    (5, "couplet2",   "noise",   0.90, 1.15, 32, 4, False),
+    (6, "climax",     "noise",   1.10, 1.40, 32, 4, False),
+    (7, "break2",     "ambient", 0.05, 0.18, 32, 2, True),
+    (8, "outro",      "ambient", 0.40, 0.12, 32, 2, False),
+    (9, "fin",        "ambient", 0.08, 0.04, 32, 4, False),
+]
 
 
 def _lfo_val(shape: str, phase: float) -> float:

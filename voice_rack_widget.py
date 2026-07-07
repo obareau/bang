@@ -25,6 +25,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QSlider, QComboBox, QSpinBox, QCheckBox, QScrollArea, QFrame,
+    QDialog, QDoubleSpinBox, QDialogButtonBox, QFormLayout,
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -132,6 +133,12 @@ class VoiceRowWidget(QWidget):
     density_changed = Signal(int, int)     # (idx, 0-100)
     chord_changed = Signal(int, str)       # (idx, chord_name)
     midi_channel_changed = Signal(int, int)  # (idx, channel) — channel == -1 means Auto
+
+    # Per-voice modifiers (map to BangSession.set_voice_thin/offset/drop/lfo).
+    thin_changed = Signal(int, int)        # (idx, factor)
+    offset_changed = Signal(int, int)      # (idx, n)
+    drop_changed = Signal(int, int)        # (idx, pct 0-100)
+    lfo_changed = Signal(int, str, str, float, float)  # (idx, shape, target, freq, depth)
 
     def __init__(self, idx: int, note: int, dna: str, vtype: str, parent=None):
         super().__init__(parent)
@@ -266,6 +273,65 @@ class VoiceRowWidget(QWidget):
 
         outer.addLayout(controls)
 
+        # --- Modifiers row: thin / offset / drop / LFO (compact, second line
+        # so the first controls row stays readable). ---
+        mods = QHBoxLayout()
+        mods.setSpacing(4)
+
+        thin_lbl = QLabel("Thin")
+        thin_lbl.setStyleSheet("color: #7a8494; font-size: 10px;")
+        mods.addWidget(thin_lbl)
+        self.thin = QSpinBox()
+        self.thin.setRange(1, 8)
+        self.thin.setValue(1)
+        self.thin.setFixedWidth(46)
+        self.thin.setToolTip("Keep 1 in N hits (1 = no thinning)")
+        self.thin.setStyleSheet(_SPIN_QSS)
+        self.thin.valueChanged.connect(lambda v: self.thin_changed.emit(self.idx, v))
+        mods.addWidget(self.thin)
+
+        mods.addWidget(self._vsep())
+
+        ofs_lbl = QLabel("Ofs")
+        ofs_lbl.setStyleSheet("color: #7a8494; font-size: 10px;")
+        mods.addWidget(ofs_lbl)
+        self.offset = QSpinBox()
+        self.offset.setRange(0, 32)
+        self.offset.setValue(0)
+        self.offset.setFixedWidth(46)
+        self.offset.setToolTip("Shift the pattern by N steps")
+        self.offset.setStyleSheet(_SPIN_QSS)
+        self.offset.valueChanged.connect(lambda v: self.offset_changed.emit(self.idx, v))
+        mods.addWidget(self.offset)
+
+        mods.addWidget(self._vsep())
+
+        drop_lbl = QLabel("Drop")
+        drop_lbl.setStyleSheet("color: #7a8494; font-size: 10px;")
+        mods.addWidget(drop_lbl)
+        self.drop = QSlider(Qt.Horizontal)
+        self.drop.setRange(0, 100)
+        self.drop.setValue(0)
+        self.drop.setFixedWidth(70)
+        self.drop.setToolTip("Chance (%) to drop this voice for a whole cycle")
+        self.drop.setStyleSheet(_SLIDER_QSS)
+        self.drop.valueChanged.connect(lambda v: self.drop_changed.emit(self.idx, v))
+        mods.addWidget(self.drop)
+
+        mods.addStretch()
+
+        self.lfo_btn = QPushButton("LFO…")
+        self.lfo_btn.setToolTip("Modulate density or drop with an LFO")
+        self.lfo_btn.setFixedWidth(48)
+        self.lfo_btn.setStyleSheet(_XFORM_QSS)
+        self.lfo_btn.clicked.connect(self._open_lfo_dialog)
+        mods.addWidget(self.lfo_btn)
+
+        # Last LFO settings (so re-opening the dialog restores them).
+        self._lfo_state = {"shape": "off", "target": "density", "freq": 1.0, "depth": 50}
+
+        outer.addLayout(mods)
+
     # -- small factory helpers --------------------------------------------
 
     def _toggle(self, text: str, on_color: str, tip: str) -> QPushButton:
@@ -304,6 +370,59 @@ class VoiceRowWidget(QWidget):
         if not self.auto_chk.isChecked():
             self.midi_channel_changed.emit(self.idx, value)
 
+    def _open_lfo_dialog(self) -> None:
+        """Lightweight modal to configure this voice's LFO, then emit lfo_changed."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"LFO — {self.badge.text()}")
+        dlg.setStyleSheet("QDialog { background: #141a26; } QLabel { color: #ddd6cc; }")
+
+        form = QFormLayout(dlg)
+
+        shape = QComboBox()
+        shape.addItems(["off", "sin", "tri", "ramp", "rnd"])
+        shape.setCurrentText(self._lfo_state["shape"])
+        shape.setStyleSheet(_COMBO_QSS)
+        form.addRow("Shape", shape)
+
+        target = QComboBox()
+        target.addItems(["density", "drop"])
+        target.setCurrentText(self._lfo_state["target"])
+        target.setStyleSheet(_COMBO_QSS)
+        form.addRow("Target", target)
+
+        freq = QDoubleSpinBox()
+        freq.setRange(0.01, 16.0)
+        freq.setSingleStep(0.25)
+        freq.setValue(float(self._lfo_state["freq"]))
+        freq.setStyleSheet(_SPIN_QSS.replace("QSpinBox", "QDoubleSpinBox"))
+        form.addRow("Freq", freq)
+
+        depth = QSlider(Qt.Horizontal)
+        depth.setRange(0, 100)
+        depth.setValue(int(self._lfo_state["depth"]))
+        depth.setStyleSheet(_SLIDER_QSS)
+        form.addRow("Depth", depth)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Apply).clicked.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        form.addRow(buttons)
+
+        if dlg.exec() == QDialog.Accepted:
+            self._lfo_state = {
+                "shape": shape.currentText(),
+                "target": target.currentText(),
+                "freq": freq.value(),
+                "depth": depth.value(),
+            }
+            self.lfo_changed.emit(
+                self.idx,
+                shape.currentText(),
+                target.currentText(),
+                freq.value(),
+                depth.value() / 100.0,
+            )
+
     # -- public API --------------------------------------------------------
 
     def set_dna(self, dna: str) -> None:
@@ -338,6 +457,11 @@ class VoiceRackWidget(QWidget):
     density_changed = Signal(int, int)
     chord_changed = Signal(int, str)
     midi_channel_changed = Signal(int, int)
+
+    thin_changed = Signal(int, int)
+    offset_changed = Signal(int, int)
+    drop_changed = Signal(int, int)
+    lfo_changed = Signal(int, str, str, float, float)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -408,6 +532,10 @@ class VoiceRackWidget(QWidget):
         row.density_changed.connect(self.density_changed)
         row.chord_changed.connect(self.chord_changed)
         row.midi_channel_changed.connect(self.midi_channel_changed)
+        row.thin_changed.connect(self.thin_changed)
+        row.offset_changed.connect(self.offset_changed)
+        row.drop_changed.connect(self.drop_changed)
+        row.lfo_changed.connect(self.lfo_changed)
 
 
 # ---------------------------------------------------------------------------
