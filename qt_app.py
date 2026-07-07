@@ -33,6 +33,8 @@ from song_panel import SongPanel
 from presets_panel import PresetsPanel
 from midi_activity_widget import MIDIActivityWidget
 from strudel_export import export_strudel
+from ableton_panel import AbletonPanel
+from ableton_osc import query_ableton_tempo, send_pattern_to_ableton
 
 
 class BANGQt(QMainWindow):
@@ -164,6 +166,10 @@ class BANGQt(QMainWindow):
         self.presets_panel = PresetsPanel()
         tabs.addTab(self.presets_panel, "Presets")
 
+        # Ableton Live (AbletonOSC) — tempo sync + push pattern as clips
+        self.ableton_panel = AbletonPanel()
+        tabs.addTab(self.ableton_panel, "Ableton")
+
         return tabs
 
     # ------------------------------------------------------------------
@@ -218,6 +224,10 @@ class BANGQt(QMainWindow):
         self.presets_panel.ksp_preset_requested.connect(self.on_ksp_preset)
         self.presets_panel.session_exported.connect(self.on_session_export)
         self.presets_panel.session_import_requested.connect(self.on_session_import)
+
+        # Ableton
+        self.ableton_panel.sync_bpm_requested.connect(self.on_ableton_sync_bpm)
+        self.ableton_panel.send_requested.connect(self.on_ableton_send)
 
     def setup_timers(self):
         self.update_timer = QTimer()
@@ -463,6 +473,35 @@ class BANGQt(QMainWindow):
             self.status_bar.showMessage(f"Session imported: {path}")
         except Exception as e:
             QMessageBox.warning(self, "Import failed", str(e))
+
+    # ------------------------------------------------------------------
+    # Ableton Live (AbletonOSC)
+    # ------------------------------------------------------------------
+
+    def on_ableton_sync_bpm(self, host: str, port: int):
+        bpm = query_ableton_tempo(host, port)
+        if bpm is None:
+            self.ableton_panel.set_status("Pas de réponse (AbletonOSC actif ?)", ok=False)
+            return
+        bpm_int = max(20, min(300, int(round(bpm))))
+        if self.session.last_p:
+            self.session.last_p["bpm"] = bpm_int
+        self.generator_panel.bpm_spin.setValue(bpm_int)
+        self.ableton_panel.set_status(f"BPM synchronisé : {bpm_int}")
+
+    def on_ableton_send(self, host: str, port: int, track_offset: int, slot: int):
+        if not self.session.voices or not self.session.last_p:
+            self.ableton_panel.set_status("Génère un pattern d'abord", ok=False)
+            return
+        sent, err = send_pattern_to_ableton(
+            self.session.voices, self.session.last_p,
+            host=host, port=port, track_offset=track_offset, slot=slot,
+        )
+        if err:
+            self.ableton_panel.set_status(f"Erreur : {err}", ok=False)
+        else:
+            last = track_offset + sent - 1
+            self.ableton_panel.set_status(f"✓ {sent} voix envoyées → tracks {track_offset}–{last}, slot {slot}")
 
     # ------------------------------------------------------------------
     # Transport (real MIDI clock)
