@@ -190,6 +190,8 @@ class BANGQt(QMainWindow):
         self.voice_rack.halve_requested.connect(lambda idx: self.on_voice_transform(idx, "halve"))
         self.voice_rack.invert_requested.connect(lambda idx: self.on_voice_transform(idx, "invert"))
         self.voice_rack.lock_toggled.connect(lambda idx, on: self.session.set_lock(idx, on))
+        self.voice_rack.mute_toggled.connect(lambda idx, on: self.session.set_mute(idx, on))
+        self.voice_rack.solo_toggled.connect(lambda idx, on: self.session.set_solo(idx, on))
         self.voice_rack.dna_edited.connect(self.on_dna_edited)
         self.voice_rack.density_changed.connect(self.on_density_changed)
         self.voice_rack.chord_changed.connect(self.on_chord_changed)

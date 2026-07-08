@@ -98,10 +98,13 @@ def export_strudel(voices: list[tuple[int, str, str]], bpm: int) -> str:
             if cell[0] <= 0:
                 tokens.append("~")
             elif int(cell[3]) > 1:
+                # Ratchet -> repeat N times within the step (standard mini-notation "*N")
                 tokens.append(f"{sample}*{int(cell[3])}")
-            elif float(cell[2]) < 0.75:
-                tokens.append(f"{sample}?{float(cell[2]):.1f}")
             elif float(cell[2]) < 0.95:
+                # Probabilistic hit -> bare "?" (50% random drop). Strudel's
+                # mini-notation only guarantees the bare "?" form; a custom
+                # numeric suffix like "?0.3" is NOT standard mini-notation and
+                # was silently producing broken/no-op patterns in the browser.
                 tokens.append(f"{sample}?")
             else:
                 tokens.append(sample)

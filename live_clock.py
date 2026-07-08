@@ -150,6 +150,7 @@ class LiveClock:
                 voice_lfo_map = dict(self.session.voice_lfo)
                 voice_drop_map = dict(self.session.voice_drop)
                 voice_density_map = dict(self.session.voice_density)
+                audible_flags = [self.session.is_voice_audible(i) for i in range(len(voices))]
 
             if not p or not voices:
                 time.sleep(0.05)
@@ -157,7 +158,7 @@ class LiveClock:
 
             try:
                 self._tick(port, p, voices, engine, voice_ch_map, voice_sw_map,
-                           voice_lfo_map, voice_drop_map, voice_density_map)
+                           voice_lfo_map, voice_drop_map, voice_density_map, audible_flags)
             except Exception:
                 # Ne jamais laisser une régénération concurrente (pattern plus
                 # court, voix retirée, changement de type, etc.) tuer le
@@ -176,7 +177,7 @@ class LiveClock:
             self._active_notes.clear()
 
     def _tick(self, port, p, voices, engine, voice_ch_map, voice_sw_map,
-              voice_lfo_map, voice_drop_map, voice_density_map) -> None:
+              voice_lfo_map, voice_drop_map, voice_density_map, audible_flags) -> None:
         """Un pas de la boucle temps réel. Mute self._step/_cycle_count/etc."""
         bpm     = p["bpm"]
         n_steps = p["steps"]
@@ -243,8 +244,10 @@ class LiveClock:
 
         # Collecte des triggers de ce step
         events: list[tuple[float, int, int, int, str]] = []  # (trigger_t, ch, note, vel, name)
-        for note, dna, vtype in voices:
+        for vidx, (note, dna, vtype) in enumerate(voices):
             if vtype in ("cc", "babka") or (note == 0 and not vtype.startswith("ksp")):
+                continue
+            if vidx < len(audible_flags) and not audible_flags[vidx]:
                 continue
             name = pl.voice_label(note, vtype)
             if name in self._dropped_voices:

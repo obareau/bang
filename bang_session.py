@@ -57,6 +57,8 @@ class BangSession:
     voice_swing: dict[str, float] = field(default_factory=dict)
 
     locked_voices: set[int] = field(default_factory=set)
+    muted_voices: set[int] = field(default_factory=set)
+    soloed_voices: set[int] = field(default_factory=set)
 
     # Preset tracking (mirror _state["current_preset"]/["current_ksp_preset"])
     current_preset: str = ""
@@ -158,6 +160,12 @@ class BangSession:
         voice_names = [pl.voice_label(n, t) for n, _d, t in self.voices]
         densities = [self.voice_density.get(name, 1.0) for name in voice_names]
         chord_types = [self.voice_chords.get(name, "mono") for name in voice_names]
+        # Mute/Solo — export doit correspondre à ce qu'on entend en lecture :
+        # une voix inaudible a sa densité forcée à 0 (silence) sans affecter
+        # le réglage de densité "normal" de l'utilisateur.
+        for i in range(len(densities)):
+            if not self.is_voice_audible(i):
+                densities[i] = 0.0
 
         self.engine.export_midi(
             num_steps=p["steps"],
@@ -213,6 +221,29 @@ class BangSession:
             return False
         self.locked_voices.add(idx)
         return True
+
+    # ------------------------------------------------------------------
+    # Mute / Solo (affecte la lecture live et l'export MIDI)
+    # ------------------------------------------------------------------
+
+    def set_mute(self, idx: int, muted: bool) -> None:
+        if muted:
+            self.muted_voices.add(idx)
+        else:
+            self.muted_voices.discard(idx)
+
+    def set_solo(self, idx: int, soloed: bool) -> None:
+        if soloed:
+            self.soloed_voices.add(idx)
+        else:
+            self.soloed_voices.discard(idx)
+
+    def is_voice_audible(self, idx: int) -> bool:
+        """False si la voix est mute, ou si des voix sont soloées et que
+        celle-ci n'en fait pas partie."""
+        if self.soloed_voices:
+            return idx in self.soloed_voices
+        return idx not in self.muted_voices
 
     # ------------------------------------------------------------------
     # Transforms par voix (mutent la DNA, re-assemblent l'engine)
