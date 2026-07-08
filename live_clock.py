@@ -16,9 +16,47 @@ import time
 
 import mido
 
+import babka as _babka
 from bang_engine import compile_dna
 from bang_session import BangSession, _lfo_val
 import pattern_lib as pl
+
+# GM percussion notes start at 35 (Acoustic Bass Drum). Notes below that
+# (24 "Bass", 33 "A1") are used by several generation modes (morph/weather/
+# noise/ambient) as genuine pitched bass hits with vtype="drum" — sending
+# them to the drum-kit channel produces silence (no GM percussion sample
+# maps that low). They need the same routing as a melodic/bass voice.
+_MIN_GM_PERCUSSION_NOTE = 35
+
+# Default MIDI channel per voice category, used only when the user hasn't
+# set an explicit per-voice channel override (voice_ch_map). Spreads voices
+# across distinct channels/instruments instead of piling everything melodic
+# onto one channel — this is what makes the built-in preview synth (and any
+# receiving multitimbral MIDI device) play drums AND bass AND leads
+# together instead of one channel drowning out the rest.
+_KSP_CHANNELS = {1: 2, 2: 3, 3: 4, 4: 5}  # ksp1..ksp4 -> channel 2..5
+
+
+def default_channel(note: int, vtype: str, drum_channel: int) -> int:
+    """Pick a default MIDI channel for a voice with no explicit override."""
+    if vtype.startswith("ksp"):
+        idx = int(vtype[3:])
+        return _KSP_CHANNELS.get(idx, 2)
+    if vtype == "vk":
+        return 6
+    if vtype.startswith("vfm"):
+        return 7
+    if vtype.startswith("mf"):
+        return 8
+    if vtype.startswith("vd"):
+        return drum_channel
+    if vtype == "bl":
+        return 0
+    if vtype == "markov":
+        return 1
+    if vtype in ("drum", "babka"):
+        return drum_channel if note >= _MIN_GM_PERCUSSION_NOTE else 0
+    return drum_channel
 
 
 class LiveClock:
@@ -51,6 +89,16 @@ class LiveClock:
         self._dropped_voices: set[str] = set()
         self._markov_notes: dict[str, list[int]] = {}
         self._pending_off: list[tuple[float, int, int]] = []  # (time, channel, note)
+        # Babka voices use fractional-duration steps (subdivisions, euclidean
+        # inline, cycle alternation) instead of the uniform 1-step grid the
+        # rest of the engine assumes — a plain per-integer-step scan can
+        # never see them, which is why they were silently skipped before.
+        # Schedule is recomputed once per cycle (step==0): a flat list of
+        # (step_offset: float, velocity, ratchet) per voice, walked
+        # continuously across as many internal babka cycles as needed to
+        # fill the pattern's n_steps (mirrors bang_engine.py's file-export
+        # babka branch, in step units instead of MIDI ticks).
+        self._babka_schedule: dict[str, list[tuple[float, int, int]]] = {}
 
         # --- Moniteur d'activité MIDI (poll-able depuis un QTimer Qt) ---
         # Ring-buffer des derniers note-on envoyés + set des notes en cours de
@@ -176,6 +224,27 @@ class LiveClock:
         with self._activity_lock:
             self._active_notes.clear()
 
+    @staticmethod
+    def _compute_babka_schedule(pattern: str, n_steps: int) -> list[tuple[float, int, int]]:
+        """Walk a babka pattern continuously (re-parsing per internal cycle,
+        same as bang_engine.py's file-export branch) until `n_steps` worth of
+        step-units is covered. Returns (step_offset, velocity, ratchet)."""
+        events: list[tuple[float, int, int]] = []
+        cursor = 0.0
+        cyc = 0
+        while cursor < n_steps:
+            bsteps = _babka.parse(pattern, cycle=cyc)
+            if not bsteps:
+                break
+            for s in bsteps:
+                if cursor >= n_steps:
+                    break
+                if s.trigger and random.random() < s.prob:
+                    events.append((cursor, int(s.velocity), max(1, int(s.ratchet))))
+                cursor += s.duration
+            cyc += 1
+        return events
+
     def _tick(self, port, p, voices, engine, voice_ch_map, voice_sw_map,
               voice_lfo_map, voice_drop_map, voice_density_map, audible_flags) -> None:
         """Un pas de la boucle temps réel. Mute self._step/_cycle_count/etc."""
@@ -191,7 +260,6 @@ class LiveClock:
         step_dur   = 60.0 / (bpm * 4)
         gate_dur   = step_dur * 0.75
         ch_drums   = self.drum_channel
-        ch_melodic = 0 if ch_drums != 0 else 1
 
         self._set_step(step, n_steps)
 
@@ -242,10 +310,22 @@ class LiveClock:
                     dropped_voices.add(_nm)
             self._dropped_voices = dropped_voices
 
+            # Babka : planning fractionnaire recalculé une fois par cycle
+            # (les positions ne tombent pas sur des steps entiers, donc un
+            # scan step-par-step classique ne peut jamais les voir).
+            self._babka_schedule = {}
+            for note, dna, vtype in voices:
+                if vtype != "babka" or not dna:
+                    continue
+                name = pl.voice_label(note, vtype)
+                self._babka_schedule[name] = self._compute_babka_schedule(dna, n_steps)
+
+        is_melodic_type = ("markov", "bl")
+
         # Collecte des triggers de ce step
         events: list[tuple[float, int, int, int, str]] = []  # (trigger_t, ch, note, vel, name)
         for vidx, (note, dna, vtype) in enumerate(voices):
-            if vtype in ("cc", "babka") or (note == 0 and not vtype.startswith("ksp")):
+            if vtype == "cc" or (note == 0 and not vtype.startswith("ksp")):
                 continue
             if vidx < len(audible_flags) and not audible_flags[vidx]:
                 continue
@@ -259,6 +339,18 @@ class LiveClock:
                 _lv = _lfo_val(_lfo["shape"], _ph)
                 density = max(0.0, min(1.0, density * (1 - _lfo["depth"] + _lv * _lfo["depth"])))
 
+            ch = voice_ch_map.get(name, default_channel(note, vtype, ch_drums))
+            is_melodic = vtype in is_melodic_type or vtype.startswith(("ksp", "vd", "vfm", "mf"))
+            sw = voice_sw_map.get(name, 0.0)
+            swing_delay = (sw * step_dur * 0.33) if (step % 2 == 1 and sw > 0) else 0.0
+
+            if vtype == "babka":
+                for offset, vel, _ratchet in self._babka_schedule.get(name, []):
+                    if step <= offset < step + 1 and random.random() < density:
+                        sub_delay = (offset - step) * step_dur
+                        events.append((t0 + sub_delay, ch, int(note) & 0x7F, int(vel) & 0x7F, name))
+                continue
+
             if not dna:
                 continue
             compiled = compile_dna(dna)
@@ -266,11 +358,7 @@ class LiveClock:
             trig, vel, prob, ratch, jit = row
 
             if trig and random.random() < prob * density:
-                is_melodic = vtype in ("markov", "bl") or vtype.startswith(("ksp", "vd", "vfm", "mf"))
-                ch = voice_ch_map.get(name, ch_melodic if is_melodic else ch_drums)
                 midi_note = self._markov_notes.get(name, [note] * n_steps)[step] if is_melodic else note
-                sw = voice_sw_map.get(name, 0.0)
-                swing_delay = (sw * step_dur * 0.33) if (step % 2 == 1 and sw > 0) else 0.0
                 events.append((t0 + swing_delay, ch, int(midi_note) & 0x7F, int(vel) & 0x7F, name))
 
         # Envoi chronologique

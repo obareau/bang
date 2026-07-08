@@ -211,11 +211,18 @@ def morph_dna(p1: str, p2: str, mutation_rate: float = 0.2) -> str:
 
 
 def mutate_dna(dna: str, intensity: float = 0.2) -> str:
-    """Corruption progressive : glisse chaque caractère vers un symbole adjacent."""
+    """Corruption progressive : glisse chaque caractère vers un symbole adjacent.
+
+    Ne touche que les caractères DNA valides (x/-/?/↺/░) — laisse intacte
+    toute syntaxe non-DNA (Babka : parenthèses, chiffres, virgules, crochets,
+    chevrons). Sinon un pattern euclidien comme "↺(2,8)" peut voir son "8"
+    aléatoirement remplacé par un glyphe DNA (ex: "↺(2,-)"), ce qui invalide
+    l'argument euclidien et rend la voix silencieuse.
+    """
     result = []
     for c in dna:
-        if random.random() < intensity:
-            idx = DNA_SYMBOLS.index(c) if c in DNA_SYMBOLS else 0
+        if c in DNA_SYMBOLS and random.random() < intensity:
+            idx = DNA_SYMBOLS.index(c)
             shift = random.choice([-1, 1])
             result.append(DNA_SYMBOLS[max(0, min(len(DNA_SYMBOLS) - 1, idx + shift))])
         else:

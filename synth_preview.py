@@ -34,18 +34,29 @@ def find_default_soundfont() -> str | None:
 class FluidSynthPort:
     """Mido-output-shaped adapter around a FluidSynth instance.
 
-    Drum channel (default 9, 0-based = MIDI ch10) tries the GM2 "Electronic"
-    kit variant (bank 128, program 24 — TR-808/electro style; falls back to
-    the standard kit if the loaded soundfont doesn't have that variant) so
-    drum-machine voices (vd*/vk/drum on ch10) sound electro instead of an
-    acoustic kit. Every other channel gets GM program 38 "Synth Bass 1"
-    (bank 0) — the classic analog/Moog-style bass patch, on-brand for this
-    app's dark/electro aesthetic, since most melodic voices here are bass
-    registers (dark_chain/bass_chain).
+    Genuinely multitimbral: every one of the 16 MIDI channels gets its own
+    GM program assigned up front, matching live_clock.py's `default_channel()`
+    routing (channel 0=Bass, 1=Lead/Markov, 2-5=Keystep tracks, 6=Volca Kick,
+    7=Volca FM, 8=MicroFreak, drum_channel=kit). That way drums, bass and
+    leads all sound simultaneously with distinct timbres instead of every
+    non-drum voice piling onto one generic "everything is bass" channel.
     """
 
     DRUM_KIT_PROGRAM = 24   # GM2 "Electronic" kit (falls back gracefully)
-    BASS_PROGRAM = 38       # GM "Synth Bass 1" — Moog-ish analog bass
+
+    # channel -> (bank, program). Channels not listed default to bank 0
+    # program 0 (Acoustic Grand) as a harmless fallback.
+    CHANNEL_PROGRAMS = {
+        0: (0, 38),    # Bass — Synth Bass 1 (bl, and low "drum"-typed notes like Bass/A1)
+        1: (0, 81),    # Lead/Markov — Lead 2 (sawtooth)
+        2: (0, 80),    # KSP Lead — Lead 1 (square)
+        3: (0, 38),    # KSP Bass — Synth Bass 1
+        4: (0, 89),    # KSP Chord — Pad 2 (warm)
+        5: (0, 108),   # KSP Arp — Kalimba
+        6: (0, 87),    # Volca Kick — Lead 8 (bass+lead)
+        7: (0, 82),    # Volca FM — Lead 3 (calliope)
+        8: (0, 84),    # MicroFreak — Lead 5 (charang)
+    }
 
     def __init__(self, soundfont_path: str | None = None, drum_channel: int = 9):
         import fluidsynth  # deferred import — optional dependency
@@ -64,7 +75,8 @@ class FluidSynthPort:
             if ch == drum_channel:
                 self.fs.program_select(ch, sfid, 128, self.DRUM_KIT_PROGRAM)
             else:
-                self.fs.program_select(ch, sfid, 0, self.BASS_PROGRAM)
+                bank, program = self.CHANNEL_PROGRAMS.get(ch, (0, 0))
+                self.fs.program_select(ch, sfid, bank, program)
 
     def send(self, msg) -> None:
         if msg.type == "note_on":
