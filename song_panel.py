@@ -51,16 +51,9 @@ class SongPanel(QWidget):
         return slider
 
     def _build_ui(self):
-        self.setStyleSheet(f"""
-            QGroupBox {{ color: {_BRASS}; font-weight: bold; border: 1px solid {_BORDER};
-                        margin-top: 8px; padding-top: 8px; }}
-            QLabel {{ color: {_INK}; }}
-            QSpinBox, QLineEdit {{
-                background: {_SLATE}; color: {_INK}; border: 1px solid {_BORDER}; padding: 3px;
-            }}
-            QPushButton {{ background: {_BORDER}; color: {_INK}; border: 1px solid #3a4150; padding: 6px; }}
-            QPushButton:hover {{ background: #2a3444; }}
-        """)
+        # Chrome comes from the app-wide theme (theme.py) — no local sheet
+        # here (it would shadow the QApplication-level one for this panel's
+        # children, which is what previously kept the old slate/brass look).
         outer = QVBoxLayout(self)
 
         group = QGroupBox("Song Mode")

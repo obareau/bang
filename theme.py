@@ -10,15 +10,16 @@ every widget looks consistent; per-voice badge/DNA-cell colors (functional
 coding, not chrome) are untouched — those still come from pattern_lib's color
 tables and stay multi-hue on purpose.
 
-Usage: `app.setStyleSheet(THEME_QSS)` once, right after creating the
-QApplication, before any windows are shown. Local widget-level
-`setStyleSheet()` calls still override these rules for that widget/its
-children (normal Qt cascade — more specific selectors win), so existing
-per-widget styles keep working; this just fixes everything nobody styled
-explicitly (QTabWidget tabs, QScrollBar, base QPushButton/QComboBox/QSpinBox
-look) and gives buttons/borders one consistent accent instead of scattered
-ad hoc colors.
+Usage: call `apply(app)` once, right after creating the QApplication, before
+any windows are shown. This sets BOTH a dark QPalette and the QSS — QSS alone
+doesn't reliably override every native-drawn detail on every style (e.g. the
+Fusion style's default light palette bleeds blue-ish tones through on things
+like QSpinBox's up/down arrow glyphs even when the box itself is styled dark
+— confirmed by pixel-sampling an actual screenshot, not just visual guess).
+The palette covers the base colors so nothing native leaks through; the QSS
+handles borders/spacing/typography on top.
 """
+from PySide6.QtGui import QPalette, QColor
 
 # Single accent hue — matches the brass tone already used as the primary
 # accent across generator_panel.py / voice_rack_widget.py / dna_grid_widget.py,
@@ -246,3 +247,44 @@ QMessageBox {{
     background: {SURFACE};
 }}
 """
+
+
+def dark_palette() -> QPalette:
+    """Full dark QPalette — belt-and-braces alongside THEME_QSS so no
+    native-drawn widget part (spin arrows, focus rects, etc.) can show
+    through with the Fusion style's default light-mode blue/white tones."""
+    p = QPalette()
+    bg = QColor(BG)
+    surface = QColor(SURFACE)
+    text = QColor(TEXT)
+    accent = QColor(ACCENT)
+    muted = QColor(TEXT_MUTED)
+
+    p.setColor(QPalette.Window, bg)
+    p.setColor(QPalette.WindowText, text)
+    p.setColor(QPalette.Base, bg)
+    p.setColor(QPalette.AlternateBase, surface)
+    p.setColor(QPalette.ToolTipBase, surface)
+    p.setColor(QPalette.ToolTipText, accent)
+    p.setColor(QPalette.Text, text)
+    p.setColor(QPalette.PlaceholderText, muted)
+    p.setColor(QPalette.Button, surface)
+    p.setColor(QPalette.ButtonText, text)
+    p.setColor(QPalette.BrightText, accent)
+    p.setColor(QPalette.Highlight, accent)
+    p.setColor(QPalette.HighlightedText, bg)
+    p.setColor(QPalette.Link, accent)
+
+    p.setColor(QPalette.Disabled, QPalette.Text, muted)
+    p.setColor(QPalette.Disabled, QPalette.WindowText, muted)
+    p.setColor(QPalette.Disabled, QPalette.ButtonText, muted)
+
+    return p
+
+
+def apply(app) -> None:
+    """Apply the dark palette + QSS to a QApplication. Call once at startup,
+    before any window is constructed."""
+    app.setStyle("Fusion")
+    app.setPalette(dark_palette())
+    app.setStyleSheet(THEME_QSS)

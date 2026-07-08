@@ -49,7 +49,9 @@ class PresetsPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(_PANEL_QSS)
+        # Chrome comes from the app-wide theme (theme.py) — no local sheet
+        # here, it would shadow the QApplication-level one for this panel's
+        # children.
         self._build_ui()
 
     def _picker_group(self, title: str, items, apply_slot) -> tuple[QGroupBox, QComboBox]:

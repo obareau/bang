@@ -54,18 +54,11 @@ class GeneratorPanel(QWidget):
         return slider
 
     def _build_ui(self):
-        self.setStyleSheet("""
-            QGroupBox { color: #b8956a; font-weight: bold; border: 1px solid #202836;
-                        margin-top: 8px; padding-top: 8px; }
-            QLabel { color: #ddd6cc; }
-            QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
-                background: #141a26; color: #ddd6cc; border: 1px solid #202836; padding: 3px;
-            }
-            QPushButton {
-                background: #202836; color: #ddd6cc; border: 1px solid #3a4150; padding: 6px;
-            }
-            QPushButton:hover { background: #2a3444; }
-        """)
+        # No local setStyleSheet() here — the app-wide theme (theme.py) owns
+        # this chrome now. A stray local sheet previously shadowed it (Qt
+        # gives widget-level stylesheets priority over the QApplication-level
+        # one), causing BPM/Steps/Filename/velocity fields to keep the old
+        # dark-slate-blue palette instead of the current amber theme.
         outer = QVBoxLayout(self)
 
         # --- Mode + core params ---

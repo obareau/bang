@@ -598,8 +598,8 @@ class BANGQt(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    from theme import THEME_QSS
-    app.setStyleSheet(THEME_QSS)
+    import theme
+    theme.apply(app)
     window = BANGQt()
     window.show()
     sys.exit(app.exec())

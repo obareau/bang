@@ -59,15 +59,9 @@ class SequencerPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        self.setStyleSheet(f"""
-            QGroupBox {{ color: {_BRASS}; font-weight: bold; border: 1px solid {_BORDER};
-                        margin-top: 8px; padding-top: 8px; }}
-            QLabel {{ color: {_INK}; }}
-            QSpinBox {{ background: {_SLATE}; color: {_INK}; border: 1px solid {_BORDER}; padding: 2px; }}
-            QPushButton {{ background: {_BORDER}; color: {_INK}; border: 1px solid #3a4150; padding: 6px; }}
-            QPushButton:hover {{ background: #2a3444; }}
-            QPushButton:checked {{ background: {_BRASS}; color: #0a0e14; font-weight: bold; }}
-        """)
+        # Chrome (incl. QPushButton:checked) comes from the app-wide theme
+        # (theme.py) — no local sheet here, it would shadow the
+        # QApplication-level one for this panel's children.
         outer = QVBoxLayout(self)
 
         # --- Mode selector (Save / Load / Clear) ---

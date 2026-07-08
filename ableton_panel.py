@@ -17,18 +17,9 @@ class AbletonPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QGroupBox { color: #b8956a; font-weight: bold; border: 1px solid #202836;
-                        margin-top: 8px; padding-top: 8px; }
-            QLabel { color: #ddd6cc; }
-            QLineEdit, QSpinBox {
-                background: #141a26; color: #ddd6cc; border: 1px solid #202836; padding: 3px;
-            }
-            QPushButton {
-                background: #202836; color: #ddd6cc; border: 1px solid #3a4150; padding: 6px;
-            }
-            QPushButton:hover { background: #2a3444; }
-        """)
+        # Chrome comes from the app-wide theme (theme.py) — a local sheet
+        # here would shadow it for this panel's children (Qt gives widget-
+        # level stylesheets priority over the QApplication-level one).
         self._build_ui()
 
     def _build_ui(self) -> None:
