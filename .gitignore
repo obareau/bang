@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 exports/
+build/
 *.mid
 bang_sessions.jsonl
 bang_favorites.json
