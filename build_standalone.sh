@@ -33,8 +33,8 @@ LOCAL_MODULES=(
     midi_routing osc_debugger nts1_panel microfreak_panel
     ratchet_engine p_locks midi_cc_router
     sequencer_panel song_panel presets_lib presets_panel
-    midi_activity_widget strudel_export synth_preview
-    ableton_osc ableton_panel
+    midi_activity_widget synth_preview
+    ableton_osc ableton_panel theme
 )
 
 # Platform detection

@@ -12,10 +12,10 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTabWidget, QGroupBox, QStatusBar, QSplitter,
-    QMessageBox, QFileDialog, QDialog, QPlainTextEdit,
+    QMessageBox, QFileDialog,
 )
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QGuiApplication
+from PySide6.QtGui import QFont
 
 import mido
 
@@ -32,7 +32,6 @@ from sequencer_panel import SequencerPanel
 from song_panel import SongPanel
 from presets_panel import PresetsPanel
 from midi_activity_widget import MIDIActivityWidget
-from strudel_export import export_strudel
 from ableton_panel import AbletonPanel
 from ableton_osc import query_ableton_tempo, send_pattern_to_ableton
 
@@ -181,7 +180,6 @@ class BANGQt(QMainWindow):
         self.generator_panel.export_requested.connect(self.on_export)
         self.generator_panel.vary_all_requested.connect(self.on_vary_all)
         self.generator_panel.undo_requested.connect(self.on_undo)
-        self.generator_panel.strudel_requested.connect(self.on_strudel_export)
 
         self.voice_rack.regen_requested.connect(self.on_voice_regen)
         self.voice_rack.rotate_requested.connect(lambda idx: self.on_voice_transform(idx, "rotate"))
@@ -272,32 +270,6 @@ class BANGQt(QMainWindow):
             QMessageBox.information(self, "Export réussi", f"Fichier MIDI exporté :\n{path}")
         except Exception as e:
             QMessageBox.warning(self, "Export failed", str(e))
-
-    def on_strudel_export(self):
-        if not self.session.voices or not self.session.last_p:
-            self.status_bar.showMessage("Generate a pattern first")
-            return
-        code = export_strudel(self.session.voices, self.session.last_p["bpm"])
-
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Export Strudel — colle ce code sur strudel.cc")
-        dlg.resize(640, 420)
-        layout = QVBoxLayout(dlg)
-        text = QPlainTextEdit(code)
-        text.setReadOnly(True)
-        text.setStyleSheet(
-            "background: #0a0e14; color: #ddd6cc; font-family: Menlo, monospace; font-size: 12px;"
-        )
-        layout.addWidget(text)
-        btn_row = QHBoxLayout()
-        copy_btn = QPushButton("📋 Copier dans le presse-papiers")
-        close_btn = QPushButton("Fermer")
-        btn_row.addWidget(copy_btn)
-        btn_row.addWidget(close_btn)
-        layout.addLayout(btn_row)
-        copy_btn.clicked.connect(lambda: QGuiApplication.clipboard().setText(code))
-        close_btn.clicked.connect(dlg.accept)
-        dlg.exec()
 
     def on_vary_all(self):
         self.session.vary_all()

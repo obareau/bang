@@ -127,6 +127,24 @@ _state = {
 
 Retourne les events pour le player JS. Les voix Babka ont des `step` flottants (ex: `2.5` = milieu du step 2). Le player JS utilise `Math.floor(e.step)` pour le dispatch et `(e.step % 1) * stepDurMs` comme offset sub-step.
 
+## App desktop Qt6 (branche `qt6-native`)
+
+Rebuild natif PySide6 de l'app (indépendant de `web.py`, mêmes fondations
+via `pattern_lib.py` extrait du webapp). Génération, édition DNA interactive
+(grille cliquable), lecture MIDI temps réel (port réel ou synthé intégré
+FluidSynth), séquenceur 8 slots, song mode, presets, Ableton OSC, export
+MIDI type 0/1.
+
+**Pas d'export Strudel dans la version Qt6.** Tenté puis abandonné : la
+syntaxe DNA/Babka (probabilités, ratchets, jitter) ne se traduit pas
+proprement en mini-notation Strudel réelle — les patterns générés ne
+jouaient pas (voix mélodiques sans synthé attaché, échantillons percussion
+inventés sans garantie d'exister, opérateur `?` avec argument numérique
+non-standard). Le webapp garde son `/export/strudel` tel quel (fonctionnalité
+existante, non touchée). La seule filiation Strudel qui reste pertinente
+côté Qt6 est historique : la syntaxe Babka (`babka.py`) s'est inspirée de la
+mini-notation Strudel/TidalCycles pour ses opérateurs `[ ]` / `< >` / `(n,k)`.
+
 ## Préfixes de commit
 
 `Feat:` · `Fix:` · `Refactor:` · `Chore:` · `Docs:`
