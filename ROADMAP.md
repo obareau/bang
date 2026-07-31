@@ -61,8 +61,10 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ## Phase 6 — Performance live (à venir)
 
-- [ ] **#5 Swing per voice** — offset microtiming par voix en % de step_dur, indépendant du swing global
-- [ ] **#6 Song mode** — séquencer les 8 slots SEQ dans un ordre défini (A×4 → B×2 → C×1)
+- [x] **#5 Swing per voice** — offset microtiming par voix en % de step_dur, indépendant du swing global
+      _fait — bang_session.set_voice_swing + voice_swing appliqué dans live_clock_
+- [x] **#6 Song mode** — séquencer les 8 slots SEQ dans un ordre défini (A×4 → B×2 → C×1)
+      _fait — song_panel.py + SongPanel câblé dans qt_app_
 - [ ] **#7 MIDI Clock IN externe par port** — sync BPM à hardware (Zoom R8, boîte à rythme, DAW master)
 - [ ] **#8 Conditional triggers** — conditions type Elektron : every N bars / first only / fill
 - [ ] **#9 Transposition globale** — ±24 demi-tons appliqués à toutes les voix mélodiques en live
@@ -76,8 +78,10 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 ### NTS-1 (Korg)
 
 - [ ] Profil p-locks `nts1` dans `_SYNTH_PLOCK_PROFILES` : Cutoff CC43, OscShp CC53, OscAlt CC54, LFOInt CC25, Reso CC44, RevMix CC38
-- [ ] Panel NTS-1 dedie (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps reel, indicateur p-lock actif par param
-- [ ] P-lock interpolation : option linear/cosine/off par piste CC -> MIDI SRV envoie CCs intermediaires entre steps (glisse fluide)
+- [x] Panel NTS-1 dedie (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps reel, indicateur p-lock actif par param
+      _fait — nts1_panel.py — 6 sections OSC/FILTER/LFO/EG/FX_
+- [x] P-lock interpolation : option linear/cosine/off par piste CC -> MIDI SRV envoie CCs intermediaires entre steps (glisse fluide)
+      _fait — p_locks.InterpolationMode LINEAR/COSINE, utilisé par midi_cc_router_
 
 ### Microfreak (Arturia)
 
@@ -100,4 +104,15 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ---
 
-*Dernière mise à jour : 2026-05-25 · v0.9.2*
+*Dernière mise à jour : 2026-07-31 · v0.9.2 — réconciliation après 145 commits non reflétés*
+
+## Demandes externes (Argus)
+
+<!-- argus:begin -->
+- [ ] ⚑ 12+ commits non publiés
+      _pourquoi : dernière version 0.9.5-alpha datée du 2026-05-25_
+- [ ] ⇐ D.I.M : Intégration d'un flux MIDI direct depuis BANG! pour synchroniser les performances en temps réel.
+      _pourquoi : Cela permettrait de créer des performances plus fluides et intégrées._
+- [ ] ⇐ Argus : [health-endpoint] Tout service HTTP expose GET /health répondant 200.
+      _pourquoi : Un watchdog ne peut pas surveiller ce qu'il ne peut pas interroger. Sans sonde uniforme, chaque service invente la sienne — ou n'en a aucune, et tombe sans que personne le voie (OpenClaw bloqué 12 h en « active (running) », Navidrome mort 10 h derrière un stream qui continuait de sortir)._
+<!-- argus:end -->
