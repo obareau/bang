@@ -1,0 +1,7 @@
+# Ce que ce projet déclare à Argus. Le projet déclare, Argus vérifie.
+#
+# ⚠️ Ce n' est PAS une suite pytest : c'est un harnais autonome qui interroge
+# le serveur en marche sur :7777 (oracle GET /session/export, snapshot et
+# restauration de l'état). pytest ne collectait donc rien, et Argus concluait
+# à tort « aucun test ». La déclaration lève l'ambiguïté.
+tests: python3 tests/test_bang.py
