@@ -111,8 +111,6 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 <!-- argus:begin -->
 - [ ] ⚑ 12+ commits non publiés
       _pourquoi : dernière version 0.9.5-alpha datée du 2026-05-25_
-- [ ] ⇐ D.I.M : Intégration d'un flux MIDI direct depuis BANG! pour synchroniser les performances en temps réel.
-      _pourquoi : Cela permettrait de créer des performances plus fluides et intégrées._
 - [ ] ⇐ Argus : [health-endpoint] Tout service HTTP expose GET /health répondant 200.
       _pourquoi : Un watchdog ne peut pas surveiller ce qu'il ne peut pas interroger. Sans sonde uniforme, chaque service invente la sienne — ou n'en a aucune, et tombe sans que personne le voie (OpenClaw bloqué 12 h en « active (running) », Navidrome mort 10 h derrière un stream qui continuait de sortir)._
 <!-- argus:end -->
