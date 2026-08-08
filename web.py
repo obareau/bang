@@ -624,6 +624,29 @@ def _sse_signal(key: str) -> None:
         _sse_loop.call_soon_threadsafe(_sse_event.set)
 
 
+@app.get("/health")
+async def health():
+    """Sonde de santé — décision d'écosystème `health-endpoint` (Argus).
+
+    ⚠️ Vérifie que BANG! peut RÉELLEMENT produire, pas seulement que FastAPI
+    répond : le dossier d'export doit être accessible en écriture, et `mido`
+    importable — sans lui, plus aucune sortie MIDI, et l'interface continue
+    pourtant de s'afficher normalement.
+    """
+    detail = {"status": "ok", "service": "bang"}
+    detail["export_dir"] = str(EXPORT_DIR)
+    detail["export_writable"] = os.access(EXPORT_DIR, os.W_OK)
+    try:
+        import mido
+        detail["midi_out"] = len(mido.get_output_names())
+    except Exception as exc:
+        detail["midi_out"] = None
+        detail["midi_error"] = str(exc)
+    if not detail["export_writable"] or detail["midi_out"] is None:
+        detail["status"] = "degraded"
+    return detail
+
+
 @app.get("/events")
 async def sse_stream(request: Request):
     """Endpoint SSE ??? une connexion persistante par tab browser."""
