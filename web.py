@@ -5,7 +5,7 @@ from __future__ import annotations
 APP_VERSION = "0.9.5-alpha"
 
 # ---------------------------------------------------------------------------
-# SSE ??? Live sync browser ??? ??tat OSC/MIDI
+# SSE — Live sync browser — État OSC/MIDI
 # ---------------------------------------------------------------------------
 _sse_loop:    asyncio.AbstractEventLoop | None = None
 _sse_event:   asyncio.Event | None             = None
@@ -550,11 +550,11 @@ async def on_startup():
 
 
 # ---------------------------------------------------------------------------
-# SSE ??? broadcaster, payload, endpoint
+# SSE — broadcaster, payload, endpoint
 # ---------------------------------------------------------------------------
 
 async def _sse_broadcaster() -> None:
-    """Debounce 50 ms puis pousse les fragments HTML aux clients connect??s."""
+    """Debounce 50 ms puis pousse les fragments HTML aux clients connectés."""
     while True:
         await _sse_event.wait()
         _sse_event.clear()
@@ -574,7 +574,7 @@ async def _sse_broadcaster() -> None:
 
 
 def _build_sse_payload(dirty: set[str]) -> str:
-    """Construit les fragments HTML HTMX OOB correspondant aux ??l??ments dirty."""
+    """Construit les fragments HTML HTMX OOB correspondant aux éléments dirty."""
     parts: list[str] = []
     p = _state.get("last_p") or {}
 
@@ -605,7 +605,7 @@ def _build_sse_payload(dirty: set[str]) -> str:
                 f'<input id="inp-density-{voice}" value="{val:.3f}" hx-swap-oob="true">'
             )
 
-    # Pattern (generate / vary) ??? pianoroll complet
+    # Pattern (generate / vary) — pianoroll complet
     if "pattern" in dirty and _state.get("voices") and p.get("steps"):
         try:
             pr = _build_pr_html(_state["voices"], p["steps"],
@@ -618,7 +618,7 @@ def _build_sse_payload(dirty: set[str]) -> str:
 
 
 def _sse_signal(key: str) -> None:
-    """Marque un ??l??ment dirty et r??veille le broadcaster (thread-safe)."""
+    """Marque un élément dirty et réveille le broadcaster (thread-safe)."""
     _sse_dirty.add(key)
     if _sse_loop and _sse_event:
         _sse_loop.call_soon_threadsafe(_sse_event.set)
@@ -649,7 +649,7 @@ async def health():
 
 @app.get("/events")
 async def sse_stream(request: Request):
-    """Endpoint SSE ??? une connexion persistante par tab browser."""
+    """Endpoint SSE — une connexion persistante par tab browser."""
     q: asyncio.Queue = asyncio.Queue(maxsize=20)
     _sse_clients.append(q)
     async def _gen():
