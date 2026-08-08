@@ -127,7 +127,13 @@ _state = {
 
 Retourne les events pour le player JS. Les voix Babka ont des `step` flottants (ex: `2.5` = milieu du step 2). Le player JS utilise `Math.floor(e.step)` pour le dispatch et `(e.step % 1) * stepDurMs` comme offset sub-step.
 
-## App desktop Qt6 (branche `qt6-native`)
+## App desktop Qt6
+
+⚠️ Vivait sur une branche `qt6-native` jusqu'au 2026-08-09 — elle a été
+fusionnée dans `main` (fast-forward, 37 commits) puis supprimée. `main` est la
+seule branche. Ces 37 commits ne portaient pas que le Qt6 : le pont OSC
+Ableton, les correctifs de basse muette et de mute/solo, les licences et
+`/health` en faisaient partie.
 
 Rebuild natif PySide6 de l'app (indépendant de `web.py`, mêmes fondations
 via `pattern_lib.py` extrait du webapp). Génération, édition DNA interactive
