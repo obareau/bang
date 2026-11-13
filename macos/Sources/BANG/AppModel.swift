@@ -97,7 +97,10 @@ final class AppModel: ObservableObject {
             destinationID = MIDIUniqueID(saved)
             midi.select(destinationID)
         }
-        midi.onSetupChanged = { [weak self] in self?.refreshDestinations() }
+        midi.onSetupChanged = { [weak self] in
+            self?.refreshDestinations()
+            self?.refreshClockSources()
+        }
         synth.kit = drumKit
         if internalSynthOn { synth.start() }
 
@@ -112,6 +115,8 @@ final class AppModel: ObservableObject {
             session.generate()
         }
         sessionChanged()
+        refreshClockSources()
+        setupClockIn()
     }
 
     func refreshDestinations() {
@@ -120,8 +125,8 @@ final class AppModel: ObservableObject {
     }
 
     private func sessionChanged() {
-        let input = session.renderInput()
-        if player.isRunning { player.update(input) }
+        let input = liveInput()
+        if player.isRunning && !deferPlayerUpdate { player.update(input) }
         preview = Renderer.render(input, numSteps: session.params.steps,
                                   rng: Dice(seedString: session.lastSeed.isEmpty ? "0" : session.lastSeed))
         scheduleSave()
@@ -177,14 +182,21 @@ final class AppModel: ObservableObject {
 
     func start() {
         if internalSynthOn { synth.start() }
-        player.start(session.renderInput())
+        cycleCount = 0
+        if song.on { beginSong() }
+        player.start(liveInput())
         isPlaying = true
         poll = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect().sink { [weak self] _ in
             guard let self else { return }
-            let (step, steps, hits) = player.status()
+            let (step, steps, _, hits) = player.status()
             if play.step != step { play.step = step }
             if play.steps != steps { play.steps = steps }
             play.hits = hits
+            if syncOn {
+                let bpm = player.clockBPM
+                let old = self.clockBPM
+                if bpm.map({ abs($0 - (old ?? 0)) > 0.05 }) ?? (old != nil) { self.clockBPM = bpm }
+            }
         }
     }
 
@@ -194,6 +206,200 @@ final class AppModel: ObservableObject {
         poll = nil
         play.step = 0
         play.hits = [:]
+        if morph != nil { morph = nil }
+    }
+
+    // MARK: - Jeu live
+
+    /// Morphing en cours : vers la mémoire `slot`, sur `cycles` cycles.
+    struct MorphState: Equatable {
+        var slot: Int
+        var cycles: Int
+        var progress: Double
+    }
+
+    struct SongState: Equatable {
+        var on = false
+        var text = "1x4 2x4"
+        var part = 0
+        var repeat_ = 0
+    }
+
+    /// Auto-évolution : une variation tous les N cycles (0 = off).
+    @Published var evolveEvery: Int = 0
+    @Published var autoAdvance = false
+    @Published var advanceEvery: Int = 4
+    @Published var morph: MorphState?
+    @Published var morphTargetSlot = 1
+    @Published var morphCycles = 8
+    @Published var song = SongState()
+    @Published private(set) var cycleCount = 0
+    @Published var activeAB: Character?
+
+    private var deferPlayerUpdate = false
+
+    /// Entrée de rendu pour le lecteur : la session + le morph en cours.
+    func liveInput() -> RenderInput {
+        var input = session.renderInput()
+        if let m = morph, let target = session.slots[m.slot] {
+            input.morph = MorphTarget(voices: target.voices, progress: m.progress)
+        }
+        return input
+    }
+
+    /// Appelé un peu avant chaque fin de cycle : applique les automatismes
+    /// (Song, avance auto, morph, évolution) pour le cycle `next`.
+    private func cycleWillEnd(next: Int) {
+        guard isPlaying else { return }
+        deferPlayerUpdate = true
+        cycleCount += 1
+        let rng = Dice()
+
+        if song.on {
+            let chain = SongChain.parse(song.text)
+            if !chain.parts.isEmpty {
+                song.repeat_ += 1
+                if song.repeat_ >= chain.parts[min(song.part, chain.parts.count - 1)].repeats {
+                    song.part = (song.part + 1) % chain.parts.count
+                    song.repeat_ = 0
+                    session.loadSlot(chain.parts[song.part].slot)
+                }
+            }
+        } else if autoAdvance && advanceEvery > 0 && cycleCount % advanceEvery == 0 {
+            if let i = session.advanceSlot(rng: rng) { status = "Mémoire \(i + 1)" }
+        }
+
+        if var m = morph {
+            m.progress = min(1, m.progress + 1 / Double(max(1, m.cycles)))
+            if m.progress >= 1 {
+                session.loadSlot(m.slot)
+                morph = nil
+                status = "Morph terminé : mémoire \(m.slot + 1)"
+            } else {
+                morph = m
+            }
+        }
+
+        if evolveEvery > 0 && cycleCount % evolveEvery == 0 && morph == nil {
+            session.varyAll()
+        }
+
+        deferPlayerUpdate = false
+        player.queue(liveInput(), forCycle: next)
+    }
+
+    func toggleMorph() {
+        if morph != nil { morph = nil; status = "Morph annulé."; return }
+        guard session.slots[morphTargetSlot] != nil else {
+            status = "Mémoire \(morphTargetSlot + 1) vide : rien vers quoi morpher."
+            return
+        }
+        morph = MorphState(slot: morphTargetSlot, cycles: morphCycles, progress: 0)
+        status = "Morph vers la mémoire \(morphTargetSlot + 1) en \(morphCycles) cycles"
+        if player.isRunning { player.update(liveInput()) }
+    }
+
+    func beginSong() {
+        let chain = SongChain.parse(song.text)
+        guard let first = chain.parts.first else {
+            status = "Song vide : écris par ex. « 1x4 2x2 3 »"
+            song.on = false
+            return
+        }
+        song.part = 0
+        song.repeat_ = 0
+        if session.slots[first.slot] != nil { session.loadSlot(first.slot) }
+        status = "Song : \(chain.description)"
+    }
+
+    func toggleSong() {
+        song.on.toggle()
+        if song.on { autoAdvance = false; beginSong() }
+    }
+
+    func storeAB(_ b: Bool) {
+        session.storeAB(b)
+        activeAB = b ? "B" : "A"
+        status = "Pattern mémorisé en \(b ? "B" : "A")."
+    }
+
+    func loadAB(_ b: Bool) {
+        if session.loadAB(b) { activeAB = b ? "B" : "A"; status = "Pattern \(b ? "B" : "A")." }
+        else { status = "\(b ? "B" : "A") est vide (⌥ clic pour mémoriser)." }
+    }
+
+    // MARK: Tap tempo
+
+    private var taps: [Double] = []
+
+    /// Médiane des intervalles des 5 derniers taps (comme le webapp).
+    func tap() {
+        let now = Player.now()
+        if let last = taps.last, now - last > 3 { taps = [] }
+        taps.append(now)
+        if taps.count > 5 { taps.removeFirst() }
+        guard taps.count >= 2 else { status = "TAP… encore"; return }
+        let iv = zip(taps.dropFirst(), taps).map { $0 - $1 }.sorted()
+        let median = iv[iv.count / 2]
+        let bpm = Int((60 / median).rounded())
+        session.params.bpm = min(240, max(40, bpm))
+        status = "Tap tempo : \(session.params.bpm) BPM"
+    }
+
+    // MARK: Synchro MIDI clock
+
+    @Published var clockSources: [MIDIClockIn.Source] = []
+    @Published var syncSourceID: MIDIUniqueID? {
+        didSet { applySync() }
+    }
+    @Published private(set) var clockBPM: Double?
+    var syncOn: Bool { syncSourceID != nil }
+    let clockIn = MIDIClockIn()
+
+    func refreshClockSources() {
+        clockSources = MIDIClockIn.sources()
+        if let id = syncSourceID, !clockSources.contains(where: { $0.id == id }) { syncSourceID = nil }
+    }
+
+    private func applySync() {
+        clockIn.connect(syncSourceID)
+        player.setSync(syncOn)
+        clockBPM = nil
+        if let id = syncSourceID, let s = clockSources.first(where: { $0.id == id }) {
+            status = "Synchro sur « \(s.name) » : attend Start ou l'horloge…"
+        } else {
+            status = "Horloge interne."
+        }
+        if player.isRunning { player.update(liveInput()) }
+    }
+
+    private func setupClockIn() {
+        let player = self.player
+        clockIn.onRealtime = { [weak self] status, t in
+            switch status {
+            case 0xF8:
+                player.clockPulse(at: t)
+            case 0xFA:
+                player.clockStart()
+                DispatchQueue.main.async { self?.syncStart() }
+            case 0xFB:
+                DispatchQueue.main.async { self?.syncStart() }
+            case 0xFC:
+                DispatchQueue.main.async { if self?.syncOn == true { self?.stop() } }
+            default:
+                break
+            }
+        }
+        // BANG_DEBUG_SLOW_CYCLE_MS : simule une interface lente (diagnostic).
+        let slow = Double(ProcessInfo.processInfo.environment["BANG_DEBUG_SLOW_CYCLE_MS"] ?? "") ?? 0
+        player.onCycle = { [weak self] next in
+            DispatchQueue.main.asyncAfter(deadline: .now() + slow / 1000) { self?.cycleWillEnd(next: next) }
+        }
+    }
+
+    private func syncStart() {
+        guard syncOn else { return }
+        if !isPlaying { start() }
     }
 
     // MARK: - Fichiers

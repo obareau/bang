@@ -78,7 +78,8 @@ struct TopBar: View {
             .help("Lecture / Stop (Espace)")
 
             HStack(spacing: 4 * z) {
-                Text("BPM").font(Theme.mono(9 * z)).foregroundStyle(Theme.muted)
+                Text(model.syncOn ? "SYNC" : "BPM").font(Theme.mono(9 * z))
+                    .foregroundStyle(model.syncOn ? Theme.accent : Theme.muted)
                 TextField("", value: $model.session.params.bpm, format: .number)
                     .textFieldStyle(.plain)
                     .font(Theme.mono(13 * z, .bold))
@@ -88,6 +89,10 @@ struct TopBar: View {
                     .buttonStyle(BangButtonStyle(compact: true))
                 Button { model.session.params.bpm = min(300, model.session.params.bpm + 1) } label: { Text("+") }
                     .buttonStyle(BangButtonStyle(compact: true))
+                Button { model.tap() } label: { Text("TAP") }
+                    .buttonStyle(BangButtonStyle(compact: true))
+                    .disabled(model.syncOn)
+                    .help("Tap tempo")
             }
 
             Text(String(format: "%03d/%03d", model.isPlaying ? play.step + 1 : 0, model.session.params.steps))
@@ -256,6 +261,8 @@ struct GeneratorPanel: View {
                     .disabled(model.session.history.isEmpty)
             }
 
+            LivePanel()
+
             SectionHeader(title: "Presets")
             HStack(spacing: 6 * z) {
                 PopMenu(compact: true, entries: {
@@ -274,10 +281,6 @@ struct GeneratorPanel: View {
             }
             .help("Batterie du synthé interne (canal 10) : General MIDI, ou 808 / 909 synthétisées")
 
-            SectionHeader(title: "Mémoires")
-            SlotStrip()
-            Text("clic : charger · ⌥ clic : mémoriser")
-                .font(Theme.mono(9 * z)).foregroundStyle(Theme.dim)
 
             if model.session.params.mode == .weather || model.session.weather != nil {
                 SectionHeader(title: "Météo Scaër")
@@ -309,6 +312,17 @@ struct SlotStrip: View {
                     .background(RoundedRectangle(cornerRadius: 3).fill(current ? Theme.accent : Color.clear))
                     .overlay(RoundedRectangle(cornerRadius: 3).stroke(filled ? Theme.accent : Theme.line))
                     .contentShape(Rectangle())
+                    .overlay(alignment: .topTrailing) {
+                        if model.session.slotWeights[i] > 1 {
+                            Text("\(model.session.slotWeights[i])").font(Theme.mono(7 * z)).foregroundStyle(Theme.muted).padding(2 * z)
+                        }
+                    }
+                    .contextMenu {
+                        Text("Poids pour l'avance auto")
+                        ForEach(1...9, id: \.self) { w in
+                            Button("\(w)\(model.session.slotWeights[i] == w ? "  ✓" : "")") { model.session.slotWeights[i] = w }
+                        }
+                    }
                     .onTapGesture {
                         if NSEvent.modifierFlags.contains(.option) || !filled {
                             model.session.saveSlot(i)

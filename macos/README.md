@@ -30,6 +30,16 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 - Par voix : verrouillage, mute, solo, densité, drop, swing, canal MIDI, accord (voix mélodiques), et les transforms (varier, régénérer, inverser, rotation, miroir, doubler, diviser, euclide, copier/coller)
 - **Lecture** (Espace) : horloge sur un thread temps réel. Chaque cycle est re-tiré, donc les `?`, le Markov et les drops varient d'un tour à l'autre ; une édition s'entend tout de suite
 - **Batterie électro** : kits **808** et **909** recréés par synthèse analogique (oscillateurs, bruit, filtres, sans échantillons), ou le kit General MIDI. Choix dans KIT (section Presets) ou dans le menu des sorties ; ils jouent le canal 10
+- **Jeu live** (section LIVE) :
+  - **Horloge** : tap tempo (médiane des 5 derniers taps) ou **synchro MIDI clock** sur une source au choix — tempo mesuré sur l'horloge entrante, Start / Continue / Stop suivis, notes calées sur les impulsions (24 ppq) ;
+  - **Évolution** automatique : une variation tous les 1, 2, 4 ou 8 cycles ;
+  - **A / B** : deux patterns à comparer (clic : charger, ⌥ clic : mémoriser) ;
+  - **Mémoires** : avance automatique tous les N cycles, tirage pondéré (clic droit : poids 1 à 9) ;
+  - **Morph** : passage progressif du pattern courant vers une mémoire en N cycles (probabilités et vélocités mélangées step par step) ;
+  - **Song** : enchaînement de mémoires, ex. `1x4 2x2 3` (mémoire 1 × 4 cycles, 2 × 2, 3 × 1, puis reboucle) ;
+  - **LFO par voix** (sin / tri / rampe / aléatoire) sur la densité ou le drop, réglable en vitesse et profondeur.
+
+  Les changements de fin de cycle sont préparés un peu à l'avance pour tomber pile sur le premier temps. Les mémoires, poids, A/B et LFO sont sauvegardés avec la session.
 - **Sorties** : synthé GM interne, port virtuel **« BANG! »** (à choisir comme entrée dans Ableton, Logic ou SuperCollider) et n'importe quelle destination CoreMIDI
 - **Export .mid** (⌘E) type 1 : une piste par voix, des pistes CC drone, la seed en méta. On peut aussi **glisser** le .mid vers un DAW ou le Finder
 - **Export .wav** (⇧⌘E) : rendu audio du pattern avec le synthé interne (kit GM, 808 ou 909), 1 à 16 répétitions, WAV 24 bits / 48 kHz normalisé à −1 dBFS. En **boucle parfaite** (par défaut), le fichier dure exactement le pattern et la queue des sons est repliée au début : il boucle sans couture dans un DAW ou un sampler. Sinon, rendu « one-shot » avec la queue à la fin. Nom proposé `preset-variation-date`, ex. `bassline-808-v003-2026-11-13_2150.wav` (la variation augmente à chaque nouveau pattern exporté pour ce preset)
@@ -41,7 +51,7 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 
 - **Seeds** : une seed rejoue toujours le même pattern dans l'app native, mais pas le même que dans le webapp, car le générateur aléatoire n'est pas le Mersenne Twister de CPython.
 - **Canaux** : l'export utilise les mêmes canaux que la lecture (batterie sur le 10, basse sur le 1, Markov sur le 2, KSP sur les canaux 3 à 6…), et ils sont modifiables voix par voix. Le moteur Python, lui, exportait les batteries sur le canal 1.
-- **Pas encore porté** : les LFO par voix, le morphing A→B, OSC/TouchOSC, Ableton OSC, la synchro MIDI clock entrante, le mode Song et les panneaux NTS-1 / MicroFreak.
+- **Pas encore porté** : OSC/TouchOSC, Ableton OSC, export Strudel, MIDI Learn, lanes de vélocité / probabilité, panneaux NTS-1 / MicroFreak.
 
 ## Vérifier
 
@@ -49,4 +59,4 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 cd macos && swift run bang-check /tmp/bang-mid   # auto-test du moteur + un .mid par mode
 ```
 
-Diagnostic : `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.
+Diagnostic : `BANG_SELFTEST_LIVE=song|morph|sync:<source>` teste le jeu live (avec `BANG_DEBUG_CLOCK=1` pour tracer impulsions et notes) ; `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.

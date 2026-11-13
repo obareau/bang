@@ -129,11 +129,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { NSApp.terminate(nil) }
             }
         }
+        // Diagnostics du jeu live (session sauvegardée puis restaurée) :
+        //  BANG_SELFTEST_LIVE=song  → 3 mémoires (notes 36/38/42) enchaînées « 1x2 2x1 3x1 »
+        //  BANG_SELFTEST_LIVE=morph → coup au step 1 qui morphe vers le step 5 en 4 cycles
+        //  BANG_SELFTEST_LIVE=sync:<source> → suit l'horloge MIDI de <source> (kick à chaque temps)
+        //  BANG_SELFTEST_SECONDS : durée (défaut 5)
+        if let what = env["BANG_SELFTEST_LIVE"] {
+            Task { @MainActor in
+                guard let m = self.model else { return }
+                let saved = m.session
+                let seconds = Double(env["BANG_SELFTEST_SECONDS"] ?? "") ?? 5
+                m.internalSynthOn = false
+                var s = BangSession()
+                s.params.bpm = 240
+                s.params.steps = 8
+                if what == "song" {
+                    for (i, note) in [(0, 36), (1, 38), (2, 42)] {
+                        s.voices = [Voice(note, "x-------", "drum")]
+                        s.saveSlot(i)
+                    }
+                    s.loadSlot(0)
+                    m.session = s
+                    m.song.text = "1x2 2x1 3x1"
+                    m.song.on = true
+                    m.start()
+                } else if what == "morph" {
+                    s.voices = [Voice(36, "----x---", "drum")]
+                    s.saveSlot(1)
+                    s.voices = [Voice(36, "x-------", "drum")]
+                    m.session = s
+                    m.morphTargetSlot = 1
+                    m.morphCycles = 4
+                    m.start()
+                    m.toggleMorph()
+                } else if what.hasPrefix("sync:") {
+                    let name = String(what.dropFirst(5))
+                    s.params.bpm = 60       // ignoré : c'est l'horloge externe qui mène
+                    s.params.steps = 4      // un cycle = une noire
+                    s.voices = [Voice(36, "x---", "drum")]
+                    m.session = s
+                    for _ in 0..<50 where m.syncSourceID == nil {   // la source peut apparaître après le lancement
+                        m.refreshClockSources()
+                        m.syncSourceID = m.clockSources.first { $0.name == name }?.id
+                        if m.syncSourceID == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    }
+                    print("BANG_SELFTEST_LIVE sync source trouvée : \(m.syncSourceID != nil)")
+                }
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
+                print("BANG_SELFTEST_LIVE fin : cycles \(m.cycleCount), horloge \(m.clockBPM.map { String(format: "%.2f BPM", $0) } ?? "-")")
+                m.stop()
+                m.song.on = false
+                m.syncSourceID = nil
+                m.session = saved
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                NSApp.terminate(nil)
+            }
+        }
         if let path = env["BANG_SNAPSHOT"] {
             if let size = env["BANG_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     NSApp.windows.first(where: { $0.isVisible })?
                         .setFrame(NSRect(x: 0, y: 0, width: size[0], height: size[1]), display: true)
+                }
+            }
+            if let sel = env["BANG_SNAPSHOT_SELECT"].flatMap(Int.init) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    self.model?.selectedVoice = sel
+                    self.model?.session.updateSettings(sel) { $0.lfo = VoiceLFO(shape: .tri, target: .density, freq: 1, depth: 0.6) }
                 }
             }
             if env["BANG_SNAPSHOT_PLAY"] == "1" {

@@ -35,6 +35,10 @@ public struct RenderInput: Sendable {
     public var noteRemap: [String: Int]
     /// false = voix muette (mute/solo). Vide = toutes audibles.
     public var audible: [Bool]
+    /// Numéro du cycle joué (phase des LFO de drop). Fixé par le lecteur.
+    public var cycle: Int = 0
+    /// Morphing en cours vers un autre pattern (voix cibles + avancement 0…1).
+    public var morph: MorphTarget? = nil
 
     public init(voices: [Voice], params: GenParams, settings: [String: VoiceSettings] = [:],
                 plocks: [[PLock]] = [], weather: Weather? = nil, drumChannel: Int = 9, noteRemap: [String: Int] = [:],
@@ -68,6 +72,31 @@ public struct RenderInput: Sendable {
 
     public func channel(for i: Int) -> Int {
         voices.indices.contains(i) ? channel(for: voices[i]) : drumChannel
+    }
+}
+
+/// Cible d'un morphing : les voix d'une mémoire et l'avancement (0 = départ, 1 = cible).
+/// Comme dans le webapp, chaque step mélange les probabilités et les vélocités
+/// des deux patterns, voix par voix.
+public struct MorphTarget: Sendable, Equatable {
+    public var voices: [Voice]
+    public var progress: Double
+
+    public init(voices: [Voice], progress: Double) {
+        self.voices = voices
+        self.progress = progress
+    }
+
+    /// Cellule mélangée entre `a` (pattern courant) et `b` (cible).
+    static func blend(_ a: DNACell, _ b: DNACell, _ p: Double) -> DNACell {
+        let pa = a.trigger ? a.prob : 0, pb = b.trigger ? b.prob : 0
+        let prob = pa * (1 - p) + pb * p
+        guard prob >= 0.001 else { return DNA.cell("-") }
+        let base = a.trigger ? a : b
+        let vel = a.trigger && b.trigger
+            ? Int((Double(a.velocity) * (1 - p) + Double(b.velocity) * p).rounded())
+            : base.velocity
+        return DNACell(trigger: true, velocity: vel, prob: prob, ratchet: base.ratchet, jitter: base.jitter)
     }
 }
 
@@ -139,9 +168,17 @@ public enum Renderer {
             if voice.note == 0 && !voice.type.hasPrefix("ksp") { continue }
 
             let s = input.settings[voice.label] ?? VoiceSettings()
-            if s.drop < 1 && rng.random() > s.drop { continue }
+            var drop = s.drop
+            if let lfo = s.lfo, lfo.target == .drop {
+                drop = lfo.modulate(drop, phase: Double(input.cycle) * lfo.freq, rng: rng)
+            }
+            if drop < 1 && rng.random() > drop { continue }
+            /// Densité au step `pos` (LFO de densité : `freq` périodes par pattern).
+            func densityAt(_ pos: Double) -> Double {
+                guard let lfo = s.lfo, lfo.target == .density else { return s.density }
+                return lfo.modulate(s.density, phase: pos / Double(max(1, numSteps)) * lfo.freq, rng: rng)
+            }
             let ch = input.channel(for: vi)
-            let density = s.density
             let swing = s.swing > 0 ? s.swing : p.swing
             let outNote = input.outputNote(for: vi)
 
@@ -163,7 +200,7 @@ public enum Renderer {
                         if cursor >= total { break outer }
                         let durTicks = st.duration * Double(tps)
                         let c = st.cell
-                        if c.trigger && rng.random() < c.prob * density {
+                        if c.trigger && rng.random() < c.prob * densityAt(cursor / Double(tps)) {
                             let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
                             let start = max(0, Int(cursor) + jit + microJit())
                             let rDiv = max(1, c.ratchet)
@@ -188,15 +225,24 @@ public enum Renderer {
             let melody = melodic ? chain(for: voice, p).generate(numSteps, rng: rng) : []
             let chordOffsets = melodic ? Chords.intervals(s.chord) : []
             let plocks = vi < input.plocks.count ? input.plocks[vi] : []
+            // Morphing : la voix de même rang dans la cible, si c'est une grille DNA.
+            var morphCells: [DNACell]? = nil
+            if let m = input.morph, vi < m.voices.count, !m.voices[vi].isCC, !m.voices[vi].isBabka,
+               DNA.isPlain(m.voices[vi].dna) {
+                morphCells = DNA.compile(m.voices[vi].dna)
+            }
 
             var pIdx = 0, sIdx = 0
             for i in 0..<numSteps {
                 let pattern = patterns[pIdx]
-                let c = pattern[sIdx]
+                var c = pattern[sIdx]
+                if let mc = morphCells, let m = input.morph {
+                    c = MorphTarget.blend(c, mc[i % mc.count], m.progress)
+                }
                 let note = melodic ? melody[i] : outNote
                 let baseVel = melodic ? 95 : c.velocity
 
-                if c.trigger && rng.random() < c.prob * density {
+                if c.trigger && rng.random() < c.prob * densityAt(Double(i)) {
                     let swingOff = i % 2 == 1 ? Int(swing * Double(tps) * 0.5) : 0
                     let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
                     let start = max(0, i * tps + swingOff + jit + microJit())

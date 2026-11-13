@@ -70,6 +70,46 @@ let staleInput = shrink.renderInput()
 check(staleInput.channel(for: 7) == 9 && staleInput.outputNote(for: 7) == 0,
       "index périmé (voix 8 sur 3) : pas de plantage")
 
+print("Jeu live : morph, Song, mémoires, LFO")
+do {
+    var p = GenParams(); p.steps = 16
+    let a = [Voice(36, "x---x---x---x---", "drum")]
+    let b = [Voice(36, "--x---x---x---x-", "drum")]
+    func onsets(_ m: MorphTarget?) -> [Int] {
+        var inp = RenderInput(voices: a, params: p); inp.morph = m
+        return Renderer.render(inp, numSteps: 16, rng: Dice(seed: 3)).filter { $0.kind == .noteOn }.map { $0.tick / 120 }
+    }
+    check(onsets(MorphTarget(voices: b, progress: 0)) == [0, 4, 8, 12], "morph 0 % = pattern de départ")
+    check(onsets(MorphTarget(voices: b, progress: 1)) == [2, 6, 10, 14], "morph 100 % = pattern cible")
+    let mid = (0..<4000).map { s -> Int in
+        var inp = RenderInput(voices: a, params: p); inp.morph = MorphTarget(voices: b, progress: 0.5)
+        return Renderer.render(inp, numSteps: 16, rng: Dice(seed: UInt64(s))).filter { $0.kind == .noteOn }.count
+    }
+    let avg = Double(mid.reduce(0, +)) / 4000
+    check(abs(avg - 4) < 0.15, String(format: "morph 50 %% : %.2f coups en moyenne sur 8 positions (attendu ≈ 4)", avg))
+
+    let song = SongChain.parse("1x4 2×2, 3 9x2 4:0")
+    check(song.parts.map { [$0.slot, $0.repeats] } == [[0, 4], [1, 2], [2, 1], [3, 1]], "Song « 1x4 2×2, 3 9x2 4:0 » → \(song.description)")
+
+    var ss = BangSession(); ss.generate(); ss.saveSlot(0); ss.generate(); ss.saveSlot(2); ss.slotWeights[2] = 9
+    let picks = (0..<50).compactMap { s -> Int? in var t = ss; t.currentSlot = 5; return t.advanceSlot(rng: Dice(seed: UInt64(s))) }
+    check(Set(picks).isSubset(of: [0, 2]) && picks.filter { $0 == 2 }.count > 35, "avance auto : seulement les mémoires pleines, pondérées (\(picks.filter { $0 == 2 }.count)/50 vers la 3)")
+    var ab = ss; ab.storeAB(false); let saved = ab.voices; ab.generate(); _ = ab.loadAB(false)
+    check(ab.voices == saved, "A/B : recharger A rend le pattern mémorisé")
+
+    var lp = GenParams(); lp.steps = 64
+    let hat = [Voice(42, String(repeating: "x", count: 64), "drum")]
+    var st = VoiceSettings(); st.lfo = VoiceLFO(shape: .ramp, target: .density, freq: 1, depth: 1)
+    let inp = RenderInput(voices: hat, params: lp, settings: ["HiHat": st])
+    var firstHalf = 0, secondHalf = 0
+    for s in 0..<50 {
+        for e in Renderer.render(inp, numSteps: 64, rng: Dice(seed: UInt64(s))) where e.kind == .noteOn {
+            if e.tick < 32 * 120 { firstHalf += 1 } else { secondHalf += 1 }
+        }
+    }
+    check(secondHalf > firstHalf * 2, "LFO rampe sur la densité : \(firstHalf) coups en 1re moitié, \(secondHalf) en 2de")
+}
+
 print("Batterie 808 / 909 (synthèse)")
 func analyse(_ b: [Float]) -> (peak: Float, dur: Double, hz: Double, nan: Bool) {
     let peak = b.map { abs($0) }.max() ?? 0

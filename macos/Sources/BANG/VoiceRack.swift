@@ -142,6 +142,7 @@ struct VoiceRow: View {
                 Button("OK") { model.session.setPattern(index, draft.value) }
                     .buttonStyle(BangButtonStyle(active: true, compact: true))
             }
+            LFORow(index: index)
             HStack(spacing: 18 * z) {
                 ParamSlider(label: "DENSITÉ", value: bind(\.density))
                 ParamSlider(label: "DROP", value: bind(\.drop))

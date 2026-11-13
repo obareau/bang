@@ -23,6 +23,10 @@ public struct BangSession: Sendable {
     public var history: [Snapshot] = []
     public var slots: [Snapshot?] = Array(repeating: nil, count: 8)
     public var currentSlot = 0
+    /// Poids de tirage des mémoires pour l'avance automatique (1…9).
+    public var slotWeights: [Int] = Array(repeating: 1, count: 8)
+    public var slotA: Snapshot?
+    public var slotB: Snapshot?
 
     public init() {}
 
@@ -168,6 +172,34 @@ public struct BangSession: Sendable {
         pushHistory()
         restore(s)
         currentSlot = i
+    }
+
+    /// Avance automatique : tire une autre mémoire pleine, pondérée par
+    /// `slotWeights` (portage de seq_advance). Retourne l'index chargé ou nil.
+    @discardableResult
+    public mutating func advanceSlot(rng: Dice) -> Int? {
+        let filled = slots.indices.filter { slots[$0] != nil }
+        guard !filled.isEmpty else { return nil }
+        let others = filled.filter { $0 != currentSlot }
+        let pool = others.isEmpty ? filled : others
+        let next = rng.weighted(pool, pool.map { Double(max(1, slotWeights[$0])) })
+        loadSlot(next)
+        return next
+    }
+
+    // MARK: - A/B
+
+    public mutating func storeAB(_ b: Bool) {
+        guard !voices.isEmpty else { return }
+        if b { slotB = snapshot } else { slotA = snapshot }
+    }
+
+    @discardableResult
+    public mutating func loadAB(_ b: Bool) -> Bool {
+        guard let s = b ? slotB : slotA else { return false }
+        pushHistory()
+        restore(s)
+        return true
     }
 
     // MARK: - Rendu

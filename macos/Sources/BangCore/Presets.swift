@@ -46,6 +46,13 @@ public struct SessionFile: Codable {
     public var voiceDensity: [String: Double]
     public var voiceChords: [String: String]
     public var voiceMidiCh: [String: Int]?
+    public var voiceLFO: [String: VoiceLFO]?
+    public var voiceDrop: [String: Double]?
+    public var voiceSwing: [String: Double]?
+    public var slots: [BangSession.Snapshot?]?
+    public var slotWeights: [Int]?
+    public var slotA: BangSession.Snapshot?
+    public var slotB: BangSession.Snapshot?
     public var noteRemap: [String: Int]
     public var lockedVoices: [Int]
     public var plocks: [[PLock]]?
@@ -55,6 +62,8 @@ public struct SessionFile: Codable {
         case bangVersion = "bang_version", voiceDensity = "voice_density"
         case voiceChords = "voice_chords", voiceMidiCh = "voice_midi_ch"
         case noteRemap = "note_remap", lockedVoices = "locked_voices"
+        case voiceLFO = "voice_lfo", voiceDrop = "voice_drop", voiceSwing = "voice_swing"
+        case slots = "native_slots", slotWeights = "seq_weights", slotA = "native_slot_a", slotB = "native_slot_b"
     }
 
     public init(_ s: BangSession) {
@@ -66,6 +75,13 @@ public struct SessionFile: Codable {
         voiceDensity = s.settings.compactMapValues { $0.density == 1 ? nil : $0.density }
         voiceChords = s.settings.compactMapValues { $0.chord == "mono" ? nil : $0.chord }
         voiceMidiCh = s.settings.compactMapValues { $0.channel }
+        voiceLFO = s.settings.compactMapValues { $0.lfo }
+        voiceDrop = s.settings.compactMapValues { $0.drop < 1 ? $0.drop : nil }
+        voiceSwing = s.settings.compactMapValues { $0.swing > 0 ? $0.swing : nil }
+        slots = s.slots.contains { $0 != nil } ? s.slots : nil
+        slotWeights = s.slotWeights
+        slotA = s.slotA
+        slotB = s.slotB
         noteRemap = s.noteRemap
         lockedVoices = s.locked.sorted()
         plocks = s.plocks.isEmpty ? nil : s.plocks
@@ -81,6 +97,13 @@ public struct SessionFile: Codable {
         voiceDensity = (try? c.decode([String: Double].self, forKey: .voiceDensity)) ?? [:]
         voiceChords = (try? c.decode([String: String].self, forKey: .voiceChords)) ?? [:]
         voiceMidiCh = try? c.decode([String: Int].self, forKey: .voiceMidiCh)
+        voiceLFO = try? c.decode([String: VoiceLFO].self, forKey: .voiceLFO)
+        voiceDrop = try? c.decode([String: Double].self, forKey: .voiceDrop)
+        voiceSwing = try? c.decode([String: Double].self, forKey: .voiceSwing)
+        slots = try? c.decode([BangSession.Snapshot?].self, forKey: .slots)
+        slotWeights = try? c.decode([Int].self, forKey: .slotWeights)
+        slotA = try? c.decode(BangSession.Snapshot.self, forKey: .slotA)
+        slotB = try? c.decode(BangSession.Snapshot.self, forKey: .slotB)
         noteRemap = (try? c.decode([String: Int].self, forKey: .noteRemap)) ?? [:]
         lockedVoices = (try? c.decode([Int].self, forKey: .lockedVoices)) ?? []
         plocks = try? c.decode([[PLock]].self, forKey: .plocks)
@@ -100,6 +123,13 @@ public struct SessionFile: Codable {
         for (k, d) in voiceDensity { settings[k, default: VoiceSettings()].density = d }
         for (k, ch) in voiceChords { settings[k, default: VoiceSettings()].chord = ch }
         for (k, ch) in voiceMidiCh ?? [:] { settings[k, default: VoiceSettings()].channel = ch }
+        for (k, l) in voiceLFO ?? [:] { settings[k, default: VoiceSettings()].lfo = l }
+        for (k, d) in voiceDrop ?? [:] { settings[k, default: VoiceSettings()].drop = d }
+        for (k, w) in voiceSwing ?? [:] { settings[k, default: VoiceSettings()].swing = w }
         s.settings = settings
+        if let sl = slots, sl.count == 8 { s.slots = sl }
+        if let w = slotWeights, w.count == 8 { s.slotWeights = w.map { max(1, min(9, $0)) } }
+        if slotA != nil { s.slotA = slotA }
+        if slotB != nil { s.slotB = slotB }
     }
 }

@@ -73,6 +73,72 @@ final class MIDIOut: @unchecked Sendable {
     }
 }
 
+/// Entrée MIDI pour la synchro : écoute une source CoreMIDI et transmet les
+/// messages temps réel (Clock F8, Start FA, Continue FB, Stop FC) avec leur
+/// horodatage converti dans l'horloge de `Player.now()`.
+final class MIDIClockIn: @unchecked Sendable {
+    struct Source: Identifiable, Hashable {
+        let id: MIDIUniqueID
+        let name: String
+    }
+
+    private var client = MIDIClientRef()
+    private var port = MIDIPortRef()
+    private var connected: MIDIEndpointRef = 0
+    private let timebase: mach_timebase_info_data_t = {
+        var t = mach_timebase_info_data_t(); mach_timebase_info(&t); return t
+    }()
+    /// (statut F8/FA/FB/FC, instant en secondes) — appelé sur le thread CoreMIDI.
+    var onRealtime: (@Sendable (UInt8, Double) -> Void)?
+
+    init() {
+        MIDIClientCreateWithBlock("BANG! sync" as CFString, &client) { _ in }
+        MIDIInputPortCreateWithProtocol(client, "BANG! clock in" as CFString, ._1_0, &port) { [weak self] list, _ in
+            self?.receive(list)
+        }
+    }
+
+    /// Sources disponibles, sans le port virtuel de BANG! lui-même.
+    static func sources() -> [Source] {
+        (0..<MIDIGetNumberOfSources()).compactMap { i in
+            let ep = MIDIGetSource(i)
+            var uid: MIDIUniqueID = 0
+            MIDIObjectGetIntegerProperty(ep, kMIDIPropertyUniqueID, &uid)
+            var name: Unmanaged<CFString>?
+            MIDIObjectGetStringProperty(ep, kMIDIPropertyDisplayName, &name)
+            guard let n = name?.takeRetainedValue() as String?, n != "BANG!" else { return nil }
+            return Source(id: uid, name: n)
+        }
+    }
+
+    func connect(_ uid: MIDIUniqueID?) {
+        if connected != 0 { MIDIPortDisconnectSource(port, connected); connected = 0 }
+        guard let uid else { return }
+        var obj: MIDIObjectRef = 0
+        var type: MIDIObjectType = .other
+        guard MIDIObjectFindByUniqueID(uid, &obj, &type) == noErr, type == .source else { return }
+        if MIDIPortConnectSource(port, obj, nil) == noErr { connected = obj }
+    }
+
+    private func seconds(_ hostTime: MIDITimeStamp) -> Double {
+        guard hostTime != 0 else { return Player.now() }
+        let ns = Double(hostTime) * Double(timebase.numer) / Double(timebase.denom)
+        return ns / 1e9
+    }
+
+    private func receive(_ list: UnsafePointer<MIDIEventList>) {
+        let handler = onRealtime
+        list.unsafeSequence().forEach { packet in
+            let t = seconds(packet.pointee.timeStamp)
+            let words = packet.words()
+            for w in words where (w >> 28) == 0x1 {      // UMP « system » : temps réel
+                let status = UInt8((w >> 16) & 0xFF)
+                if [0xF8, 0xFA, 0xFB, 0xFC].contains(status) { handler?(status, t) }
+            }
+        }
+    }
+}
+
 /// Synthé General MIDI intégré (DLS d'Apple) — pour entendre BANG! sans
 /// aucun matériel. Multitimbral : canal 10 = batterie, autres canaux = GM.
 final class InternalSynth: @unchecked Sendable {

@@ -185,6 +185,38 @@ public struct Voice: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// LFO par voix (portage du LFO du webapp) : module la densité step par
+/// step, ou la probabilité de drop cycle par cycle.
+public struct VoiceLFO: Codable, Equatable, Sendable {
+    public enum Shape: String, Codable, CaseIterable, Sendable { case sin, tri, ramp, rnd }
+    public enum Target: String, Codable, CaseIterable, Sendable { case density, drop }
+    public var shape: Shape = .sin
+    public var target: Target = .density
+    /// Périodes par pattern (densité) ou par cycle (drop) : 0.25 = une période sur 4 cycles.
+    public var freq: Double = 1.0
+    public var depth: Double = 0.5
+
+    public init(shape: Shape = .sin, target: Target = .density, freq: Double = 1, depth: Double = 0.5) {
+        self.shape = shape; self.target = target; self.freq = freq; self.depth = depth
+    }
+
+    /// Valeur [0, 1] pour une phase [0, 1).
+    public func value(_ phase: Double, rng: Dice) -> Double {
+        switch shape {
+        case .sin: return 0.5 + 0.5 * sin(2 * .pi * phase)
+        case .tri: return phase < 0.5 ? 2 * phase : 2 * (1 - phase)
+        case .ramp: return phase
+        case .rnd: return rng.random()
+        }
+    }
+
+    /// Applique la modulation à une valeur de base (comme le webapp).
+    public func modulate(_ base: Double, phase: Double, rng: Dice) -> Double {
+        let p = phase - floor(phase)
+        return (base * (1 - depth + value(p, rng: rng) * depth)).clamped(0, 1)
+    }
+}
+
 /// Réglages par voix, indexés par label (comme les dicts `voice_*` de BangSession).
 public struct VoiceSettings: Codable, Equatable, Sendable {
     public var density: Double = 1.0
@@ -192,6 +224,7 @@ public struct VoiceSettings: Codable, Equatable, Sendable {
     public var channel: Int? = nil      // nil = auto
     public var drop: Double = 1.0       // probabilité de jouer le cycle
     public var swing: Double = 0.0      // 0 = swing global
+    public var lfo: VoiceLFO? = nil
 
     public init() {}
 }
