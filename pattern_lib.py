@@ -584,11 +584,11 @@ SYNTH_PLOCK_PROFILES: dict[str, list[tuple]] = {
         (42, "LFOSpd", "texture"),
     ],
     "mf0": [
-        (13, "Cutoff",  "sweep"),
-        (11, "Timbre",  "texture"),
-        (12, "Shape",   "texture"),
-        (16, "LFOAmt",  "spike"),
-        (15, "LFORate", "sweep"),
+        # CC MicroFreak vérifiés (Arturia) : Type 9, Wave 10, Timbre 12, Shape 13, Cutoff 23, Reso 83.
+        (23, "Cutoff",  "sweep"),
+        (12, "Timbre",  "texture"),
+        (13, "Shape",   "texture"),
+        (83, "Reso",    "spike"),
     ],
 }
 

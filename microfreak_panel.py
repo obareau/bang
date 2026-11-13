@@ -10,15 +10,17 @@ from p_locks import PLockSequence
 class MicrofreaklockSequence(PLockSequence):
     """Microfreak-specific p-lock profile."""
 
+    # CC confirmés par Arturia pour le MicroFreak. Les anciens numéros
+    # (Timbre 28, Cutoff 74, Reso 71, LFO 76/77, EG 73/72) venaient du MiniFreak
+    # ou étaient inventés ; LFO et enveloppe sont retirés tant que leurs CC
+    # ne sont pas vérifiés dans le manuel.
     MICROFREAK_PROFILE = {
-        "timbre": (28, "Timbre", 0, 127),      # CC28: oscillator shape
-        "wave": (9, "Wave", 0, 127),           # CC9: waveform select
-        "cutoff": (74, "Cutoff", 0, 127),     # CC74: filter cutoff
-        "reso": (71, "Resonance", 0, 127),    # CC71: filter resonance
-        "lfo_rate": (76, "LFO Rate", 0, 127), # CC76: LFO speed
-        "lfo_amt": (77, "LFO Amt", 0, 127),   # CC77: LFO amount
-        "eg_atk": (73, "Attack", 0, 127),     # CC73: envelope attack
-        "eg_rel": (72, "Release", 0, 127),    # CC72: envelope release
+        "type": (9, "Type", 0, 127),           # CC9 : type d'oscillateur
+        "wave": (10, "Wave", 0, 127),          # CC10 : paramètre Wave
+        "timbre": (12, "Timbre", 0, 127),      # CC12 : paramètre Timbre
+        "shape": (13, "Shape", 0, 127),        # CC13 : paramètre Shape
+        "cutoff": (23, "Cutoff", 0, 127),      # CC23 : coupure filtre
+        "reso": (83, "Resonance", 0, 127),     # CC83 : résonance filtre
     }
 
     def __init__(self):
@@ -55,11 +57,17 @@ class MicrofreaklockPanelWidget(QWidget):
         osc_group = QGroupBox("Oscillator")
         osc_layout = QVBoxLayout()
 
-        timbre_group, self.timbre_slider = self.create_slider("Timbre", 28)
+        type_group, self.type_slider = self.create_slider("Type", 9)
+        osc_layout.addWidget(type_group)
+
+        wave_group, self.wave_slider = self.create_slider("Wave", 10)
+        osc_layout.addWidget(wave_group)
+
+        timbre_group, self.timbre_slider = self.create_slider("Timbre", 12)
         osc_layout.addWidget(timbre_group)
 
-        wave_group, self.wave_slider = self.create_slider("Wave", 9)
-        osc_layout.addWidget(wave_group)
+        shape_group, self.shape_slider = self.create_slider("Shape", 13)
+        osc_layout.addWidget(shape_group)
 
         osc_group.setLayout(osc_layout)
         layout.addWidget(osc_group)
@@ -68,40 +76,16 @@ class MicrofreaklockPanelWidget(QWidget):
         filt_group = QGroupBox("Filter")
         filt_layout = QVBoxLayout()
 
-        cutoff_group, self.cutoff_slider = self.create_slider("Cutoff", 74)
+        cutoff_group, self.cutoff_slider = self.create_slider("Cutoff", 23)
         filt_layout.addWidget(cutoff_group)
 
-        reso_group, self.reso_slider = self.create_slider("Resonance", 71)
+        reso_group, self.reso_slider = self.create_slider("Resonance", 83)
         filt_layout.addWidget(reso_group)
 
         filt_group.setLayout(filt_layout)
         layout.addWidget(filt_group)
 
-        # LFO section
-        lfo_group = QGroupBox("LFO")
-        lfo_layout = QVBoxLayout()
-
-        rate_group, self.lfo_rate_slider = self.create_slider("Rate", 76)
-        lfo_layout.addWidget(rate_group)
-
-        amt_group, self.lfo_amt_slider = self.create_slider("Amount", 77)
-        lfo_layout.addWidget(amt_group)
-
-        lfo_group.setLayout(lfo_layout)
-        layout.addWidget(lfo_group)
-
-        # Envelope section
-        eg_group = QGroupBox("Envelope")
-        eg_layout = QVBoxLayout()
-
-        atk_group, self.eg_atk_slider = self.create_slider("Attack", 73)
-        eg_layout.addWidget(atk_group)
-
-        rel_group, self.eg_rel_slider = self.create_slider("Release", 72)
-        eg_layout.addWidget(rel_group)
-
-        eg_group.setLayout(eg_layout)
-        layout.addWidget(eg_group)
+        # LFO / Envelope : retirés — CC MicroFreak non confirmés (voir ROADMAP).
 
         layout.addStretch()
 
