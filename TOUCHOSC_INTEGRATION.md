@@ -236,14 +236,19 @@ VOICE_COLORS = {
 
 ## Config TouchOSC côté app
 
-Dans TouchOSC → Connections → Connection 1 :
+L'ancien serveur (`192.168.1.100`, `100.64.201.127` via Tailscale) **n'existe plus**. TouchOSC
+pilote maintenant l'**app macOS native** :
 
-| Champ | Valeur (LAN) | Valeur (Tailscale) |
-|-------|-------------|-------------------|
-| Type | OSC | OSC |
-| Host | `192.168.1.100` | `100.64.201.127` |
-| Send Port | `57120` | `57120` |
-| Receive Port | (optionnel) | (optionnel) |
+1. Dans BANG! : **CONNEXIONS → OSC → Réception ON**, port `9000` par défaut.
+   Le gabarit `static/bang_control.tosc` est inclus dans l'app (CONNEXIONS → Strudel · export → **GABARIT TOUCHOSC…**).
+2. Dans TouchOSC → Connections → Connection 1 :
+
+| Champ | Valeur |
+|-------|--------|
+| Type | OSC |
+| Host | l'adresse IP du Mac qui fait tourner BANG! (LAN ou Tailscale) |
+| Send Port | le port de réception réglé dans BANG! (`9000` par défaut) |
+| Receive Port | (optionnel) — pour recevoir `/bang/clock` et les notes, activer aussi l'émission OSC de BANG! vers l'iPad |
 
 ---
 

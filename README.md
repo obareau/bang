@@ -1,12 +1,45 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **v0.9.5-alpha** · Dark Umbrae / Robōtariis
+> **App macOS native v1.2.0** · webapp Python v0.9.5-alpha · Dark Umbrae / Robōtariis
 
-BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid`, drag vers Ableton, MIDI serveur rtmidi (sans Chrome), OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
+BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid` et `.wav`, glisser-déposer vers Ableton, MIDI vers le matériel, OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
+
+**BANG! est maintenant une app macOS native.** Le serveur qui hébergeait le webapp (`bang.lan`) n'existe plus : l'usage principal est l'app SwiftUI du dossier [`macos/`](macos/), et le webapp Python reste disponible en local.
 
 ---
 
-## Aperçu
+## L'app macOS (recommandée)
+
+<img src="docs/screenshots/shot-macos.png" alt="BANG! — app macOS native" width="900"/>
+
+### Installer
+
+1. Télécharger le `.dmg` de la **[dernière release](https://github.com/obareau/bang/releases/latest)** et glisser BANG! dans Applications.
+2. Au premier lancement : **clic droit → Ouvrir** (app signée ad-hoc, non notariée par Apple).
+
+**Compatibilité** : macOS 13 Ventura ou plus récent, binaire universel (Apple Silicon et Intel).
+
+### Ce qu'elle fait
+
+- Les **14 modes** de génération, la syntaxe **DNA** et **Babka**, Markov et gammes — moteur porté du Python
+- **Grille DNA** cliquable, piano-roll, lanes de vélocité / probabilité, longueur, décalage, Thin, LFO par voix
+- **Lecture** temps réel vers un **synthé intégré** (General MIDI + batteries **808 / 909** synthétisées), un **port MIDI virtuel « BANG! »** pour le DAW, ou n'importe quel appareil MIDI
+- **Jeu live** : synchro MIDI clock, tap tempo, évolution automatique, A/B, 8 mémoires, morph, mode Song
+- **Export** `.mid`, **`.wav`** en boucle parfaite, un `.mid` par voix, Strudel
+- **Connexions** : OSC bidirectionnel, Ableton Live (AbletonOSC), MIDI Learn, panneaux NTS-1 / MicroFreak
+
+Détail complet, compilation et diagnostics : **[`macos/README.md`](macos/README.md)**.
+
+### Compiler depuis les sources
+
+```bash
+bash macos/build_app.sh            # → macos/build/BANG.app (Command Line Tools suffisent, pas besoin de Xcode)
+bash macos/build_app.sh --install  # → et copie dans ~/Applications
+```
+
+---
+
+## Aperçu du webapp Python
 
 <table>
 <tr>
@@ -30,7 +63,7 @@ BANG! génère des patterns MIDI algorithmiques et les envoie partout — export
 
 ---
 
-## Ce que BANG! est
+## Ce que BANG! est (webapp Python)
 
 - Un **générateur de patterns** selon des modes qui correspondent à des usages prédéfinis : batterie algorithmique, ligne de basse Markov, synths dédiés (Volca Drum, Volca Kick, Volca FM, MicroFreak, Keystep Pro), ambient, noise, babka euclidien
 - Des **presets qui collent au matériel** : notes MIDI et canaux câblés pour Volca Drum (6 canaux split), Volca Kick, Volca FM, MicroFreak, TR-808/909, GM, MPC60, etc.
@@ -61,11 +94,13 @@ BANG! génère des patterns MIDI algorithmiques et les envoie partout — export
 ## Ce que BANG! n'est pas
 
 - Un DAW — aucune gestion de clips, de timeline, de routing audio
-- Un plugin — c'est une app web locale, servie par FastAPI sur le réseau local
+- Un plugin — c'est une app autonome : l'app macOS native, ou le webapp FastAPI lancé en local
 
 ---
 
-## Installation
+## Webapp Python (en local)
+
+Le webapp tourne sur ta machine (`localhost`). Il n'y a plus de serveur de production : l'ancien service `bang.service` / `bang.lan` n'existe plus.
 
 ### Prérequis
 
@@ -94,48 +129,31 @@ uv run python web.py
 BANG_PORT=8888 uv run python web.py
 ```
 
-### Service systemd (production)
-
-```bash
-sudo cp bang.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now bang
-# → http://bang.lan (avec reverse proxy Caddy)
-```
-
-Exemple de fichier `bang.service` :
-```ini
-[Unit]
-Description=BANG! MIDI Sequencer
-After=network.target
-
-[Service]
-User=olivier
-WorkingDirectory=/home/olivier/DEV/bang-proto/bang
-ExecStart=/home/olivier/.local/bin/uv run python web.py
-Environment=BANG_PORT=7777
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
 ---
 
 ## Tests
 
+### App macOS
+
+```bash
+cd macos && swift run bang-check     # moteur : DNA, Babka, 14 modes, export, 808/909, live, connexions
+```
+
+Plus des diagnostics qui pilotent l'app réelle (`BANG_SELFTEST_*`) : voir [`macos/README.md`](macos/README.md).
+
+### Webapp Python
+
 Harnais de test automatisé — voir **[`docs/TESTING.md`](docs/TESTING.md)** pour le détail complet.
 
 ```bash
-# Régression + smoke + fuzz (stdlib pur, ~95 checks, snapshot/restore non destructif)
-python3 tests/test_bang.py            # cible http://localhost:7777 par défaut
-python3 tests/test_bang.py http://192.168.1.100:7777
+uv run python web.py                  # dans un terminal : lance le webapp en local
+python3 tests/test_bang.py            # dans un autre : cible http://localhost:7777 par défaut
 ```
 
 - Exit code `0` = tout vert, `1` = au moins un échec ; dernière ligne = `BANG_TEST_JSON={...}`.
 - Couvre les 5 régressions historiques (déterminisme, régénération de toutes les voix, `/vary`, lock, front-end local) + bornes de params, les 14 modes, et le fuzz des 20 opérations par voix.
 - Oracle de vérité : `GET /session/export`. Le harnais sauvegarde puis restaure la session — **le motif de travail n'est jamais détruit**.
-- ⚠️ Ne jamais `kill` le process serveur : utiliser `sudo systemctl restart bang.service` (cf. `docs/TESTING.md`).
+- Le harnais teste un webapp **déjà lancé** : démarre `uv run python web.py` avant, et relance-le après une modification du code.
 
 Depuis Claude Code : la commande `/test-bang` lance le harnais + une passe navigateur (Puppeteer) et peut filer les échecs dans Todoist.
 

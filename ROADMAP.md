@@ -104,9 +104,26 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 - [ ] Bouton par piste CC dans le pianoroll : genere des p-locks aleatoires bornes (min/max) avec density (0-100%)
 
+## Phase 8 — App macOS native (`macos/`) ✅
+
+Le serveur (`bang.service`, `bang.lan`) n'existe plus : BANG! passe en apps natives.
+Releases `macos-v1.0.0` → `macos-v1.2.0` (la dernière est la « Latest » du dépôt).
+
+- [x] Moteur porté en Swift (`BangCore`) : DNA, Babka, Markov / gammes, les 14 modes, p-locks, export `.mid`, session JSON compatible webapp
+- [x] App SwiftUI : grille DNA, piano-roll, lecture temps réel (CoreMIDI + port virtuel « BANG! »), synthé GM intégré, interface qui suit la taille de la fenêtre
+- [x] Kits batterie **808 / 909** recréés par synthèse ; export **.wav** en boucle parfaite (nom `preset-variation-date`)
+- [x] Jeu live : synchro MIDI clock, tap, évolution auto, A/B, mémoires auto pondérées, morph, mode Song, LFO par voix
+- [x] Édition fine : lanes VÉL / PROB, longueur (polymétrie), décalage, Thin, note de sortie, p-locks visibles
+- [x] Connexions : OSC bidirectionnel, Ableton (AbletonOSC), Strudel, `.mid` par voix, gabarit TouchOSC, MIDI Learn, panneaux NTS-1 / MicroFreak
+- [x] CC NTS-1 / MicroFreak vérifiés sur les tableaux officiels — corrigés aussi côté Python
+- [ ] Vérifier l'export Strudel sur strudel.cc (l'app Qt l'avait abandonné : patterns qui ne jouaient pas)
+- [ ] Tester avec un vrai Ableton + AbletonOSC, un vrai maître MIDI clock et de vrais NTS-1 / MicroFreak
+- [ ] Notarisation Apple (supprimer le « clic droit → Ouvrir ») — nécessite un compte développeur
+- [ ] Tester sur Mac Intel et sous macOS 13
+
 ---
 
-*Dernière mise à jour : 2026-07-31 · v0.9.2 — réconciliation après 145 commits non reflétés*
+*Dernière mise à jour : 2026-11-13 · app macOS 1.2.0 — serveur supprimé, passage au natif*
 
 ## Demandes externes (Argus)
 
