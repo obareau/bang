@@ -103,8 +103,9 @@ struct VoiceRow: View {
     }
 
     private var meta: String {
-        let ch = s.renderInput().channel(for: index) + 1
-        let note = voice.isMelodic ? "markov" : "n\(s.renderInput().outputNote(for: index))"
+        let input = s.renderInput()
+        let ch = input.channel(for: voice) + 1
+        let note = voice.isMelodic ? "markov" : "n\(input.outputNote(for: voice))"
         return "\(note) · ch\(ch) · \(voice.dna.count)"
     }
 

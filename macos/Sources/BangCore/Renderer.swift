@@ -50,16 +50,24 @@ public struct RenderInput: Sendable {
     }
 
     /// Note réellement envoyée pour une voix non mélodique.
-    public func outputNote(for i: Int) -> Int {
-        let v = voices[i]
+    public func outputNote(for v: Voice) -> Int {
         if v.type.hasPrefix("vd") || v.isMelodic || v.isCC { return v.note }
         let key = v.isBabka ? (Voice.noteNames[v.note] ?? v.label) : v.label
         return noteRemap[key] ?? v.note
     }
 
+    public func channel(for v: Voice) -> Int {
+        settings[v.label]?.channel ?? v.defaultChannel(drumChannel: drumChannel)
+    }
+
+    // Variantes par index : tolèrent un index périmé (une vue SwiftUI peut se
+    // redessiner une dernière fois juste après que le nombre de voix a baissé).
+    public func outputNote(for i: Int) -> Int {
+        voices.indices.contains(i) ? outputNote(for: voices[i]) : 0
+    }
+
     public func channel(for i: Int) -> Int {
-        let v = voices[i]
-        return settings[v.label]?.channel ?? v.defaultChannel(drumChannel: drumChannel)
+        voices.indices.contains(i) ? channel(for: voices[i]) : drumChannel
     }
 }
 

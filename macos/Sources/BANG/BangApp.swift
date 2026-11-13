@@ -4,6 +4,7 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var spaceHandler: (() -> Void)?
+    weak var model: AppModel?
     private var monitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +30,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // une image (sans permission d'enregistrement d'écran). BANG_SNAPSHOT_PLAY=1
         // lance la lecture avant la capture, BANG_SNAPSHOT_QUIT=1 quitte ensuite.
         let env = ProcessInfo.processInfo.environment
+        // Diagnostic : BANG_SELFTEST_MODES=1 → lecture, puis les 14 modes
+        // enchaînés (dans les deux sens) toutes les 0,3 s, puis quitte.
+        if env["BANG_SELFTEST_MODES"] == "1" {
+            let modes = Mode.allCases + Mode.allCases.reversed()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.model?.start() }
+            for (i, m) in modes.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + Double(i) * 0.3) {
+                    self.model?.selectedVoice = 6
+                    self.model?.session.params.mode = m
+                    self.model?.generate()
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5 + Double(modes.count) * 0.3) {
+                print("BANG_SELFTEST_MODES ok (\(modes.count) changements)")
+                NSApp.terminate(nil)
+            }
+        }
         if let path = env["BANG_SNAPSHOT"] {
             if let size = env["BANG_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -65,7 +83,10 @@ struct BangApp: App {
                 .environmentObject(model.play)
                 .frame(minWidth: 1080, minHeight: 640)
                 .preferredColorScheme(.dark)
-                .onAppear { delegate.spaceHandler = { model.togglePlay() } }
+                .onAppear {
+                    delegate.spaceHandler = { model.togglePlay() }
+                    delegate.model = model
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1360, height: 820)

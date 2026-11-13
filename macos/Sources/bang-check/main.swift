@@ -62,5 +62,13 @@ for mode in Mode.allCases {
           "\(mode.label): \(s.voices.count) voix, \(notes) notes\(pl > 0 ? ", \(pl) p-locks" : "")")
 }
 
+print("Changement de mode (moins de voix)")
+var shrink = BangSession()
+shrink.params.mode = .noise; shrink.generate()          // 8 voix
+shrink.params.mode = .ambient; shrink.generate()        // 3 voix
+let staleInput = shrink.renderInput()
+check(staleInput.channel(for: 7) == 9 && staleInput.outputNote(for: 7) == 0,
+      "index périmé (voix 8 sur 3) : pas de plantage")
+
 print(failures == 0 ? "\n✓ tout vert" : "\n✗ \(failures) échec(s)")
 exit(failures == 0 ? 0 : 1)
