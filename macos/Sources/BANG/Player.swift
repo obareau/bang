@@ -44,6 +44,10 @@ final class Player: @unchecked Sendable {
     /// Appelé (sur le thread de l'horloge) un peu avant la fin de chaque cycle,
     /// avec le numéro du cycle qui va commencer.
     var onCycle: (@Sendable (Int) -> Void)?
+    /// Chaque note jouée (voix, note, vélocité, step) — pour l'OSC.
+    var onNote: (@Sendable (Int, Int, Int, Int) -> Void)?
+    /// Chaque nouveau step (step, nb de steps) — pour /bang/clock.
+    var onStep: (@Sendable (Int, Int) -> Void)?
 
     init(output: @escaping Output) { self.output = output }
 
@@ -197,6 +201,7 @@ final class Player: @unchecked Sendable {
         /// note pas encore jouée — ex. le 1er temps quand une mise à jour arrive
         /// juste après le changement de cycle.
         var dispatchedUpTo = -1.0
+        var lastStepSent = -1
         var sounding: [Int: Int] = [:]  // (canal<<8 | note) → nb de note-on actifs
 
         func dispatch(_ e: MIDIEvent) {
@@ -210,6 +215,7 @@ final class Player: @unchecked Sendable {
                 sounding[key, default: 0] += 1
                 if e.voice >= 0 {
                     lock.lock(); hits[e.voice] = Player.now(); lock.unlock()
+                    onNote?(e.voice, e.data1, e.data2, max(0, (e.tick - cycleBase) / tps))
                 }
             case .noteOff:
                 guard let n = sounding[key] else { return }  // jamais joué : on ignore
@@ -265,7 +271,9 @@ final class Player: @unchecked Sendable {
             steps = cycleTicks / tps
             step = min(steps - 1, max(0, (Int(tick) - cycleBase) / tps))
             cycle = cycleNo
+            let st = step, n = steps
             lock.unlock()
+            if st != lastStepSent { lastStepSent = st; onStep?(st, n) }
 
             // Prévenir un peu avant la fin du cycle (~120 ms, au plus un demi-cycle).
             let look = min(Double(cycleTicks) / 2, 0.12 / pos.spt)

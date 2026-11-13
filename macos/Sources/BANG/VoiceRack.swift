@@ -225,6 +225,7 @@ struct TransformMenu: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(voice.dna, forType: .string)
                 },
+                .item("MIDI Learn (jouer le rythme)…") { model.studio.learn(voice: index) },
                 .item("Coller la DNA") {
                     if let s = NSPasteboard.general.string(forType: .string) { model.session.setPattern(index, s) }
                 },

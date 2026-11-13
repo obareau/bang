@@ -35,6 +35,8 @@ for s in 16 32 128 256 512; do
     sips -z $d $d "$BUILD/icon_1024.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+# Gabarit TouchOSC du dépôt (pilotage OSC)
+cp "$HERE/../static/bang_control.tosc" "$APP/Contents/Resources/" 2>/dev/null || true
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

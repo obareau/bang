@@ -22,6 +22,7 @@ struct ContentView: View {
 struct MainLayout: View {
     @Environment(\.uiScale) private var z
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var studio: Studio
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +45,13 @@ struct MainLayout: View {
         }
         .background(Theme.bg)
         .ignoresSafeArea(edges: .top)
+        .sheet(isPresented: $studio.showSheet) {
+            ConnectionsView()
+                .environmentObject(model)
+                .environmentObject(studio)
+                .environment(\.uiScale, z)
+                .preferredColorScheme(.dark)
+        }
     }
 }
 
@@ -101,6 +109,10 @@ struct TopBar: View {
                 .monospacedDigit()
 
             OutputMenu()
+
+            Button { model.studio.showSheet = true } label: { Text("CONNEXIONS") }
+                .buttonStyle(BangButtonStyle(active: model.studio.oscTxOn || model.studio.oscRxOn))
+                .help("OSC, Ableton Live, Strudel, MIDI Learn, NTS-1, MicroFreak")
 
             Button { model.exportMIDI() } label: { Text("EXPORT .mid") }
                 .buttonStyle(BangButtonStyle())

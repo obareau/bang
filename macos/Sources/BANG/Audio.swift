@@ -90,6 +90,8 @@ final class MIDIClockIn: @unchecked Sendable {
     }()
     /// (statut F8/FA/FB/FC, instant en secondes) — appelé sur le thread CoreMIDI.
     var onRealtime: (@Sendable (UInt8, Double) -> Void)?
+    /// Note-on reçue (note, vélocité, instant) — pour le MIDI Learn.
+    var onNoteOn: (@Sendable (Int, Int, Double) -> Void)?
 
     init() {
         MIDIClientCreateWithBlock("BANG! sync" as CFString, &client) { _ in }
@@ -127,13 +129,22 @@ final class MIDIClockIn: @unchecked Sendable {
     }
 
     private func receive(_ list: UnsafePointer<MIDIEventList>) {
-        let handler = onRealtime
+        let handler = onRealtime, noteHandler = onNoteOn
         list.unsafeSequence().forEach { packet in
             let t = seconds(packet.pointee.timeStamp)
             let words = packet.words()
-            for w in words where (w >> 28) == 0x1 {      // UMP « system » : temps réel
-                let status = UInt8((w >> 16) & 0xFF)
-                if [0xF8, 0xFA, 0xFB, 0xFC].contains(status) { handler?(status, t) }
+            for w in words {
+                switch w >> 28 {
+                case 0x1:                                   // UMP « system » : temps réel
+                    let status = UInt8((w >> 16) & 0xFF)
+                    if [0xF8, 0xFA, 0xFB, 0xFC].contains(status) { handler?(status, t) }
+                case 0x2:                                   // UMP MIDI 1.0 : messages de canal
+                    let status = UInt8((w >> 16) & 0xF0)
+                    let note = Int((w >> 8) & 0x7F), vel = Int(w & 0x7F)
+                    if status == 0x90 && vel > 0 { noteHandler?(note, vel, t) }
+                default:
+                    break
+                }
             }
         }
     }

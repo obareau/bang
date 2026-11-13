@@ -144,6 +144,38 @@ do {
           "session : lanes, thin, décalage, longueur et note relus à l'identique")
 }
 
+print("DAW / matériel")
+do {
+    var s = BangSession()
+    s.voices = [Voice(36, "x-?-↺---", "drum"), Voice(24, "x---", "markov"), Voice(0, "CC74", "cc")]
+    s.params.bpm = 120
+    let code = StrudelExport.code(s)
+    check(code.contains("setcps(0.5)") && code.contains("s(\"bd ~ bd?0.5 ~ bd*3 ~ ~ ~\")") && code.contains("note(\""),
+          "Strudel : « x-?-↺--- » → bd ~ bd?0.5 ~ bd*3 …")
+
+    let m = OSCMessage("/bang/param/chaos", [.float(0.7), .int(-3), .string("hé")])
+    let back = OSCMessage.decode(m.encode())
+    check(back == [m] && m.encode().count % 4 == 0, "OSC : encodage / décodage aller-retour (i, f, s)")
+    var bundle = Data("#bundle".utf8); bundle.append(0); bundle.append(Data(count: 8))
+    for msg in [OSCMessage("/bang/generate"), OSCMessage("/bang/vary")] {
+        let d = msg.encode()
+        withUnsafeBytes(of: UInt32(d.count).bigEndian) { bundle.append(contentsOf: $0) }
+        bundle += d
+    }
+    check(OSCMessage.decode(bundle).map(\.address) == ["/bang/generate", "/bang/vary"], "OSC : bundle de 2 messages")
+
+    check(MIDILearn.quantize([0.0, 0.26, 0.49, 1.01, 3.9], steps: 16, stepSeconds: 0.125) == "x-x-x---x------x",
+          "MIDI Learn : frappes quantifiées au step le plus proche")
+
+    var c = BangSession(); c.voices = [Voice(36, "x---x---", "drum"), Voice(42, "--x---x-", "drum")]; c.params.steps = 8
+    let clips = VoiceNotes.clips(c)
+    check(clips.count == 2 && clips[0].notes.map(\.startBeats) == [0, 1] && clips[1].notes.map(\.startBeats) == [0.5, 1.5],
+          "clips par voix : temps en noires (kick 0 / 1, charleston 0,5 / 1,5)")
+    let one = MIDIFileWriter.exportVoice(c, voice: 1)
+    let all = MIDIFileWriter.export(c.renderInput(), numSteps: 8, seed: "0", type: 0)
+    check(one.count < all.count && one.starts(with: Array("MThd".utf8)), "export d'une seule voix (\(one.count) octets)")
+}
+
 print("Batterie 808 / 909 (synthèse)")
 func analyse(_ b: [Float]) -> (peak: Float, dur: Double, hz: Double, nan: Bool) {
     let peak = b.map { abs($0) }.max() ?? 0

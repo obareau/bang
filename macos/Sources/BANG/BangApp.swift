@@ -185,6 +185,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+        // Diagnostics DAW / matériel (BANG_SELFTEST_STUDIO) :
+        //  osc     → tourne BANG_SELFTEST_SECONDS s (pilotage OSC de l'extérieur)
+        //  ableton → BPM depuis Live puis envoi des clips
+        //  learn:<source> → MIDI Learn sur la voix 1 depuis <source>
+        //  cc      → envoie Cutoff NTS-1 (CC43=100, canal 1) et MicroFreak (CC23=90, canal 9)
+        if let what = env["BANG_SELFTEST_STUDIO"] {
+            setvbuf(stdout, nil, _IOLBF, 0)
+            Task { @MainActor in
+                guard let m = self.model else { return }
+                let st = m.studio
+                let seconds = Double(env["BANG_SELFTEST_SECONDS"] ?? "") ?? 4
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                if what == "ableton" {
+                    st.syncTempoFromAbleton()
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    print("STUDIO tempo : \(st.abletonStatus)")
+                    var s = BangSession()
+                    s.params.steps = 8; s.params.bpm = 97; s.lastSeed = "1"
+                    s.voices = [Voice(36, "x---x---", "drum"), Voice(42, "--x---x-", "drum"), Voice(0, "CC74", "cc")]
+                    m.session = s
+                    st.sendToAbleton()
+                    print("STUDIO clips : \(st.abletonStatus)")
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                } else if what.hasPrefix("learn:") {
+                    let name = String(what.dropFirst(6))
+                    for _ in 0..<50 where st.learnSourceID == nil {
+                        st.refreshLearnSources()
+                        st.learnSourceID = st.learnSources.first { $0.name == name }?.id
+                        if st.learnSourceID == nil { try? await Task.sleep(nanoseconds: 100_000_000) }
+                    }
+                    var s = BangSession()
+                    s.params.bpm = 120; s.params.steps = 16
+                    s.voices = [Voice(36, String(repeating: "-", count: 16), "drum")]
+                    m.session = s
+                    m.internalSynthOn = false
+                    print("STUDIO source trouvée : \(st.learnSourceID != nil)")
+                    st.learn(voice: 0)
+                    while !st.learnState.hasPrefix("⏺") { try? await Task.sleep(nanoseconds: 2_000_000) }
+                    print("STUDIO REC")
+                    while st.learning { try? await Task.sleep(nanoseconds: 20_000_000) }
+                    print("STUDIO dna : \(m.session.voices[0].dna)")
+                } else if what == "cc" {
+                    st.sendCC(43, 100, channel: st.nts1Channel, key: "t1")
+                    st.sendCC(23, 90, channel: st.mfChannel, key: "t2")
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                } else {
+                    try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
+                    print("STUDIO fin : bpm \(m.session.params.bpm), lecture \(m.isPlaying)")
+                }
+                m.stop()
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                NSApp.terminate(nil)
+            }
+        }
         if let path = env["BANG_SNAPSHOT"] {
             if let size = env["BANG_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -208,8 +262,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if env["BANG_SNAPSHOT_PLAY"] == "1" {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.spaceHandler?() }
             }
+            if let tab = env["BANG_SNAPSHOT_SHEET"].flatMap(Studio.Tab.init(rawValue:)) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    self.model?.studio.tab = tab
+                    self.model?.studio.showSheet = true
+                }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                if let view = NSApp.windows.first(where: { $0.isVisible })?.contentView,
+                let sheet = NSApp.windows.first { $0.isVisible && $0.isSheet }
+                if let view = (sheet ?? NSApp.windows.first(where: { $0.isVisible }))?.contentView,
                    let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     view.cacheDisplay(in: view.bounds, to: rep)
                     try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
@@ -232,6 +293,7 @@ struct BangApp: App {
             ContentView()
                 .environmentObject(model)
                 .environmentObject(model.play)
+                .environmentObject(model.studio)
                 .frame(minWidth: 1080, minHeight: 640)
                 .preferredColorScheme(.dark)
                 .onAppear {

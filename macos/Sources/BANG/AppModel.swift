@@ -66,6 +66,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var preview: [MIDIEvent] = []
 
     let play = PlayState()
+    let studio = Studio()
     let midi = MIDIOut()
     let synth = InternalSynth()
     private lazy var player: Player = {
@@ -117,6 +118,8 @@ final class AppModel: ObservableObject {
         sessionChanged()
         refreshClockSources()
         setupClockIn()
+        studio.model = self
+        studio.start()
     }
 
     func refreshDestinations() {
@@ -127,6 +130,7 @@ final class AppModel: ObservableObject {
     private func sessionChanged() {
         let input = liveInput()
         if player.isRunning && !deferPlayerUpdate { player.update(input) }
+        studio.sessionChanged()
         preview = Renderer.render(input, numSteps: session.params.steps,
                                   rng: Dice(seedString: session.lastSeed.isEmpty ? "0" : session.lastSeed))
         scheduleSave()
@@ -392,6 +396,9 @@ final class AppModel: ObservableObject {
         }
         // BANG_DEBUG_SLOW_CYCLE_MS : simule une interface lente (diagnostic).
         let slow = Double(ProcessInfo.processInfo.environment["BANG_DEBUG_SLOW_CYCLE_MS"] ?? "") ?? 0
+        let studio = self.studio
+        player.onStep = { step, steps in studio.clockStep(step, steps) }
+        player.onNote = { voice, note, vel, step in studio.clockNote(voice: voice, note: note, velocity: vel, step: step) }
         player.onCycle = { [weak self] next in
             DispatchQueue.main.asyncAfter(deadline: .now() + slow / 1000) { self?.cycleWillEnd(next: next) }
         }

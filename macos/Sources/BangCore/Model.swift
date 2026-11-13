@@ -250,5 +250,5 @@ public struct PLock: Codable, Equatable, Sendable {
 }
 
 extension Double {
-    func clamped(_ lo: Double, _ hi: Double) -> Double { Swift.min(Swift.max(self, lo), hi) }
+    public func clamped(_ lo: Double, _ hi: Double) -> Double { Swift.min(Swift.max(self, lo), hi) }
 }

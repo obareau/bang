@@ -218,8 +218,10 @@ public enum Generator {
                (47, "Fold", "texture"), (48, "BitRed", "spike")],
         "vfm0": [(40, "Algo", "spike"), (41, "Feedbk", "texture"), (44, "Op1Lvl", "sweep"),
                  (45, "Op2Lvl", "sweep"), (42, "LFOSpd", "texture")],
-        "mf0": [(13, "Cutoff", "sweep"), (11, "Timbre", "texture"), (12, "Shape", "texture"),
-                (16, "LFOAmt", "spike"), (15, "LFORate", "sweep")],
+        // CC MicroFreak vérifiés (Arturia) : Wave 10, Timbre 12, Shape 13, Cutoff 23, Reso 83.
+        // Le profil hérité du webapp (Cutoff 13, Timbre 11…) envoyait ces valeurs aux mauvais paramètres.
+        "mf0": [(23, "Cutoff", "sweep"), (12, "Timbre", "texture"), (13, "Shape", "texture"),
+                (83, "Reso", "spike")],
     ]
 
     static func plockValues(_ style: String, steps: Int, chaos: Double, phase: Double, rng: Dice) -> [Int?] {
