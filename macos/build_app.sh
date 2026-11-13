@@ -7,7 +7,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD="$HERE/build"
 APP="$BUILD/BANG.app"
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 echo "▸ compilation release"
 # Binaire universel : Apple Silicon + Intel
