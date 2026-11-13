@@ -101,6 +101,11 @@ struct TopBar: View {
                 .buttonStyle(BangButtonStyle())
                 .help("Exporter le pattern en fichier MIDI (⌘E)")
 
+            Button { model.exportWAV() } label: { Text(model.isRenderingWav ? "RENDU…" : "EXPORT .wav") }
+                .buttonStyle(BangButtonStyle(active: model.isRenderingWav))
+                .disabled(model.isRenderingWav)
+                .help("Rendre le pattern en audio WAV avec le synthé interne (⇧⌘E)")
+
             Text("⇣ GLISSER")
                 .font(Theme.mono(10 * z))
                 .foregroundStyle(Theme.ink)

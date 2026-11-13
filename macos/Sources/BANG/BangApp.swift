@@ -77,6 +77,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+        // Diagnostic : BANG_SELFTEST_WAV=/dossier → exporte le pattern courant en
+        // WAV (×2) avec chaque kit sous son nom preset-variation-date, puis quitte.
+        if let dir = env["BANG_SELFTEST_WAV"] {
+            Task { @MainActor in
+                guard let m = self.model else { return }
+                let saved = m.session
+                // Pattern de contrôle : attaques attendues toutes les 0,25 s à 120 BPM.
+                if env["BANG_SELFTEST_WAV_GRID"] == "1" {
+                    m.session.voices = [Voice(36, "x---x---x---x---", "drum"), Voice(42, "--x---x---x---x-", "drum")]
+                    m.session.params.bpm = 120
+                    m.session.params.steps = 16
+                    m.session.params.swing = 0
+                    m.session.params.microtiming = 1
+                    m.session.params.velHumanize = 0
+                    m.session.muted = []; m.session.soloed = []; m.session.settings = [:]
+                }
+                m.wavLoops = 2
+                try? m.midiData().write(to: URL(fileURLWithPath: dir).appendingPathComponent("reference.mid"))
+                for kit in DrumKit.allCases {
+                    m.drumKit = kit
+                    let url = URL(fileURLWithPath: dir).appendingPathComponent(m.wavName + ".wav")
+                    let r = await withCheckedContinuation { c in m.renderWAV(to: url) { c.resume(returning: $0) } }
+                    switch r {
+                    case .success(let res): print(String(format: "BANG_SELFTEST_WAV %@ %.2fs crête-avant %.3f", url.lastPathComponent, res.seconds, res.peakBefore))
+                    case .failure(let e): print("BANG_SELFTEST_WAV ÉCHEC \(e.localizedDescription)")
+                    }
+                }
+                m.session = saved
+                try? await Task.sleep(nanoseconds: 1_200_000_000)  // laisse l'autosauvegarde passer
+                NSApp.terminate(nil)
+            }
+        }
+        // Diagnostic : BANG_SELFTEST_WAV_LOOP=/dossier → pattern qui déborde
+        // (kick 808 long + charleston ouvert en fin) rendu ×1 en boucle parfaite
+        // (loop.wav) et ×3 à plat (flat3.wav) pour comparer, puis quitte.
+        if let dir = env["BANG_SELFTEST_WAV_LOOP"] {
+            DispatchQueue.global().async {
+                var p = GenParams()
+                p.bpm = 120; p.steps = 16
+                let input = RenderInput(voices: [Voice(36, "x---x---x---x---", "drum"),
+                                                 Voice(46, "--------------x-", "drum")],
+                                        params: p)
+                let d = URL(fileURLWithPath: dir)
+                for (name, loops, seamless) in [("loop", 1, true), ("flat3", 3, false)] {
+                    let r = try? WavExport.render(input: input, numSteps: 16, loops: loops, seed: "1",
+                                                  kit: .tr808, seamless: seamless,
+                                                  to: d.appendingPathComponent(name + ".wav"))
+                    print("BANG_SELFTEST_WAV_LOOP \(name) \(r.map { String(format: "%.3fs", $0.seconds) } ?? "ÉCHEC")")
+                }
+                DispatchQueue.main.async { NSApp.terminate(nil) }
+            }
+        }
         if let path = env["BANG_SNAPSHOT"] {
             if let size = env["BANG_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -128,6 +180,7 @@ struct BangApp: App {
                 Button("Ouvrir une session…") { model.openSession() }.keyboardShortcut("o")
                 Button("Enregistrer la session…") { model.saveSession() }.keyboardShortcut("s")
                 Button("Exporter en MIDI…") { model.exportMIDI() }.keyboardShortcut("e")
+                Button("Exporter en WAV…") { model.exportWAV() }.keyboardShortcut("e", modifiers: [.command, .shift])
             }
             CommandGroup(replacing: .undoRedo) {
                 Button("Annuler") { model.undo() }.keyboardShortcut("z")

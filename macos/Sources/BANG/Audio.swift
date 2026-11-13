@@ -99,7 +99,7 @@ final class InternalSynth: @unchecked Sendable {
     }
 
     /// Programmes GM par canal (0-based), alignés sur Voice.defaultChannel.
-    private static let programs: [Int: UInt8] = [
+    static let programs: [Int: UInt8] = [
         0: 38,   // Synth Bass 1   — basses / Bass ♩
         1: 80,   // Square Lead    — Markov
         2: 81,   // Saw Lead       — KSP Lead
