@@ -74,8 +74,10 @@ struct TopBar: View {
                 .font(Theme.mono(9 * z))
                 .foregroundStyle(Theme.muted)
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(-1)   // c'est le nom du mode qui cède la place en premier
 
-            Spacer()
+            Spacer(minLength: 8 * z)
 
             Button(action: model.togglePlay) {
                 Image(systemName: model.isPlaying ? "stop.fill" : "play.fill")
@@ -88,6 +90,7 @@ struct TopBar: View {
             HStack(spacing: 4 * z) {
                 Text(model.syncOn ? "SYNC" : "BPM").font(Theme.mono(9 * z))
                     .foregroundStyle(model.syncOn ? Theme.accent : Theme.muted)
+                    .fixedSize()
                 TextField("", value: $model.session.params.bpm, format: .number)
                     .textFieldStyle(.plain)
                     .font(Theme.mono(13 * z, .bold))
@@ -97,7 +100,7 @@ struct TopBar: View {
                     .buttonStyle(BangButtonStyle(compact: true))
                 Button { model.session.params.bpm = min(300, model.session.params.bpm + 1) } label: { Text("+") }
                     .buttonStyle(BangButtonStyle(compact: true))
-                Button { model.tap() } label: { Text("TAP") }
+                Button { model.tap() } label: { Text("TAP").fixedSize() }
                     .buttonStyle(BangButtonStyle(compact: true))
                     .disabled(model.syncOn)
                     .help("Tap tempo")
@@ -110,15 +113,15 @@ struct TopBar: View {
 
             OutputMenu()
 
-            Button { model.studio.showSheet = true } label: { Text("CONNEXIONS") }
+            Button { model.studio.showSheet = true } label: { Text("CONNEXIONS").fixedSize() }
                 .buttonStyle(BangButtonStyle(active: model.studio.oscTxOn || model.studio.oscRxOn))
                 .help("OSC, Ableton Live, Strudel, MIDI Learn, NTS-1, MicroFreak")
 
-            Button { model.exportMIDI() } label: { Text("EXPORT .mid") }
+            Button { model.exportMIDI() } label: { Text("EXPORT .mid").fixedSize() }
                 .buttonStyle(BangButtonStyle())
                 .help("Exporter le pattern en fichier MIDI (⌘E)")
 
-            Button { model.exportWAV() } label: { Text(model.isRenderingWav ? "RENDU…" : "EXPORT .wav") }
+            Button { model.exportWAV() } label: { Text(model.isRenderingWav ? "RENDU…" : "EXPORT .wav").fixedSize() }
                 .buttonStyle(BangButtonStyle(active: model.isRenderingWav))
                 .disabled(model.isRenderingWav)
                 .help("Rendre le pattern en audio WAV avec le synthé interne (⇧⌘E)")

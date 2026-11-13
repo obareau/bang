@@ -1,14 +1,27 @@
 # 🧪 BANG! — Tests & chasse au bug
 
-Documentation du workflow de test automatisé. **À lire avant de toucher au serveur.**
+Documentation du workflow de test automatisé.
+
+> Le serveur de production (`bang.service`, `192.168.1.100` / `bang.lan`) **n'existe plus**. BANG! passe en apps natives : l'app macOS a son propre auto-test (voir ci-dessous) et le webapp Python se teste **en local**.
 
 ---
 
 ## TL;DR
 
+### App macOS native
+
 ```bash
-# sur le serveur (homelab), dans le dossier bang/
-python3 tests/test_bang.py
+cd macos && swift run bang-check      # moteur : DNA, Babka, 14 modes, export .mid, 808/909, live, connexions
+```
+Dernière ligne `✓ tout vert` (exit 0) ou `✗ N échec(s)` (exit 1). Les diagnostics
+`BANG_SELFTEST_*` pilotent l'app réelle (modes, Song, morph, synchro MIDI clock,
+export WAV, OSC, Ableton, MIDI Learn) : voir `macos/README.md`.
+
+### Webapp Python (en local)
+
+```bash
+uv run python web.py                  # terminal 1 : lance le webapp sur http://localhost:7777
+python3 tests/test_bang.py            # terminal 2 : lance le harnais
 ```
 Dernière ligne de sortie = `BANG_TEST_JSON={...}` (résumé machine-readable).
 Exit code `0` = tout vert, `1` = au moins un FAIL.
@@ -17,20 +30,10 @@ Depuis Claude Code : taper **`/test-bang`** (lance le harnais + une passe naviga
 
 ---
 
-## ⚠️ Exploitation serveur — à connaître absolument
+## ⚠️ À savoir sur le webapp
 
-BANG! tourne en **service systemd** : `bang.service`
-(`User=olivier`, `WorkingDirectory=/home/olivier/DEV/bang-proto/bang`, `Restart=on-failure`).
-
-| Action | Commande |
-|--------|----------|
-| Statut | `systemctl is-active bang.service` |
-| Redémarrer | `sudo -n systemctl restart bang.service` *(sudo sans mot de passe OK pour olivier)* |
-| Logs | `journalctl -u bang.service -n 50` |
-
-**NE JAMAIS `kill` le process.** Un `kill` envoie SIGTERM → le process sort avec le
-code 0 → `Restart=on-failure` ne le relance **pas** → le serveur reste mort.
-Toujours passer par `systemctl restart`.
+Le harnais teste un webapp **déjà lancé** : démarrer `uv run python web.py` avant, et le
+relancer après une modification du code (sauf avec `uvicorn web:app --reload`).
 
 **`_save_state()` n'est PAS appelé** par `/generate`, `/vary`, `/lock_voice`, `/ctrl`
 (seulement par certaines voice-ops). Donc `bang_state.json` sur disque est souvent
@@ -105,8 +108,7 @@ Les 2 findings de la première passe ont été corrigés ; harnais désormais **
 
 ## Étendre le harnais
 
-- Source **éditable** côté Windows : `C:\Users\obare\Desktop\BANG-tests\test_bang.py`
-  → ré-upload : `cat > tests/test_bang.py` via plink, puis `git add` + commit.
+- Source : `tests/test_bang.py`, directement dans le dépôt.
 - Ajouter un test = écrire une fonction `t_xxx()` qui appelle `ok(cat, name, cond, ...)`
   puis l'enregistrer dans `main()`.
 - Toujours lire l'état via `export()` (helper) et muter via les endpoints — pas d'accès disque.
@@ -117,5 +119,5 @@ Les 2 findings de la première passe ont été corrigés ; harnais désormais **
 
 ## Cible
 
-`http://192.168.1.100:7777` — code : `/home/olivier/DEV/bang-proto/bang/web.py` (~3700 lignes).
-SSH : `plink -ssh -batch -l olivier -pw … -hostkey "SHA256:Ax00…" 192.168.1.100`.
+`http://localhost:7777` par défaut (webapp lancé en local) — ou passer une autre URL en argument :
+`python3 tests/test_bang.py http://hôte:port`.

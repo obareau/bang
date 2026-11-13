@@ -94,7 +94,7 @@ Le serveur reçoit les events du player JS via WebSocket (`/midi-ws`) et les env
 
 ### Web MIDI API
 
-Nécessite Chrome ou Edge + HTTPS (`https://bang.lan`). Permet :
+Webapp uniquement. Nécessite Chrome ou Edge ; `http://localhost` est accepté comme contexte sécurisé (l'ancien `https://bang.lan` n'existe plus). Dans l'app macOS native, le MIDI passe par CoreMIDI et le MIDI Learn est dans la fenêtre CONNEXIONS. Permet :
 - Sortie MIDI directe vers un périphérique connecté
 - **MIDI Learn** : capture d'un pattern depuis un clavier/pad physique
 

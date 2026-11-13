@@ -2,10 +2,22 @@
 
 ## Vue d'ensemble
 
+Deux familles d'apps partagent la même logique de génération :
+
+- **`macos/`** — l'app macOS native (SwiftUI), usage principal : moteur Swift dans
+  `macos/Sources/BangCore` (portage du moteur Python), app dans `macos/Sources/BANG`.
+  Voir `macos/README.md`.
+- **Python** — le webapp FastAPI (lancé en local), l'app Qt6, la CLI et la TUI.
+  L'ancien service systemd (`bang.lan`) n'existe plus.
+
 ```
-bang-proto/
-└── bang/                   # Package principal (service systemd)
-    ├── web.py              # Serveur FastAPI + logique métier UI
+bang/                       # dépôt github.com/obareau/bang
+├── macos/                  # App macOS native (SwiftUI + CoreMIDI)
+│   ├── Sources/BangCore/   # Moteur Swift (DNA, Babka, Markov, rendu, export…)
+│   ├── Sources/BANG/       # App SwiftUI
+│   └── build_app.sh        # Construit BANG.app
+└── (racine Python)
+    ├── web.py              # Serveur FastAPI local + logique métier UI
     ├── bang_engine.py      # BangEngine — moteur de génération MIDI
     ├── babka.py            # Parser syntaxe Babka
     ├── cli.py              # Interface CLI (argparse + rtmidi physique)

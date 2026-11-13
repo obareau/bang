@@ -1,30 +1,44 @@
 # BANG! — Séquenceur MIDI Algorithmique
 
-Générateur MIDI algorithmique pour le cadre **Robōtariis** (Dark Umbrae). Syntaxe DNA propriétaire + syntaxe Babka (fusion DNA + Strudel). Interface web FastAPI + HTMX, export MIDI, player Web MIDI temps réel.
+Générateur MIDI algorithmique pour le cadre **Robōtariis** (Dark Umbrae). Syntaxe DNA propriétaire + syntaxe Babka (fusion DNA + Strudel).
+
+**⚠️ Le serveur n'existe plus.** L'ancien service `bang.service` (`https://bang.lan`, dossier `/home/olivier/DEV/bang-proto/bang`) a disparu : ne jamais proposer de le redémarrer ni de redéployer. BANG! passe en **apps natives** — l'usage principal est l'**app macOS SwiftUI** du dossier `macos/`. Le webapp Python (FastAPI + HTMX) se lance seulement en local.
 
 ## Stack
 
-- Python 3.12+ / `uv` · FastAPI + uvicorn + HTMX + Jinja2
-- `mido` (MIDI) · `numpy` (matrices DNA)
-- Service systemd `bang.service` — port `7777`
-- HTTPS via Caddy + cert auto-signé → `https://bang.lan`
-- Web MIDI API (Chrome, nécessite HTTPS)
+- **App macOS** (`macos/`) : Swift 6 / SwiftUI / CoreMIDI / AVFoundation, paquet SwiftPM, compile avec les seuls Command Line Tools (pas de Xcode ; la macro `@State` et `#Preview` sont donc indisponibles). macOS 13+, binaire universel.
+- **Webapp** : Python 3.12+ / `uv` · FastAPI + uvicorn + HTMX + Jinja2 · `mido` · `numpy` — en local sur `http://localhost:7777`
+- **App Qt6** (`qt_app.py`, PySide6) : rebuild desktop Python, voir plus bas
 
-## Repo & service
+## Repo & livraison
 
 ```
-Repo  : /home/olivier/DEV/bang-proto/bang/
-Branch: dev/* pour les features, main = prod stable
-```
-
-**⚠️ Le service tourne depuis `bang-proto/bang/`, pas `bang-proto/`.**
-
-```bash
-sudo systemctl restart bang
-sudo journalctl -u bang -f --no-pager
+Repo  : ~/Documents/DEV/bang  (github.com/obareau/bang)
+Branch: dev/* pour les features, main = stable
 ```
 
 **Toujours créer un branch `dev/<feature>` avant de coder — ne jamais commit sur main directement.**
+
+Livrer l'app macOS = construire puis publier une release GitHub :
+
+```bash
+bash macos/build_app.sh            # → macos/build/BANG.app (+ auto-test du moteur)
+bash macos/build_app.sh --install  # → et copie dans ~/Applications
+```
+
+Les releases de l'app native sont taguées **`macos-vX.Y.Z`** (DMG + zip + SHA256SUMS). Un tag commençant par `v` déclencherait le workflow `.github/workflows/build.yml`, qui compile l'app **Qt** sur 3 OS.
+
+## App macOS native (`macos/`)
+
+| Dossier / fichier | Rôle |
+|---------|------|
+| `Sources/BangCore/` | Moteur pur, testable : DNA, Babka, Markov, les 14 modes, `Renderer` (évènements MIDI), export `.mid`, session JSON (mêmes clés que le webapp), batterie 808/909 synthétisée, OSC, Strudel |
+| `Sources/BANG/` | App SwiftUI : `AppModel`, `Player` (horloge temps réel, synchro MIDI clock), `Audio` (CoreMIDI, synthé DLS), `WavExport`, `Studio` (OSC, Ableton, MIDI Learn, synthés) |
+| `Sources/bang-check/` | Auto-test du moteur : `cd macos && swift run bang-check` |
+| `build_app.sh` | Construit `BANG.app` (icône générée, Info.plist, signature ad-hoc) |
+| `README.md` | Détail des fonctions et des diagnostics `BANG_SELFTEST_*` |
+
+Le moteur natif est un **portage** de `bang_engine.py` / `pattern_lib.py` / `babka.py` : une même seed rejoue le même pattern dans l'app native, mais pas le même que dans le webapp (générateur aléatoire différent).
 
 ## Architecture fichiers
 
@@ -39,7 +53,7 @@ sudo journalctl -u bang -f --no-pager
 | `templates/_pianoroll.html` | Piano-roll SVG |
 | `templates/_voices.html` | Liste voix |
 
-## Commandes de dev
+## Commandes de dev (webapp Python, en local)
 
 ```bash
 # Démarrer en dev (hot-reload)
@@ -147,7 +161,9 @@ proprement en mini-notation Strudel réelle — les patterns générés ne
 jouaient pas (voix mélodiques sans synthé attaché, échantillons percussion
 inventés sans garantie d'exister, opérateur `?` avec argument numérique
 non-standard). Le webapp garde son `/export/strudel` tel quel (fonctionnalité
-existante, non touchée). La seule filiation Strudel qui reste pertinente
+existante, non touchée). ⚠️ L'app macOS native reprend cet export du webapp à
+l'identique (`macos/Sources/BangCore/Interop.swift`) : elle hérite donc
+probablement des mêmes défauts — à vérifier sur strudel.cc avant de s'y fier. La seule filiation Strudel qui reste pertinente
 côté Qt6 est historique : la syntaxe Babka (`babka.py`) s'est inspirée de la
 mini-notation Strudel/TidalCycles pour ses opérateurs `[ ]` / `< >` / `(n,k)`.
 
