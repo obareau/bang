@@ -122,7 +122,7 @@ struct OutputMenu: View {
 
     var label: String {
         var parts: [String] = []
-        if model.internalSynthOn { parts.append("Synthé") }
+        if model.internalSynthOn { parts.append("Synthé \(model.drumKit.short)") }
         if let id = model.destinationID, let d = model.destinations.first(where: { $0.id == id }) { parts.append(d.name) }
         if model.virtualPortOn { parts.append("Virtuel") }
         return parts.isEmpty ? "Aucune sortie" : parts.joined(separator: " + ")
@@ -133,6 +133,9 @@ struct OutputMenu: View {
             var e: [MenuEntry] = [
                 .item("Synthé interne (General MIDI)", checked: model.internalSynthOn) { model.internalSynthOn.toggle() },
                 .item("Port virtuel « BANG! » (pour DAW)", checked: model.virtualPortOn) { model.virtualPortOn.toggle() },
+                .submenu("Kit batterie du synthé", DrumKit.allCases.map { k in
+                    .item(k.label, checked: model.drumKit == k) { model.drumKit = k }
+                }),
                 .separator,
                 .item("Aucune destination", checked: model.destinationID == nil) { model.destinationID = nil },
             ]
@@ -259,6 +262,12 @@ struct GeneratorPanel: View {
                     }
                 }) { Text(model.session.currentPreset.isEmpty ? "Machine" : model.session.currentPreset) }
             }
+
+            HStack(spacing: 6 * z) {
+                Text("KIT").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
+                Segmented(options: DrumKit.allCases, selection: $model.drumKit) { $0.short }
+            }
+            .help("Batterie du synthé interne (canal 10) : General MIDI, ou 808 / 909 synthétisées")
 
             SectionHeader(title: "Mémoires")
             SlotStrip()

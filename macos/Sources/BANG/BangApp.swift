@@ -47,6 +47,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+        // Diagnostic : BANG_SELFTEST_AUDIO=1 → joue un groove et mesure la sortie
+        // du synthé interne avec chaque kit (tout, puis batterie seule), puis quitte.
+        if env["BANG_SELFTEST_AUDIO"] == "1" {
+            Task { @MainActor in
+                guard let m = self.model else { return }
+                m.internalSynthOn = true
+                m.session.params.mode = .morph
+                m.session.params.bpm = 120
+                m.generate()
+                m.start()
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                for soloDrums in [false, true] {
+                    // Solo sur les voix envoyées au canal batterie (10).
+                    let input = m.session.renderInput()
+                    m.session.soloed = soloDrums
+                        ? Set(m.session.voices.indices.filter { !m.session.voices[$0].isCC && input.channel(for: $0) == 9 })
+                        : []
+                    for kit in DrumKit.allCases {
+                        m.drumKit = kit
+                        let (p, r) = await withCheckedContinuation { c in
+                            m.synth.measure(seconds: 2) { c.resume(returning: ($0, $1)) }
+                        }
+                        print(String(format: "BANG_SELFTEST_AUDIO %@ %@ crête %.3f rms %.4f",
+                                     soloDrums ? "batterie seule" : "tout          ", kit.short, p, r))
+                    }
+                }
+                m.stop()
+                NSApp.terminate(nil)
+            }
+        }
         if let path = env["BANG_SNAPSHOT"] {
             if let size = env["BANG_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

@@ -29,6 +29,7 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 - **Grille DNA cliquable** : chaque clic fait tourner `- → x → ? → ↺ → ░` ; les voix Babka s'éditent au clavier (clic sur le nom de la voix)
 - Par voix : verrouillage, mute, solo, densité, drop, swing, canal MIDI, accord (voix mélodiques), et les transforms (varier, régénérer, inverser, rotation, miroir, doubler, diviser, euclide, copier/coller)
 - **Lecture** (Espace) : horloge sur un thread temps réel. Chaque cycle est re-tiré, donc les `?`, le Markov et les drops varient d'un tour à l'autre ; une édition s'entend tout de suite
+- **Batterie électro** : kits **808** et **909** recréés par synthèse analogique (oscillateurs, bruit, filtres, sans échantillons), ou le kit General MIDI. Choix dans KIT (section Presets) ou dans le menu des sorties ; ils jouent le canal 10
 - **Sorties** : synthé GM interne, port virtuel **« BANG! »** (à choisir comme entrée dans Ableton, Logic ou SuperCollider) et n'importe quelle destination CoreMIDI
 - **Export .mid** (⌘E) type 1 : une piste par voix, des pistes CC drone, la seed en méta. On peut aussi **glisser** le .mid vers un DAW ou le Finder
 - **Sessions** (⌘S / ⌘O) au format JSON de `session_to_dict` : un fichier issu du webapp s'ouvre ici, et l'inverse aussi. L'état est sauvegardé automatiquement dans `~/Library/Application Support/BANG/state.json`
@@ -47,4 +48,4 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 cd macos && swift run bang-check /tmp/bang-mid   # auto-test du moteur + un .mid par mode
 ```
 
-Diagnostic : `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.
+Diagnostic : `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.

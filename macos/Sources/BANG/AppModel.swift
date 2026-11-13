@@ -48,6 +48,15 @@ final class AppModel: ObservableObject {
             midi.setVirtual(virtualPortOn)
         }
     }
+    /// Kit de batterie du synthé interne (canal 10).
+    @Published var drumKit: DrumKit {
+        didSet {
+            UserDefaults.standard.set(drumKit.rawValue, forKey: "drumKit")
+            synth.kit = drumKit
+            if internalSynthOn && !isPlaying { synth.audition() }
+            status = "Batterie : \(drumKit.label)"
+        }
+    }
     /// Zoom manuel (⌘+ / ⌘− / ⌘0), multiplié au zoom automatique de la fenêtre.
     @Published var zoom: Double = UserDefaults.standard.object(forKey: "zoom") as? Double ?? 1 {
         didSet { UserDefaults.standard.set(zoom, forKey: "zoom") }
@@ -79,6 +88,7 @@ final class AppModel: ObservableObject {
     init() {
         let d = UserDefaults.standard
         internalSynthOn = d.object(forKey: "internalSynth") as? Bool ?? true
+        drumKit = DrumKit(rawValue: d.string(forKey: "drumKit") ?? "") ?? .tr808
         virtualPortOn = d.object(forKey: "virtualPort") as? Bool ?? true
         midi.setVirtual(virtualPortOn)
         refreshDestinations()
@@ -88,6 +98,7 @@ final class AppModel: ObservableObject {
             midi.select(destinationID)
         }
         midi.onSetupChanged = { [weak self] in self?.refreshDestinations() }
+        synth.kit = drumKit
         if internalSynthOn { synth.start() }
 
         if let data = try? Data(contentsOf: Self.stateURL),
