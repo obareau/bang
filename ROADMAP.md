@@ -77,7 +77,8 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ### NTS-1 (Korg)
 
-- [ ] Profil p-locks `nts1` dans `_SYNTH_PLOCK_PROFILES` : Cutoff CC43, OscShp CC53, OscAlt CC54, LFOInt CC25, Reso CC44, RevMix CC38
+- [ ] Profil p-locks `nts1` dans `_SYNTH_PLOCK_PROFILES` : Cutoff CC43, OscShp CC54, OscAlt CC55, LFOInt (OSC LFO depth) CC26, Reso CC44, RevMix CC36
+      _CC vérifiés sur le tableau MIDI officiel Korg « NTS-1 digital kit » (2019) ; OSC type = CC53_
 - [x] Panel NTS-1 dedie (sidebar) : sections OSC / FILTER / LFO / EG / FX, sliders CC temps reel, indicateur p-lock actif par param
       _fait — nts1_panel.py — 6 sections OSC/FILTER/LFO/EG/FX_
 - [x] P-lock interpolation : option linear/cosine/off par piste CC -> MIDI SRV envoie CCs intermediaires entre steps (glisse fluide)
@@ -85,9 +86,10 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ### Microfreak (Arturia)
 
-- [ ] Profil p-locks `microfreak` : Timbre CC28, Wave CC9, Cutoff CC74, Resonance CC71, LFO Rate CC76, LFO Amount CC77, Env Attack CC73, Env Release CC72
-- [ ] Oscillateur Speak : phoneme controle via CC28 + CC9 -> articulation formantique par step
-- [ ] CC14 (OSC Type) comme p-lock -> change d'oscillateur mid-sequence (Microfreak a ~20 types)
+- [x] Profil p-locks `microfreak` (`mf0`) : Cutoff CC23, Timbre CC12, Shape CC13, Resonance CC83 (+ Type CC9, Wave CC10)
+      _CC confirmés par Arturia ; les anciens CC28/74/71/76/77/73/72 étaient ceux du MiniFreak ou inventés. LFO / enveloppe : CC à vérifier_
+- [ ] Oscillateur Speak : phoneme controle via CC12 (Timbre) + CC10 (Wave) -> articulation formantique par step
+- [ ] CC9 (OSC Type) comme p-lock -> change d'oscillateur mid-sequence (Microfreak a ~20 types)
 
 ### Ratchet / Step repeat
 

@@ -232,18 +232,16 @@ VOLCA_KICK_CC: dict[int, str] = {
 # Arturia MicroFreak — MIDI CC (paraphonique 4 voix, filtres Steiner-Parker)
 # ---------------------------------------------------------------------------
 
+# Seuls les CC confirmés par Arturia pour le MicroFreak figurent ici (les anciens
+# numéros 11/13/14/15-18 étaient faux). LFO, enveloppes, glide : à vérifier dans
+# le manuel avant de les ajouter.
 MICROFREAK_CC: dict[int, str] = {
-    5:  "Portamento",  # glide
-    9:  "Osc Type",    # type d'oscillateur / wavetable
-    10: "Wave",        # position wavetable
-    11: "Timbre",      # paramètre timbre (dépend du type)
-    12: "Shape",       # morphing forme d'onde
-    13: "Cutoff",      # coupure filtre Steiner-Parker
-    14: "Resonance",   # résonance filtre
-    15: "LFO Rate",    # vitesse LFO
-    16: "LFO Amount",  # profondeur LFO
-    17: "Rise",        # attaque enveloppe
-    18: "Fall",        # déclin enveloppe
+    9:  "Osc Type",    # type d'oscillateur
+    10: "Wave",        # paramètre Wave
+    12: "Timbre",      # paramètre Timbre (dépend du type)
+    13: "Shape",       # paramètre Shape
+    23: "Cutoff",      # coupure filtre
+    83: "Resonance",   # résonance filtre
 }
 
 VOLCA_FM_CC: dict[int, str] = {
@@ -277,11 +275,11 @@ _SYNTH_PLOCK_PROFILES: dict[str, list[tuple]] = {
         (42, "LFOSpd", "texture"),  # vitesse vibrato
     ],
     "mf0": [
-        (13, "Cutoff",  "sweep"),   # filtre — ouverture/fermeture
-        (11, "Timbre",  "texture"), # timbre wavetable — variation sonore
-        (12, "Shape",   "texture"), # morphing forme d'onde
-        (16, "LFOAmt",  "spike"),   # accents LFO expressifs
-        (15, "LFORate", "sweep"),   # vitesse vibrato variable
+        # CC MicroFreak vérifiés (Arturia) — même profil que macos/…/Generator.swift
+        (23, "Cutoff",  "sweep"),   # filtre — ouverture/fermeture
+        (12, "Timbre",  "texture"), # timbre de l'oscillateur — variation sonore
+        (13, "Shape",   "texture"), # morphing forme d'onde
+        (83, "Reso",    "spike"),   # accents de résonance
     ],
 }
 

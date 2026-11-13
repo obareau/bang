@@ -10,19 +10,28 @@ from p_locks import InterpolationMode
 
 
 class NTS1PanelWidget(QWidget):
-    """NTS-1 synthesizer parameter panel with p-lock visualization."""
+    """NTS-1 synthesizer parameter panel with p-lock visualization.
+
+    CC (Korg NTS-1 MIDI implementation chart, 2019) :
+      EG type 14 / attack 16 / release 19 · trémolo depth 20 / rate 21
+      OSC LFO rate 24 / depth 26 · MOD time 28 / depth 29
+      DELAY time 30 / depth 31 / mix 33 · REVERB time 34 / depth 35 / mix 36
+      FILTER type 42 / cutoff 43 / resonance 44 · sweep depth 45 / rate 46
+      OSC type 53 / shape 54 / alt 55 · MOD type 88 · DELAY type 89 · REVERB type 90
+      ARP pattern 117 / intervals 118 / length 119
+    """
 
     # Signals for parameter changes
     param_changed = Signal(str, int)  # (cc_name, value)
 
-    # NTS-1 p-lock CC map (from roadmap)
+    # NTS-1 p-lock CC map — tableau MIDI officiel Korg « NTS-1 digital kit » (2019)
     PLOCK_PROFILE = {
         "cutoff": (43, "Cutoff"),
-        "oscshp": (53, "OscShp"),
-        "oscalt": (54, "OscAlt"),
-        "lfoint": (25, "LFOInt"),
+        "oscshp": (54, "OscShp"),
+        "oscalt": (55, "OscAlt"),
+        "lfoint": (26, "LFOInt"),
         "reso": (44, "Reso"),
-        "revmix": (38, "RevMix"),
+        "revmix": (36, "RevMix"),
     }
 
     def __init__(self, engine=None, parent=None):
@@ -109,10 +118,10 @@ class NTS1PanelWidget(QWidget):
         group = QGroupBox("OSC")
         layout = QVBoxLayout()
 
-        self.osc_shape, self.osc_shape_slider = self.create_slider("Shape", 53, 0, 127)
+        self.osc_shape, self.osc_shape_slider = self.create_slider("Shape", 54, 0, 127)
         layout.addWidget(self.osc_shape)
 
-        self.osc_alt, self.osc_alt_slider = self.create_slider("Alt", 54, 0, 127)
+        self.osc_alt, self.osc_alt_slider = self.create_slider("Alt", 55, 0, 127)
         layout.addWidget(self.osc_alt)
 
         group.setLayout(layout)
@@ -130,25 +139,22 @@ class NTS1PanelWidget(QWidget):
         layout.addWidget(self.filt_reso)
 
         # Filter type (simplified: 0-127 maps to types)
-        self.filt_type, self.filt_type_slider = self.create_slider("Type", 20, 0, 127)
+        self.filt_type, self.filt_type_slider = self.create_slider("Type", 42, 0, 127)
         layout.addWidget(self.filt_type)
 
         group.setLayout(layout)
         return group
 
     def create_lfo_section(self):
-        """LFO: Rate, Intensity, Type."""
+        """OSC LFO: Rate, Depth (le NTS-1 n'a pas de CC de type de LFO)."""
         group = QGroupBox("LFO")
         layout = QVBoxLayout()
 
-        self.lfo_rate, self.lfo_rate_slider = self.create_slider("Rate", 76, 0, 127)
+        self.lfo_rate, self.lfo_rate_slider = self.create_slider("Rate", 24, 0, 127)
         layout.addWidget(self.lfo_rate)
 
-        self.lfo_int, self.lfo_int_slider = self.create_slider("Int", 25, 0, 127)
+        self.lfo_int, self.lfo_int_slider = self.create_slider("Int", 26, 0, 127)
         layout.addWidget(self.lfo_int)
-
-        self.lfo_type, self.lfo_type_slider = self.create_slider("Type", 21, 0, 3)
-        layout.addWidget(self.lfo_type)
 
         group.setLayout(layout)
         return group
@@ -158,24 +164,24 @@ class NTS1PanelWidget(QWidget):
         group = QGroupBox("EG")
         layout = QVBoxLayout()
 
-        self.eg_atk, self.eg_atk_slider = self.create_slider("Attack", 73, 0, 127)
+        self.eg_atk, self.eg_atk_slider = self.create_slider("Attack", 16, 0, 127)
         layout.addWidget(self.eg_atk)
 
-        self.eg_rel, self.eg_rel_slider = self.create_slider("Release", 72, 0, 127)
+        self.eg_rel, self.eg_rel_slider = self.create_slider("Release", 19, 0, 127)
         layout.addWidget(self.eg_rel)
 
         group.setLayout(layout)
         return group
 
     def create_fx_section(self):
-        """FX: Delay, Reverb."""
+        """FX: Delay mix (CC33), Reverb mix (CC36)."""
         group = QGroupBox("FX")
         layout = QVBoxLayout()
 
-        self.fx_delay, self.fx_delay_slider = self.create_slider("Delay", 22, 0, 127)
+        self.fx_delay, self.fx_delay_slider = self.create_slider("Delay", 33, 0, 127)
         layout.addWidget(self.fx_delay)
 
-        self.fx_reverb, self.fx_reverb_slider = self.create_slider("Reverb", 38, 0, 127)
+        self.fx_reverb, self.fx_reverb_slider = self.create_slider("Reverb", 36, 0, 127)
         layout.addWidget(self.fx_reverb)
 
         group.setLayout(layout)
@@ -278,18 +284,17 @@ class NTS1PanelWidget(QWidget):
         )
 
         # LFO
-        self.lfo_rate_slider.valueChanged.connect(
-            lambda v: self.router.apply_nts1_slider("lfoint", v)
-        )
+        self.lfo_rate_slider.valueChanged.connect(lambda v: self.send_cc(24, v))
         self.lfo_int_slider.valueChanged.connect(
             lambda v: self.router.apply_nts1_slider("lfoint", v)
         )
 
         # EG
-        self.eg_atk_slider.valueChanged.connect(lambda v: self.send_cc(73, v))
-        self.eg_rel_slider.valueChanged.connect(lambda v: self.send_cc(72, v))
+        self.eg_atk_slider.valueChanged.connect(lambda v: self.send_cc(16, v))
+        self.eg_rel_slider.valueChanged.connect(lambda v: self.send_cc(19, v))
 
         # FX
+        self.fx_delay_slider.valueChanged.connect(lambda v: self.send_cc(33, v))
         self.fx_reverb_slider.valueChanged.connect(
             lambda v: self.router.apply_nts1_slider("revmix", v)
         )

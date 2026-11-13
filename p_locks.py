@@ -94,14 +94,14 @@ class PLockTrack:
 class PLockSequence:
     """Complete p-lock sequence for a voice."""
 
-    # NTS-1 default p-lock profile
+    # NTS-1 default p-lock profile — tableau MIDI officiel Korg (2019)
     NTS1_PROFILE = {
         "cutoff": (43, "Cutoff", 0, 127),
-        "oscshp": (53, "OscShp", 0, 127),
-        "oscalt": (54, "OscAlt", 0, 127),
-        "lfoint": (25, "LFOInt", 0, 127),
+        "oscshp": (54, "OscShp", 0, 127),
+        "oscalt": (55, "OscAlt", 0, 127),
+        "lfoint": (26, "LFOInt", 0, 127),
         "reso": (44, "Reso", 0, 127),
-        "revmix": (38, "RevMix", 0, 127),
+        "revmix": (36, "RevMix", 0, 127),
     }
 
     def __init__(self, profile: str = "nts1"):
