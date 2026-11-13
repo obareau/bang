@@ -106,7 +106,13 @@ struct VoiceRow: View {
         let input = s.renderInput()
         let ch = input.channel(for: voice) + 1
         let note = voice.isMelodic ? "markov" : "n\(input.outputNote(for: voice))"
-        return "\(note) · ch\(ch) · \(voice.dna.count)"
+        let st = s.settings(for: index)
+        var tags = ""
+        if st.thin > 1 { tags += " ÷\(st.thin)" }
+        if st.offset != 0 { tags += " +\(st.offset)" }
+        if st.lfo != nil { tags += " ∿" }
+        if st.velLane.contains(where: { $0 > 0 }) || st.probLane.contains(where: { $0 > 0 }) { tags += " ▤" }
+        return "\(note) · ch\(ch) · \(voice.dna.count)\(tags)"
     }
 
     private func toggle(_ t: String, on: Bool, help: String, _ action: @escaping () -> Void) -> some View {
@@ -141,6 +147,17 @@ struct VoiceRow: View {
                 }
                 Button("OK") { model.session.setPattern(index, draft.value) }
                     .buttonStyle(BangButtonStyle(active: true, compact: true))
+            }
+            StructureRow(index: index, voice: voice)
+            if DNA.isPlain(voice.dna) && !voice.isBabka {
+                LaneEditor(title: "VÉL", dna: voice.dna, maxValue: 127, values: settings.velLane,
+                           ghost: { $0.trigger ? $0.velocity : nil }) { v in
+                    model.session.updateSettings(index) { $0.velLane = v }
+                }
+                LaneEditor(title: "PROB %", dna: voice.dna, maxValue: 100, values: settings.probLane,
+                           ghost: { $0.trigger ? Int($0.prob * 100) : nil }) { v in
+                    model.session.updateSettings(index) { $0.probLane = v }
+                }
             }
             LFORow(index: index)
             HStack(spacing: 18 * z) {

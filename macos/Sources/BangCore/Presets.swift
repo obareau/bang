@@ -49,6 +49,11 @@ public struct SessionFile: Codable {
     public var voiceLFO: [String: VoiceLFO]?
     public var voiceDrop: [String: Double]?
     public var voiceSwing: [String: Double]?
+    public var voiceVelLane: [String: [Int]]?
+    public var voiceProbLane: [String: [Int]]?
+    public var voiceOffset: [String: Int]?
+    public var voiceThin: [String: Int]?
+    public var voiceSteps: [String: Int]?
     public var slots: [BangSession.Snapshot?]?
     public var slotWeights: [Int]?
     public var slotA: BangSession.Snapshot?
@@ -63,6 +68,8 @@ public struct SessionFile: Codable {
         case voiceChords = "voice_chords", voiceMidiCh = "voice_midi_ch"
         case noteRemap = "note_remap", lockedVoices = "locked_voices"
         case voiceLFO = "voice_lfo", voiceDrop = "voice_drop", voiceSwing = "voice_swing"
+        case voiceVelLane = "voice_vel_lane", voiceProbLane = "voice_prob_lane"
+        case voiceOffset = "voice_offset", voiceThin = "voice_thin", voiceSteps = "voice_steps"
         case slots = "native_slots", slotWeights = "seq_weights", slotA = "native_slot_a", slotB = "native_slot_b"
     }
 
@@ -78,6 +85,11 @@ public struct SessionFile: Codable {
         voiceLFO = s.settings.compactMapValues { $0.lfo }
         voiceDrop = s.settings.compactMapValues { $0.drop < 1 ? $0.drop : nil }
         voiceSwing = s.settings.compactMapValues { $0.swing > 0 ? $0.swing : nil }
+        voiceVelLane = s.settings.compactMapValues { $0.velLane.contains { $0 > 0 } ? $0.velLane : nil }
+        voiceProbLane = s.settings.compactMapValues { $0.probLane.contains { $0 > 0 } ? $0.probLane : nil }
+        voiceOffset = s.settings.compactMapValues { $0.offset != 0 ? $0.offset : nil }
+        voiceThin = s.settings.compactMapValues { $0.thin > 1 ? $0.thin : nil }
+        voiceSteps = s.settings.compactMapValues { $0.length }
         slots = s.slots.contains { $0 != nil } ? s.slots : nil
         slotWeights = s.slotWeights
         slotA = s.slotA
@@ -100,6 +112,11 @@ public struct SessionFile: Codable {
         voiceLFO = try? c.decode([String: VoiceLFO].self, forKey: .voiceLFO)
         voiceDrop = try? c.decode([String: Double].self, forKey: .voiceDrop)
         voiceSwing = try? c.decode([String: Double].self, forKey: .voiceSwing)
+        voiceVelLane = try? c.decode([String: [Int]].self, forKey: .voiceVelLane)
+        voiceProbLane = try? c.decode([String: [Int]].self, forKey: .voiceProbLane)
+        voiceOffset = try? c.decode([String: Int].self, forKey: .voiceOffset)
+        voiceThin = try? c.decode([String: Int].self, forKey: .voiceThin)
+        voiceSteps = try? c.decode([String: Int].self, forKey: .voiceSteps)
         slots = try? c.decode([BangSession.Snapshot?].self, forKey: .slots)
         slotWeights = try? c.decode([Int].self, forKey: .slotWeights)
         slotA = try? c.decode(BangSession.Snapshot.self, forKey: .slotA)
@@ -126,6 +143,11 @@ public struct SessionFile: Codable {
         for (k, l) in voiceLFO ?? [:] { settings[k, default: VoiceSettings()].lfo = l }
         for (k, d) in voiceDrop ?? [:] { settings[k, default: VoiceSettings()].drop = d }
         for (k, w) in voiceSwing ?? [:] { settings[k, default: VoiceSettings()].swing = w }
+        for (k, l) in voiceVelLane ?? [:] { settings[k, default: VoiceSettings()].velLane = l }
+        for (k, l) in voiceProbLane ?? [:] { settings[k, default: VoiceSettings()].probLane = l }
+        for (k, o) in voiceOffset ?? [:] { settings[k, default: VoiceSettings()].offset = o }
+        for (k, t) in voiceThin ?? [:] { settings[k, default: VoiceSettings()].thin = max(1, t) }
+        for (k, n) in voiceSteps ?? [:] where n > 0 { settings[k, default: VoiceSettings()].length = n }
         s.settings = settings
         if let sl = slots, sl.count == 8 { s.slots = sl }
         if let w = slotWeights, w.count == 8 { s.slotWeights = w.map { max(1, min(9, $0)) } }

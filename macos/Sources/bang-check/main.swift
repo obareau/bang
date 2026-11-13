@@ -110,6 +110,40 @@ do {
     check(secondHalf > firstHalf * 2, "LFO rampe sur la densité : \(firstHalf) coups en 1re moitié, \(secondHalf) en 2de")
 }
 
+print("Édition fine par voix")
+do {
+    var p = GenParams(); p.steps = 8
+    func ons(_ dna: String, _ st: VoiceSettings, seed: UInt64 = 1) -> [MIDIEvent] {
+        let inp = RenderInput(voices: [Voice(36, dna, "drum")], params: p, settings: ["Kick": st])
+        return Renderer.render(inp, numSteps: 8, rng: Dice(seed: seed)).filter { $0.kind == .noteOn }
+    }
+    var v = VoiceSettings(); v.velLane = [0, 0, 0, 0, 40]
+    let e = ons("x---x---", v)
+    check(e.map(\.data2) == [105, 40], "lane vélocité : step 5 forcé à 40 (\(e.map(\.data2)))")
+    var pr = VoiceSettings(); pr.probLane = [100, 0, 0, 0, 100, 0, 0, 0]
+    let always = (0..<40).allSatisfy { ons("?---?---", pr, seed: UInt64($0)).count == 2 }
+    check(always, "lane probabilité : « ? » à 100 % joue à chaque fois")
+    var th = VoiceSettings(); th.thin = 2
+    check(ons("xxxxxxxx", th).map { $0.tick / 120 } == [0, 2, 4, 6], "Thin ÷2 : un coup sur deux")
+    var of = VoiceSettings(); of.offset = 3
+    check(ons("x---x---", of).map { $0.tick / 120 }.sorted() == [3, 7], "décalage +3 : steps 1 et 5 → 4 et 8")
+    var of2 = VoiceSettings(); of2.offset = 6
+    check(ons("x---x---", of2).map { $0.tick / 120 }.sorted() == [2, 6], "décalage +6 : ce qui dépasse revient au début")
+
+    var ss = BangSession(); ss.generate()
+    ss.setLength(0, 5)
+    let l1 = ss.voices[0].dna.count
+    ss.generate()
+    check(l1 == 5 && ss.voices[0].dna.count == 5, "longueur 5 conservée après une nouvelle génération")
+    ss.updateSettings(0) { $0.velLane = [90]; $0.thin = 4; $0.offset = 2 }
+    ss.setNote(0, 35)
+    var back = BangSession()
+    let data = try! JSONEncoder().encode(SessionFile(ss))
+    try! JSONDecoder().decode(SessionFile.self, from: data).apply(to: &back)
+    check(back.settings(for: 0) == ss.settings(for: 0) && back.noteRemap == ss.noteRemap,
+          "session : lanes, thin, décalage, longueur et note relus à l'identique")
+}
+
 print("Batterie 808 / 909 (synthèse)")
 func analyse(_ b: [Float]) -> (peak: Float, dur: Double, hz: Double, nan: Bool) {
     let peak = b.map { abs($0) }.max() ?? 0

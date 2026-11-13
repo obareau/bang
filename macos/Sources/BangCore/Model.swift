@@ -225,8 +225,20 @@ public struct VoiceSettings: Codable, Equatable, Sendable {
     public var drop: Double = 1.0       // probabilité de jouer le cycle
     public var swing: Double = 0.0      // 0 = swing global
     public var lfo: VoiceLFO? = nil
+    /// Vélocité imposée par position DNA (1…127, 0 = celle du symbole).
+    public var velLane: [Int] = []
+    /// Probabilité imposée par position DNA (1…100 %, 0 = celle du symbole).
+    public var probLane: [Int] = []
+    /// Décalage de phase en steps (la lecture glisse, la DNA ne change pas).
+    public var offset: Int = 0
+    /// Thin ÷N : ne garde qu'un déclenchement sur N (1 = tous).
+    public var thin: Int = 1
+    /// Longueur imposée (polymétrie), réappliquée à chaque génération. nil = naturelle.
+    public var length: Int? = nil
 
     public init() {}
+
+    public var isDefault: Bool { self == VoiceSettings() }
 }
 
 /// P-lock : une automation CC par step pour une voix synthé.

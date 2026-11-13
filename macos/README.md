@@ -28,6 +28,13 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 - **Générer** (⌘G) selon les 14 modes, avec chaos, gravité, CC depth, swing, steps, gamme, seed figeable
 - **Grille DNA cliquable** : chaque clic fait tourner `- → x → ? → ↺ → ░` ; les voix Babka s'éditent au clavier (clic sur le nom de la voix)
 - Par voix : verrouillage, mute, solo, densité, drop, swing, canal MIDI, accord (voix mélodiques), et les transforms (varier, régénérer, inverser, rotation, miroir, doubler, diviser, euclide, copier/coller)
+- **Édition fine par voix** (clic sur le nom) :
+  - **lanes VÉL et PROB** dessinées à la souris, une barre par step (⌥ + glisser efface, le contour montre la valeur du symbole) ;
+  - **longueur** de la voix (polymétrie), gardée aux générations suivantes ;
+  - **décalage** de phase, **Thin** ÷2 / ÷4 ;
+  - **note** de sortie (noms de batterie General MIDI ou chromatique).
+
+  Les p-locks des modes synthé s'affichent dans le **piano-roll** (bande du bas, en orange pour la voix sélectionnée).
 - **Lecture** (Espace) : horloge sur un thread temps réel. Chaque cycle est re-tiré, donc les `?`, le Markov et les drops varient d'un tour à l'autre ; une édition s'entend tout de suite
 - **Batterie électro** : kits **808** et **909** recréés par synthèse analogique (oscillateurs, bruit, filtres, sans échantillons), ou le kit General MIDI. Choix dans KIT (section Presets) ou dans le menu des sorties ; ils jouent le canal 10
 - **Jeu live** (section LIVE) :
@@ -51,7 +58,7 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 
 - **Seeds** : une seed rejoue toujours le même pattern dans l'app native, mais pas le même que dans le webapp, car le générateur aléatoire n'est pas le Mersenne Twister de CPython.
 - **Canaux** : l'export utilise les mêmes canaux que la lecture (batterie sur le 10, basse sur le 1, Markov sur le 2, KSP sur les canaux 3 à 6…), et ils sont modifiables voix par voix. Le moteur Python, lui, exportait les batteries sur le canal 1.
-- **Pas encore porté** : OSC/TouchOSC, Ableton OSC, export Strudel, MIDI Learn, lanes de vélocité / probabilité, panneaux NTS-1 / MicroFreak.
+- **Pas encore porté** : OSC/TouchOSC, Ableton OSC, export Strudel, MIDI Learn, panneaux NTS-1 / MicroFreak.
 
 ## Vérifier
 

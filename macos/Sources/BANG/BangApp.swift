@@ -192,6 +192,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         .setFrame(NSRect(x: 0, y: 0, width: size[0], height: size[1]), display: true)
                 }
             }
+            if let mode = env["BANG_SNAPSHOT_MODE"].flatMap(Mode.init(rawValue:)) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    self.model?.session.params.mode = mode
+                    self.model?.generate()
+                    self.model?.session.updateSettings(0) { $0.velLane = [127, 0, 40, 0, 90, 0, 0, 20] }
+                }
+            }
             if let sel = env["BANG_SNAPSHOT_SELECT"].flatMap(Int.init) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     self.model?.selectedVoice = sel

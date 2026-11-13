@@ -189,6 +189,18 @@ public enum Renderer {
             }
 
             // --- Babka : durées fractionnaires, alternances par cycle interne ---
+            let offsetTicks = ((s.offset % max(1, numSteps)) + numSteps) % max(1, numSteps) * tps
+            let cycleLen = numSteps * tps
+            /// Décalage de phase : la note glisse, et ce qui dépasse la fin revient au début.
+            func shifted(_ t: Int) -> Int { offsetTicks == 0 ? t : (t + offsetTicks) % max(1, cycleLen) }
+            let thin = max(1, s.thin)
+            var trigCount = 0
+            /// Thin ÷N : un déclenchement sur N est gardé.
+            func keepTrigger() -> Bool {
+                defer { trigCount += 1 }
+                return thin == 1 || trigCount % thin == 0
+            }
+
             if voice.isBabka {
                 let total = Double(numSteps * tps)
                 var cursor = 0.0
@@ -200,9 +212,9 @@ public enum Renderer {
                         if cursor >= total { break outer }
                         let durTicks = st.duration * Double(tps)
                         let c = st.cell
-                        if c.trigger && rng.random() < c.prob * densityAt(cursor / Double(tps)) {
+                        if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(cursor / Double(tps)) {
                             let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
-                            let start = max(0, Int(cursor) + jit + microJit())
+                            let start = shifted(max(0, Int(cursor) + jit + microJit()))
                             let rDiv = max(1, c.ratchet)
                             let rDur = max(1, Int(durTicks) / rDiv)
                             let vel = velMap(c.velocity + humanize(), p)
@@ -240,12 +252,18 @@ public enum Renderer {
                     c = MorphTarget.blend(c, mc[i % mc.count], m.progress)
                 }
                 let note = melodic ? melody[i] : outNote
-                let baseVel = melodic ? 95 : c.velocity
+                var baseVel = melodic ? 95 : c.velocity
+                // Lanes (indexées par position DNA, 1er pattern seulement)
+                if pIdx == 0 {
+                    if sIdx < s.velLane.count, s.velLane[sIdx] > 0 { baseVel = min(127, s.velLane[sIdx]) }
+                    if sIdx < s.probLane.count, s.probLane[sIdx] > 0, c.trigger { c.prob = Double(min(100, s.probLane[sIdx])) / 100 }
+                }
 
-                if c.trigger && rng.random() < c.prob * densityAt(Double(i)) {
-                    let swingOff = i % 2 == 1 ? Int(swing * Double(tps) * 0.5) : 0
+                if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(Double(i)) {
+                    let outStep = (i + offsetTicks / tps) % max(1, numSteps)
+                    let swingOff = outStep % 2 == 1 ? Int(swing * Double(tps) * 0.5) : 0
                     let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
-                    let start = max(0, i * tps + swingOff + jit + microJit())
+                    let start = max(0, outStep * tps + swingOff + jit + microJit())
                     let rDiv = max(1, c.ratchet)
                     let rDur = tps / rDiv
                     let vel = velMap(baseVel + humanize(), p)

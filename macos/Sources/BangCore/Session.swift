@@ -54,6 +54,10 @@ public struct BangSession: Sendable {
         let rng = Dice(seedString: seed)
         pushHistory()
         var fresh = Generator.buildVoices(p, weather: weather, rng: rng)
+        // Longueurs imposées (polymétrie), comme apply_voice_steps.
+        for i in fresh.indices where !fresh[i].isCC && !fresh[i].isBabka {
+            if let n = settings[fresh[i].label]?.length, n > 0 { fresh[i].dna = DNA.resize(fresh[i].dna, to: n) }
+        }
         for idx in locked where idx < voices.count && idx < fresh.count { fresh[idx] = voices[idx] }
         params = p
         voices = fresh
@@ -137,6 +141,25 @@ public struct BangSession: Sendable {
         var s = settings(for: i)
         f(&s)
         settings[voices[i].label] = s
+    }
+
+    /// Change la longueur d'une voix (polymétrie) et la mémorise pour les
+    /// prochaines générations. 0 = longueur naturelle du mode.
+    public mutating func setLength(_ i: Int, _ n: Int) {
+        guard voices.indices.contains(i), !voices[i].isCC, !voices[i].isBabka else { return }
+        updateSettings(i) { $0.length = n > 0 ? n : nil }
+        if n > 0 && voices[i].dna.count != n {
+            pushHistory()
+            voices[i].dna = DNA.resize(voices[i].dna, to: n)
+        }
+    }
+
+    /// Note de sortie d'une voix (non mélodique) ; nil = note d'origine.
+    public mutating func setNote(_ i: Int, _ note: Int?) {
+        guard voices.indices.contains(i) else { return }
+        let v = voices[i]
+        let key = v.isBabka ? (Voice.noteNames[v.note] ?? v.label) : v.label
+        if let note { noteRemap[key] = min(127, max(0, note)) } else { noteRemap[key] = nil }
     }
 
     // MARK: - Presets
