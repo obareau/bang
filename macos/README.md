@@ -49,15 +49,19 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 - **Jeu live** (section LIVE) :
   - **Horloge** : tap tempo (médiane des 5 derniers taps) ou **synchro MIDI clock** sur une source au choix — tempo mesuré sur l'horloge entrante, Start / Continue / Stop suivis, notes calées sur les impulsions (24 ppq) ;
   - **Évolution** automatique : une variation tous les 1, 2, 4 ou 8 cycles ;
-  - **A / B** : deux patterns à comparer (clic : charger, ⌥ clic : mémoriser) ;
-  - **Mémoires** : avance automatique tous les N cycles, tirage pondéré (clic droit : poids 1 à 9) ;
-  - **Morph** : passage progressif du pattern courant vers une mémoire en N cycles (probabilités et vélocités mélangées step par step) ;
-  - **Song** : enchaînement de mémoires, ex. `1x4 2x2 3` (mémoire 1 × 4 cycles, 2 × 2, 3 × 1, puis reboucle) ;
   - **LFO par voix** (sin / tri / rampe / aléatoire) sur la densité ou le drop, réglable en vitesse et profondeur.
+- **Mémoires** (bloc MÉMOIRES) : 8 cases pour ranger des patterns.
+  - **ENREGISTRER LE PATTERN**, puis clic sur une case (1–8, A ou B) : le pattern courant y est rangé. Une case vide s'enregistre d'un simple clic ; ⌥ clic remplace une case pleine.
+  - Clic sur une case pleine : elle joue. La case jouée est pleine en orange ; un point signale que le pattern a été modifié depuis (la ligne d'état dit quoi faire).
+  - **TRANSITION** : bascule nette, ou **fondu** sur 2 à 16 cycles. Les rythmes se mélangent voix par voix, par nom (Kick avec Kick) ; une voix absente de la cible s'éteint, une voix nouvelle monte.
+  - **AUTO** : change de mémoire tous les N cycles, tirage pondéré (poids 1 à 9 dans le clic droit).
+  - **SONG** : enchaînement, ex. `1x4 2x2 3` (mémoire 1 × 4 cycles, 2 × 2, 3 × 1, puis reboucle).
+  - Clic droit sur une case : jouer (avec ou sans fondu), remplacer, copier dans A ou B, poids, vider.
+- **A ↔ B** (crossfader) : deux patterns aux extrémités d'un crossfader. À gauche A, à droite B ; entre les deux, les rythmes se mélangent (« A 65 % · B 35 % »). Clic sur A ou B : y aller. **GLISSER** fait partir le crossfader tout seul vers l'autre côté en 2 à 16 cycles. Clic droit : remplacer, copier dans une mémoire, vider, échanger A et B. En OSC : `/bang/ab f` (0 = A, 1 = B) et `/bang/glide`.
 
   Les changements de fin de cycle sont préparés un peu à l'avance pour tomber pile sur le premier temps. Les mémoires, poids, A/B et LFO sont sauvegardés avec la session.
 - **Connexions** (bouton CONNEXIONS) :
-  - **OSC** bidirectionnel : émission (SuperCollider 57120, Max, TouchOSC) de l'état du pattern, de `/bang/clock` et de chaque note pendant la lecture ; réception de `/bang/generate`, `/vary`, `/play`, `/stop`, `/param/…`, `/density/<voix>`, `/lock/<n>`, `/mute/<n>`, `/slot/<n>`, `/evolve`. Moniteur des messages en direct ;
+  - **OSC** bidirectionnel : émission (SuperCollider 57120, Max, TouchOSC) de l'état du pattern, de `/bang/clock` et de chaque note pendant la lecture ; réception de `/bang/generate`, `/vary`, `/play`, `/stop`, `/param/…`, `/density/<voix>`, `/lock/<n>`, `/mute/<n>`, `/slot/<n>`, `/evolve`, `/fill`, `/poly`, `/ab`, `/glide`. Moniteur des messages en direct ;
   - **Ableton Live** via AbletonOSC : un clip par voix sur des pistes consécutives, tempo réglé, ou BPM récupéré depuis Live ;
   - **Strudel** : code mini-notation copié en un clic ; **un .mid par voix** dans un dossier ; **gabarit TouchOSC** du dépôt ;
   - **MIDI Learn** : décompte de 2 temps, puis le rythme joué sur des pads devient la DNA de la voix (aussi dans le menu ⋯ de chaque voix) ;
@@ -83,4 +87,4 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 cd macos && swift run bang-check /tmp/bang-mid   # auto-test du moteur + un .mid par mode
 ```
 
-Diagnostic : `BANG_SELFTEST_EXTRAS=song:<dossier>|presets|cond|fill|ports:<A>,<B>` teste le morceau, les presets, les conditions, le FILL et le multi-port ; `BANG_SELFTEST_STUDIO=osc|ableton|learn:<source>|cc` (avec `BANG_OSC_TX=hôte:port`, `BANG_OSC_RX=port`, `BANG_ABLETON=hôte:port`) teste les connexions ; `BANG_SELFTEST_LIVE=song|morph|sync:<source>` teste le jeu live (avec `BANG_DEBUG_CLOCK=1` pour tracer impulsions et notes) ; `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.
+Diagnostic : `BANG_SELFTEST_EXTRAS=song:<dossier>|presets|cond|fill|ports:<A>,<B>` teste le morceau, les presets, les conditions, le FILL et le multi-port ; `BANG_SELFTEST_STUDIO=osc|ableton|learn:<source>|cc` (avec `BANG_OSC_TX=hôte:port`, `BANG_OSC_RX=port`, `BANG_ABLETON=hôte:port`) teste les connexions ; `BANG_SELFTEST_LIVE=song|morph|ab|sync:<source>` teste le jeu live (`ab` : glissé du crossfader A → B) (avec `BANG_DEBUG_CLOCK=1` pour tracer impulsions et notes) ; `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran (`BANG_SNAPSHOT_LIVE=ab|armed|modified` remplit des mémoires et A / B avant la capture).

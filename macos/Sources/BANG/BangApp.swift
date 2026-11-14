@@ -131,7 +131,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Diagnostics du jeu live (session sauvegardée puis restaurée) :
         //  BANG_SELFTEST_LIVE=song  → 3 mémoires (notes 36/38/42) enchaînées « 1x2 2x1 3x1 »
-        //  BANG_SELFTEST_LIVE=morph → coup au step 1 qui morphe vers le step 5 en 4 cycles
+        //  BANG_SELFTEST_LIVE=morph → coup au step 1 qui fond vers la mémoire 2 (step 5) en 4 cycles
+        //  BANG_SELFTEST_LIVE=ab    → crossfader : A (kick 36 au step 1) glisse vers B (caisse 38 au step 5) en 4 cycles
         //  BANG_SELFTEST_LIVE=sync:<source> → suit l'horloge MIDI de <source> (kick à chaque temps)
         //  BANG_SELFTEST_SECONDS : durée (défaut 5)
         if let what = env["BANG_SELFTEST_LIVE"] {
@@ -158,10 +159,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     s.saveSlot(1)
                     s.voices = [Voice(36, "x-------", "drum")]
                     m.session = s
-                    m.morphTargetSlot = 1
-                    m.morphCycles = 4
+                    m.transitionCycles = 4
                     m.start()
-                    m.toggleMorph()
+                    m.recallMemory(1)
+                } else if what == "ab" {
+                    s.voices = [Voice(36, "x-------", "drum")]
+                    s.storeAB(false)
+                    s.voices = [Voice(38, "----x---", "drum")]
+                    s.storeAB(true)
+                    m.session = s
+                    m.setABMix(0)
+                    m.abGlideCycles = 4
+                    m.start()
+                    m.toggleGlide()
+                    print("BANG_SELFTEST_LIVE ab : départ \(m.abPosition.map { String($0) } ?? "-"), glissé \(m.abGlide != nil)")
                 } else if what.hasPrefix("sync:") {
                     let name = String(what.dropFirst(5))
                     s.params.bpm = 60       // ignoré : c'est l'horloge externe qui mène
@@ -176,10 +187,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     print("BANG_SELFTEST_LIVE sync source trouvée : \(m.syncSourceID != nil)")
                 }
                 try? await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
+                if what == "ab" { print("BANG_SELFTEST_LIVE ab : arrivée \(m.abPosition.map { String($0) } ?? "-")") }
                 print("BANG_SELFTEST_LIVE fin : cycles \(m.cycleCount), horloge \(m.clockBPM.map { String(format: "%.2f BPM", $0) } ?? "-")")
                 m.stop()
                 m.song.on = false
                 m.syncSourceID = nil
+                m.transitionCycles = 0
                 m.session = saved
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 NSApp.terminate(nil)
@@ -350,6 +363,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     self.model?.selectedVoice = sel
                     self.model?.session.updateSettings(sel) { $0.lfo = VoiceLFO(shape: .tri, target: .density, freq: 1, depth: 0.6) }
+                }
+            }
+            // BANG_SNAPSHOT_LIVE=ab|armed|modified : remplit des mémoires et A / B pour la capture.
+            if let live = env["BANG_SNAPSHOT_LIVE"] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                    guard let m = self.model else { return }
+                    m.generate(); m.storeMemory(0)
+                    m.session.varyAll(); m.storeMemory(1)
+                    m.generate(); m.storeMemory(2)
+                    m.generate(); m.storeMemory(4)
+                    m.session.copySlot(0, toAB: false)
+                    m.session.copySlot(2, toAB: true)
+                    switch live {
+                    case "armed": m.recallMemory(1); m.storeArmed = true
+                    case "modified": m.recallMemory(1); m.session.varyAll()
+                    default: m.setABMix(0.35)
+                    }
                 }
             }
             if env["BANG_SNAPSHOT_PLAY"] == "1" {

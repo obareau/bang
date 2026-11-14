@@ -93,6 +93,34 @@ public struct MorphTarget: Sendable, Equatable {
         self.progress = progress
     }
 
+    /// Aligne une cible sur les voix du pattern courant, **par nom de voix**
+    /// (le Kick se mélange au Kick, même si l'ordre ou le nombre de voix diffère) :
+    /// - voix des deux côtés → mélangée ;
+    /// - voix absente de la cible → s'éteint peu à peu ;
+    /// - voix seulement dans la cible → ajoutée au rendu, muette au départ, et monte.
+    /// Retourne les voix à rendre et, au même rang, les voix cibles.
+    public static func align(source: [Voice], target: [Voice]) -> (voices: [Voice], targets: [Voice]) {
+        var used = Set<Int>()
+        var targets: [Voice] = []
+        for v in source {
+            if let j = target.indices.first(where: { !used.contains($0) && target[$0].label == v.label }) {
+                used.insert(j)
+                targets.append(target[j])
+            } else {
+                targets.append(Voice(v.note, "-", v.type))
+            }
+        }
+        var voices = source
+        for j in target.indices where !used.contains(j) && !target[j].isCC && !target[j].isBabka
+            && DNA.isPlain(target[j].dna) {
+            let t = target[j]
+            let len = max(1, DNA.compile(t.dna).count)
+            voices.append(Voice(t.note, String(repeating: "-", count: len), t.type))
+            targets.append(t)
+        }
+        return (voices, targets)
+    }
+
     /// Cellule mélangée entre `a` (pattern courant) et `b` (cible).
     static func blend(_ a: DNACell, _ b: DNACell, _ p: Double) -> DNACell {
         let pa = a.trigger ? a.prob : 0, pb = b.trigger ? b.prob : 0

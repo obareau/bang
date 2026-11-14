@@ -376,47 +376,6 @@ struct GeneratorPanel: View {
     }
 }
 
-struct SlotStrip: View {
-    @Environment(\.uiScale) private var z
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        HStack(spacing: 5 * z) {
-            ForEach(0..<8, id: \.self) { i in
-                let filled = model.session.slots[i] != nil
-                let current = filled && model.session.currentSlot == i
-                Text("\(i + 1)")
-                    .font(Theme.mono(10 * z, .bold))
-                    .frame(maxWidth: .infinity, minHeight: 24 * z)
-                    .foregroundStyle(current ? Theme.bg : (filled ? Theme.accent : Theme.dim))
-                    .background(RoundedRectangle(cornerRadius: 3).fill(current ? Theme.accent : Color.clear))
-                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(filled ? Theme.accent : Theme.line))
-                    .contentShape(Rectangle())
-                    .overlay(alignment: .topTrailing) {
-                        if model.session.slotWeights[i] > 1 {
-                            Text("\(model.session.slotWeights[i])").font(Theme.mono(7 * z)).foregroundStyle(Theme.muted).padding(2 * z)
-                        }
-                    }
-                    .contextMenu {
-                        Text("Poids pour l'avance auto")
-                        ForEach(1...9, id: \.self) { w in
-                            Button("\(w)\(model.session.slotWeights[i] == w ? "  ✓" : "")") { model.session.slotWeights[i] = w }
-                        }
-                    }
-                    .onTapGesture {
-                        if NSEvent.modifierFlags.contains(.option) || !filled {
-                            model.session.saveSlot(i)
-                            model.status = "Pattern mémorisé en \(i + 1)."
-                        } else {
-                            model.session.loadSlot(i)
-                            model.status = "Mémoire \(i + 1) chargée."
-                        }
-                    }
-            }
-        }
-    }
-}
-
 struct StatusBar: View {
     @Environment(\.uiScale) private var z
     @EnvironmentObject var model: AppModel

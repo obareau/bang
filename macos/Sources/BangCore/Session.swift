@@ -35,7 +35,16 @@ public struct BangSession: Sendable {
 
     public init() {}
 
-    var snapshot: Snapshot { Snapshot(voices: voices, plocks: plocks, params: params) }
+    public var snapshot: Snapshot { Snapshot(voices: voices, plocks: plocks, params: params) }
+
+    /// Le pattern courant est-il exactement `s` ? Le tempo ne compte pas :
+    /// un tap tempo ne fait pas « quitter » une mémoire ou A / B.
+    public func isSamePattern(_ s: Snapshot?) -> Bool {
+        guard let s, s.voices == voices, s.plocks == plocks else { return false }
+        var a = params, b = s.params
+        a.bpm = 0; b.bpm = 0
+        return a == b
+    }
 
     mutating func pushHistory() {
         guard !voices.isEmpty else { return }
@@ -291,6 +300,32 @@ public struct BangSession: Sendable {
         pushHistory()
         restore(s)
         return true
+    }
+
+    public mutating func clearSlot(_ i: Int) {
+        guard slots.indices.contains(i) else { return }
+        slots[i] = nil
+        slotWeights[i] = 1
+    }
+
+    public mutating func clearAB(_ b: Bool) {
+        if b { slotB = nil } else { slotA = nil }
+    }
+
+    public mutating func swapAB() {
+        swap(&slotA, &slotB)
+    }
+
+    /// Copie une mémoire (1…8) dans A ou B.
+    public mutating func copySlot(_ i: Int, toAB b: Bool) {
+        guard slots.indices.contains(i), let s = slots[i] else { return }
+        if b { slotB = s } else { slotA = s }
+    }
+
+    /// Copie A ou B dans une mémoire.
+    public mutating func copyAB(_ b: Bool, toSlot i: Int) {
+        guard slots.indices.contains(i), let s = b ? slotB : slotA else { return }
+        slots[i] = s
     }
 
     // MARK: - Rendu
