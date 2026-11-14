@@ -39,6 +39,12 @@ public struct RenderInput: Sendable {
     public var cycle: Int = 0
     /// Morphing en cours vers un autre pattern (voix cibles + avancement 0…1).
     public var morph: MorphTarget? = nil
+    /// Polyphonie max : au plus N voix déclenchées par step (0 = illimité).
+    public var maxPoly: Int = 0
+    /// Interpolation des p-locks entre deux valeurs définies.
+    public var plockInterp: PLockInterpolation = .off
+    /// Mode FILL actif (conditions « fill » / « !fill »).
+    public var fill: Bool = false
 
     public init(voices: [Voice], params: GenParams, settings: [String: VoiceSettings] = [:],
                 plocks: [[PLock]] = [], weather: Weather? = nil, drumChannel: Int = 9, noteRemap: [String: Int] = [:],
@@ -161,6 +167,21 @@ public enum Renderer {
 
         func microJit() -> Int { Int(rng.uniform(-Double(maxMJ), Double(maxMJ)) * (1 - p.microtiming)) }
         func humanize() -> Int { p.velHumanize > 0 ? rng.int(-p.velHumanize, p.velHumanize) : 0 }
+        /// Entropie temporelle (webapp : time_ns() % 1000) — volontairement hors seed.
+        func temporalJit(_ jitter: Int) -> Int {
+            guard p.temporal, jitter > 0 else { return 0 }
+            let micro = Double(DispatchTime.now().uptimeNanoseconds % 1000)
+            return Int((micro / 1000 - 0.5) * Double(jitter) * 0.5)
+        }
+        // Polyphonie max : budget de déclenchements par step, attribué dans l'ordre des voix.
+        var polyUsed: [Int: Int] = [:]
+        func polyAllows(_ step: Int) -> Bool {
+            guard input.maxPoly > 0 else { return true }
+            let used = polyUsed[step, default: 0]
+            guard used < input.maxPoly else { return false }
+            polyUsed[step] = used + 1
+            return true
+        }
 
         for (vi, voice) in input.voices.enumerated() {
             if voice.isCC || voice.dna.isEmpty { continue }
@@ -168,6 +189,7 @@ public enum Renderer {
             if voice.note == 0 && !voice.type.hasPrefix("ksp") { continue }
 
             let s = input.settings[voice.label] ?? VoiceSettings()
+            if !TrigCondition.passes(s.condition, cycle: input.cycle, fill: input.fill) { continue }
             var drop = s.drop
             if let lfo = s.lfo, lfo.target == .drop {
                 drop = lfo.modulate(drop, phase: Double(input.cycle) * lfo.freq, rng: rng)
@@ -212,8 +234,9 @@ public enum Renderer {
                         if cursor >= total { break outer }
                         let durTicks = st.duration * Double(tps)
                         let c = st.cell
-                        if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(cursor / Double(tps)) {
-                            let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
+                        if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(cursor / Double(tps))
+                            && polyAllows(Int(cursor) / tps) {
+                            let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter))) + temporalJit(c.jitter)
                             let start = shifted(max(0, Int(cursor) + jit + microJit()))
                             let rDiv = max(1, c.ratchet)
                             let rDur = max(1, Int(durTicks) / rDiv)
@@ -234,9 +257,10 @@ public enum Renderer {
                 kickDone = true
             }
             let melodic = voice.isMelodic
-            let melody = melodic ? chain(for: voice, p).generate(numSteps, rng: rng) : []
+            let markov = melodic ? chain(for: voice, p) : nil
+            let melody = markov?.generate(numSteps, rng: rng) ?? []
             let chordOffsets = melodic ? Chords.intervals(s.chord) : []
-            let plocks = vi < input.plocks.count ? input.plocks[vi] : []
+            let plocks = (vi < input.plocks.count ? input.plocks[vi] : []) + s.ccLanes
             // Morphing : la voix de même rang dans la cible, si c'est une grille DNA.
             var morphCells: [DNACell]? = nil
             if let m = input.morph, vi < m.voices.count, !m.voices[vi].isCC, !m.voices[vi].isBabka,
@@ -251,31 +275,38 @@ public enum Renderer {
                 if let mc = morphCells, let m = input.morph {
                     c = MorphTarget.blend(c, mc[i % mc.count], m.progress)
                 }
-                let note = melodic ? melody[i] : outNote
+                let note = melodic ? min(127, max(0, melody[i] + p.transpose)) : outNote
                 var baseVel = melodic ? 95 : c.velocity
                 // Lanes (indexées par position DNA, 1er pattern seulement)
                 if pIdx == 0 {
                     if sIdx < s.velLane.count, s.velLane[sIdx] > 0 { baseVel = min(127, s.velLane[sIdx]) }
                     if sIdx < s.probLane.count, s.probLane[sIdx] > 0, c.trigger { c.prob = Double(min(100, s.probLane[sIdx])) / 100 }
+                    if sIdx < s.ratchetLane.count, s.ratchetLane[sIdx] > 0 { c.ratchet = min(8, s.ratchetLane[sIdx]) }
                 }
 
-                if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(Double(i)) {
-                    let outStep = (i + offsetTicks / tps) % max(1, numSteps)
+                let outStep = (i + offsetTicks / tps) % max(1, numSteps)
+                if c.trigger && keepTrigger() && rng.random() < c.prob * densityAt(Double(i)) && polyAllows(outStep) {
                     let swingOff = outStep % 2 == 1 ? Int(swing * Double(tps) * 0.5) : 0
-                    let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter)))
+                    let jit = Int(rng.uniform(-Double(c.jitter), Double(c.jitter))) + temporalJit(c.jitter)
                     let start = max(0, outStep * tps + swingOff + jit + microJit())
                     let rDiv = max(1, c.ratchet)
                     let rDur = tps / rDiv
                     let vel = velMap(baseVel + humanize(), p)
+                    var rNote = note
                     for r in 0..<rDiv {
                         let t = start + r * rDur
-                        emit(t, rDur, note, vel)
-                        for off in chordOffsets { emit(t, rDur, min(127, max(0, note + off)), vel) }
-                    }
-                }
-                for pl in plocks where i < pl.values.count {
-                    if let v = pl.values[i] {
-                        events.append(MIDIEvent(tick: i * tps, kind: .cc, channel: ch, data1: pl.cc, data2: v, voice: vi))
+                        // Ratchets : decay (chaque répétition plus douce) et variation
+                        // (vélocité qui dérive, hauteur qui glisse sur la chaîne de Markov).
+                        var rv = Double(vel) * pow(1 - s.ratchetDecay * 0.85, Double(r))
+                        if r > 0 && s.ratchetVariation > 0 {
+                            rv += rng.uniform(-1, 1) * s.ratchetVariation * 25
+                            if let mk = markov, rng.random() < s.ratchetVariation * 0.5 {
+                                rNote = min(127, max(0, mk.next(after: rNote - p.transpose, rng: rng) + p.transpose))
+                            }
+                        }
+                        let rVel = max(1, min(127, Int(rv.rounded())))
+                        emit(t, rDur, rNote, rVel)
+                        for off in chordOffsets { emit(t, rDur, min(127, max(0, rNote + off)), rVel) }
                     }
                 }
                 sIdx += 1
@@ -283,6 +314,10 @@ public enum Renderer {
                     sIdx = 0
                     pIdx = (pIdx + 1) % patterns.count
                 }
+            }
+            // P-locks (générés + pistes CC ajoutées), éventuellement interpolés.
+            for pl in plocks {
+                events += plockEvents(pl, numSteps: numSteps, interp: input.plockInterp, channel: ch, voice: vi)
             }
         }
 
@@ -306,6 +341,39 @@ public enum Renderer {
 
         events.sort { ($0.tick, $0.order) < ($1.tick, $1.order) }
         return events
+    }
+
+    /// Évènements CC d'une piste de p-locks. Sans interpolation : une valeur aux
+    /// steps définis. Avec : 4 valeurs par step entre deux p-locks définis
+    /// (linéaire ou cosinus), valeur tenue avant le premier et après le dernier.
+    public static func plockEvents(_ pl: PLock, numSteps: Int, interp: PLockInterpolation,
+                            channel: Int, voice: Int) -> [MIDIEvent] {
+        let tps = ticksPerStep
+        let defined = pl.values.enumerated().compactMap { i, v in v.map { (i, $0) } }.filter { $0.0 < numSteps }
+        guard !defined.isEmpty else { return [] }
+        func cc(_ tick: Int, _ v: Int) -> MIDIEvent {
+            MIDIEvent(tick: tick, kind: .cc, channel: channel, data1: pl.cc, data2: min(127, max(0, v)), voice: voice)
+        }
+        if interp == .off { return defined.map { cc($0.0 * tps, $0.1) } }
+        var out: [MIDIEvent] = []
+        var last = -1
+        let sub = 4
+        for k in 0..<(numSteps * sub) {
+            let pos = Double(k) / Double(sub)
+            let before = defined.last { Double($0.0) <= pos }
+            let after = defined.first { Double($0.0) > pos }
+            var v: Double
+            if let b = before, let a = after {
+                var t = (pos - Double(b.0)) / Double(a.0 - b.0)
+                if interp == .cosine { t = (1 - cos(t * .pi)) / 2 }
+                v = Double(b.1) + Double(a.1 - b.1) * t
+            } else {
+                v = Double((before ?? after!).1)
+            }
+            let iv = Int(v.rounded())
+            if iv != last { out.append(cc(k * tps / sub, iv)); last = iv }
+        }
+        return out
     }
 
     /// Noms des pistes CC drone (pour l'export).

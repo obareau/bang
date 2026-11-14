@@ -228,6 +228,24 @@ struct GeneratorPanel: View {
             .opacity(model.session.params.mode.usesScale ? 1 : 0.45)
 
             HStack(spacing: 6 * z) {
+                Text("TRANSPO").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
+                Button { model.session.params.transpose = max(-24, model.session.params.transpose - 1) } label: { Text("−") }
+                    .buttonStyle(BangButtonStyle(compact: true))
+                Text(model.session.params.transpose == 0 ? "0" : String(format: "%+d", model.session.params.transpose))
+                    .font(Theme.mono(11 * z, .bold)).frame(minWidth: 30 * z)
+                    .foregroundStyle(model.session.params.transpose == 0 ? Theme.ink : Theme.accent)
+                Button { model.session.params.transpose = min(24, model.session.params.transpose + 1) } label: { Text("+") }
+                    .buttonStyle(BangButtonStyle(compact: true))
+                Button { model.session.params.transpose -= 12 } label: { Text("−12") }
+                    .buttonStyle(BangButtonStyle(compact: true)).disabled(model.session.params.transpose <= -12)
+                Button { model.session.params.transpose += 12 } label: { Text("+12") }
+                    .buttonStyle(BangButtonStyle(compact: true)).disabled(model.session.params.transpose >= 12)
+                Button { model.session.params.transpose = 0 } label: { Text("0") }
+                    .buttonStyle(BangButtonStyle(compact: true)).disabled(model.session.params.transpose == 0)
+            }
+            .help("Transposition des voix mélodiques en direct (±24 demi-tons) ; la batterie ne bouge pas")
+
+            HStack(spacing: 6 * z) {
                 Text("SEED").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
                 TextField("auto", text: p.seed)
                     .textFieldStyle(.plain)
@@ -255,6 +273,23 @@ struct GeneratorPanel: View {
                     ParamSlider(label: "VEL MAX", value: Binding(
                         get: { Double(model.session.params.velCeiling) },
                         set: { model.session.params.velCeiling = Int($0) }), range: 1...127, format: "%.0f")
+                    HStack(spacing: 6 * z) {
+                        Text("POLY").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
+                        Segmented(options: [0, 1, 2, 3, 4, 6], selection: $model.session.maxPoly) { $0 == 0 ? "∞" : "\($0)" }
+                    }
+                    .help("Polyphonie max : au plus N voix déclenchées par step (les premières de la liste gagnent)")
+                    HStack(spacing: 6 * z) {
+                        Text("P-LOCKS").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
+                        Segmented(options: PLockInterpolation.allCases, selection: $model.session.plockInterp) { $0.label }
+                    }
+                    .help("Interpolation des p-locks entre deux valeurs définies (glissement fluide)")
+                    HStack(spacing: 6 * z) {
+                        Text("ENTROPIE").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)
+                        Button(model.session.params.temporal ? "ON" : "OFF") { model.session.params.temporal.toggle() }
+                            .buttonStyle(BangButtonStyle(active: model.session.params.temporal, compact: true))
+                        Text("jitter tiré de l'horloge système").font(Theme.mono(9 * z)).foregroundStyle(Theme.dim)
+                    }
+                    .help("Entropie temporelle : les notes à jitter (░) reçoivent un décalage tiré de l'horloge — chaque rendu diffère, même seed")
                 }
                 .padding(.top, 6 * z)
             } label: {
@@ -284,11 +319,41 @@ struct GeneratorPanel: View {
                     Presets.grooves.map { g in .item(g.name) { model.session.applyGroove(g.name) } }
                 }) { Text("Groove") }
                 PopMenu(compact: true, active: !model.session.currentPreset.isEmpty, entries: {
-                    Presets.drumMachines.map { d in
+                    var e: [MenuEntry] = Presets.drumMachines.map { d in
                         .item(d.name, checked: model.session.currentPreset == d.name) { model.session.applyDrumPreset(d.name) }
                     }
+                    let mine = model.customDrumPresets.keys.sorted()
+                    if !mine.isEmpty {
+                        e.append(.separator)
+                        e += mine.map { n in
+                            .item(n, checked: model.session.currentPreset == n) {
+                                model.session.applyDrumMap(n, model.customDrumPresets[n] ?? [:])
+                            }
+                        }
+                    }
+                    e += [.separator, .item("Enregistrer le mapping actuel…") { model.saveDrumPreset() }]
+                    if !mine.isEmpty {
+                        e.append(.submenu("Supprimer", mine.map { n in .item(n) { model.deleteDrumPreset(n) } }))
+                    }
+                    return e
                 }) { Text(model.session.currentPreset.isEmpty ? "Machine" : model.session.currentPreset) }
             }
+            PopMenu(compact: true, active: !model.session.currentKSPPreset.isEmpty, entries: {
+                var e: [MenuEntry] = Presets.ksp.map { k in
+                    .item(k.name, checked: model.session.currentKSPPreset == k.name) { model.applyKSP(k.name) }
+                }
+                let mine = model.customKSPPresets.keys.sorted()
+                if !mine.isEmpty {
+                    e.append(.separator)
+                    e += mine.map { n in .item(n, checked: model.session.currentKSPPreset == n) { model.applyKSP(n) } }
+                }
+                e += [.separator, .item("Enregistrer l'harmonie actuelle…") { model.saveKSPPreset() }]
+                if !mine.isEmpty {
+                    e.append(.submenu("Supprimer", mine.map { n in .item(n) { model.deleteKSPPreset(n) } }))
+                }
+                return e
+            }) { Text(model.session.currentKSPPreset.isEmpty ? "Harmonie (KSP)" : "Harmonie : " + model.session.currentKSPPreset) }
+            .help("Presets d'harmonie : tonique, gamme, gravité et accords des pistes Keystep Pro")
 
             HStack(spacing: 6 * z) {
                 Text("KIT").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted).frame(width: 62 * z, alignment: .leading)

@@ -18,7 +18,9 @@ import Foundation
 ///   cycle (évolution, Song, morph…) demandées par `onCycle`, appelé un peu
 ///   avant chaque fin de cycle pour que le changement tombe sur le 1er temps.
 final class Player: @unchecked Sendable {
-    typealias Output = @Sendable (UInt8, UInt8, UInt8) -> Void
+    /// (statut, data1, data2, voix) — voix ≥ 0 : la voix source ; −1 : global
+    /// (drones CC) ; −2 : à diffuser partout (relâchements à l'arrêt).
+    typealias Output = @Sendable (UInt8, UInt8, UInt8, Int) -> Void
 
     private let lock = NSLock()
     private var pending: RenderInput?
@@ -223,7 +225,7 @@ final class Player: @unchecked Sendable {
             case .cc:
                 break
             }
-            output(e.statusByte, UInt8(e.data1), UInt8(e.data2))
+            output(e.statusByte, UInt8(e.data1), UInt8(e.data2), e.voice >= 0 ? e.voice : -1)
         }
 
         while true {
@@ -318,9 +320,9 @@ final class Player: @unchecked Sendable {
 
         // Arrêt : on relâche tout ce qui sonne + All Notes Off.
         for key in sounding.keys {
-            output(0x80 | UInt8((key >> 8) & 0x0F), UInt8(key & 0x7F), 0)
+            output(0x80 | UInt8((key >> 8) & 0x0F), UInt8(key & 0x7F), 0, -2)
         }
-        for ch in 0..<16 { output(0xB0 | UInt8(ch), 123, 0) }
+        for ch in 0..<16 { output(0xB0 | UInt8(ch), 123, 0, -2) }
         lock.lock(); step = 0; hits = [:]; lock.unlock()
     }
 }

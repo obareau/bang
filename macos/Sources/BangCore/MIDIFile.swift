@@ -43,8 +43,9 @@ public enum MIDIFileWriter {
 
     /// Export d'un pattern complet.
     /// type 1 : piste 0 tempo/seed + une piste par voix + une par drone CC.
+    /// `markers` : marqueurs (tick, nom), ex. les sections d'un morceau.
     public static func export(_ input: RenderInput, numSteps: Int, seed: String,
-                              name: String = "bang", type: Int = 1) -> Data {
+                              name: String = "bang", type: Int = 1, markers: [(Int, String)] = []) -> Data {
         let rng = Dice(seedString: seed)
         let events = Renderer.render(input, numSteps: numSteps, rng: rng)
         let tempo = Int(60_000_000 / Double(max(1, input.params.bpm)))
@@ -60,12 +61,20 @@ public enum MIDIFileWriter {
         if type == 0 {
             var t = Track()
             header(&t)
-            for e in events { t.event(e) }
+            // Une seule piste : marqueurs et notes doivent rester dans l'ordre du temps.
+            var mi = 0
+            let ms = markers.sorted { $0.0 < $1.0 }
+            for e in events {
+                while mi < ms.count && ms[mi].0 <= e.tick { t.meta(0x06, Array(ms[mi].1.utf8), at: ms[mi].0); mi += 1 }
+                t.event(e)
+            }
+            while mi < ms.count { t.meta(0x06, Array(ms[mi].1.utf8), at: ms[mi].0); mi += 1 }
             t.end()
             tracks = [t]
         } else {
             var t0 = Track()
             header(&t0)
+            for (tick, label) in markers.sorted(by: { $0.0 < $1.0 }) { t0.meta(0x06, Array(label.utf8), at: tick) }
             t0.end()
             tracks.append(t0)
             for (vi, v) in input.voices.enumerated() where !v.isCC {

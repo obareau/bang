@@ -101,8 +101,9 @@ struct OSCTab: View {
             Text("""
             Émis : /bang/bpm · /bang/chaos · /bang/steps · /bang/mode · /bang/seed · /bang/voice/<n>/dna · /bang/voice/<n>/note \
             (à chaque nouveau pattern) ; pendant la lecture /bang/clock [step, steps] et /bang/<voix> [step, vélocité, note].
-            Reçu : /bang/generate · /bang/vary · /bang/play · /bang/stop · /bang/param/<bpm|chaos|gravity|swing|microtiming|cc_depth|steps> \
-            · /bang/density/<voix> f · /bang/lock/<n> i · /bang/mute/<n> i · /bang/slot/<1-8> · /bang/evolve i.
+            Reçu : /bang/generate · /bang/vary · /bang/play · /bang/stop · /bang/param/<bpm|chaos|gravity|swing|microtiming|cc_depth|steps|transpose> \
+            · /bang/density/<voix> f · /bang/lock/<n> i · /bang/mute/<n> i · /bang/slot/<1-8> · /bang/evolve i \
+            · /bang/fill i · /bang/poly i.
             """)
             .font(Theme.mono(9 * z)).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
             SectionHeader(title: "Moniteur")

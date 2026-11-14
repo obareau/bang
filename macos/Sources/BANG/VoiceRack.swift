@@ -8,6 +8,8 @@ struct VoiceRack: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                GroupBar()
+                Rectangle().fill(Theme.line.opacity(0.6)).frame(height: 1)
                 ForEach(Array(model.session.voices.enumerated()), id: \.offset) { i, v in
                     if v.isCC {
                         CCRow(voice: v)
@@ -158,12 +160,46 @@ struct VoiceRow: View {
                            ghost: { $0.trigger ? Int($0.prob * 100) : nil }) { v in
                     model.session.updateSettings(index) { $0.probLane = v }
                 }
+                LaneEditor(title: "RATCH", dna: voice.dna, maxValue: 8, values: settings.ratchetLane,
+                           ghost: { $0.trigger ? $0.ratchet : nil }) { v in
+                    model.session.updateSettings(index) { $0.ratchetLane = v }
+                }
+                .help("Répétitions par step (1 à 8) — glisser pour dessiner, ⌥ + glisser pour revenir au symbole")
+                HStack(spacing: 18 * z) {
+                    ParamSlider(label: "DECAY", value: bind(\.ratchetDecay))
+                        .help("Chaque répétition d'un ratchet est plus douce (roulement naturel)")
+                    ParamSlider(label: "VARIATION", value: bind(\.ratchetVariation))
+                        .help("Les répétitions dérivent : vélocité, et hauteur sur la chaîne de Markov pour les voix mélodiques")
+                }
             }
+            PLockRow(index: index, voice: voice)
             LFORow(index: index)
             HStack(spacing: 18 * z) {
                 ParamSlider(label: "DENSITÉ", value: bind(\.density))
                 ParamSlider(label: "DROP", value: bind(\.drop))
                 ParamSlider(label: "SWING", value: bind(\.swing))
+            }
+            HStack(spacing: 12 * z) {
+                Text("CONDITION").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted)
+                PopMenu(compact: true, active: !settings.condition.isEmpty, entries: {
+                    TrigCondition.all.map { c in
+                        .item(TrigCondition.label(c), checked: settings.condition == c) {
+                            model.session.updateSettings(index) { $0.condition = c }
+                        }
+                    }
+                }) { Text(TrigCondition.label(settings.condition)) }
+                .frame(width: 110 * z)
+                .help("Condition de déclenchement façon Elektron : 1:2 = un cycle sur deux, 1er cycle, FILL…")
+                Text("SORTIE").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted)
+                PopMenu(compact: true, active: settings.port != nil, entries: {
+                    [MenuEntry.item("Sortie générale", checked: settings.port == nil) {
+                        model.session.updateSettings(index) { $0.port = nil }
+                    }] + model.destinations.map { d in
+                        .item(d.name, checked: settings.port == d.id) { model.session.updateSettings(index) { $0.port = d.id } }
+                    }
+                }) { Text(settings.port.flatMap { id in model.destinations.first { $0.id == id }?.name } ?? (settings.port == nil ? "générale" : "port absent")) .lineLimit(1) }
+                .frame(width: 150 * z)
+                .help("Envoie cette voix vers son propre appareil MIDI (le port virtuel « BANG! » reçoit toujours tout)")
             }
             HStack(spacing: 12 * z) {
                 Text("CANAL").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted)
@@ -338,6 +374,94 @@ struct DNAGrid: View {
             }
         default:
             ctx.stroke(box, with: .color(play ? Theme.accent : Theme.line), lineWidth: play ? 1.5 : 1)
+        }
+    }
+}
+
+/// En tête de la liste : mute / solo par groupe de voix.
+struct GroupBar: View {
+    @Environment(\.uiScale) private var z
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 14 * z) {
+            Text("GROUPES").font(Theme.mono(9 * z, .bold)).foregroundStyle(Theme.accent)
+            ForEach(AppModel.VoiceGroup.allCases, id: \.self) { g in
+                let count = model.groupIndices(g).count
+                HStack(spacing: 4 * z) {
+                    Text("\(g.rawValue) \(count)").font(Theme.mono(9 * z)).foregroundStyle(count > 0 ? Theme.muted : Theme.dim)
+                    Button { model.toggleGroup(g, solo: false) } label: { Text("M") }
+                        .buttonStyle(BangButtonStyle(active: model.groupState(g, solo: false), compact: true))
+                    Button { model.toggleGroup(g, solo: true) } label: { Text("S") }
+                        .buttonStyle(BangButtonStyle(active: model.groupState(g, solo: true), compact: true))
+                }
+                .disabled(count == 0)
+                .opacity(count == 0 ? 0.4 : 1)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 14 * z)
+        .frame(height: 30 * z)
+        .help("Mute / solo collectif : batterie, voix mélodiques, voix synthés (Volca, MicroFreak)")
+    }
+}
+
+/// P-locks d'une voix : pistes CC (générées ou ajoutées), tirage aléatoire borné.
+struct PLockRow: View {
+    @Environment(\.uiScale) private var z
+    @EnvironmentObject var model: AppModel
+    let index: Int
+    let voice: Voice
+    @StateObject private var density = Box(0.5)
+    @StateObject private var lo = Box(20.0)
+    @StateObject private var hi = Box(110.0)
+
+    static let commonCC: [(Int, String)] = [
+        (1, "Modulation"), (7, "Volume"), (10, "Pan"), (11, "Expression"), (71, "Résonance"),
+        (74, "Cutoff"), (91, "Reverb"), (93, "Chorus"),
+    ]
+
+    var body: some View {
+        let generated = index < model.session.plocks.count ? model.session.plocks[index] : []
+        let added = model.session.settings(for: index).ccLanes
+        let lanes = generated.map { ($0, false) } + added.map { ($0, true) }
+        VStack(alignment: .leading, spacing: 6 * z) {
+            HStack(spacing: 8 * z) {
+                Text("P-LOCKS").font(Theme.mono(10 * z)).foregroundStyle(Theme.muted)
+                ForEach(Array(lanes.enumerated()), id: \.offset) { _, item in
+                    let (pl, removable) = item
+                    HStack(spacing: 3 * z) {
+                        Text("CC\(pl.cc) \(pl.name)").font(Theme.mono(9 * z))
+                            .foregroundStyle(pl.values.contains { $0 != nil } ? Theme.ink : Theme.dim)
+                        if removable {
+                            Button { model.session.removeCCLane(index, cc: pl.cc) } label: { Text("×") }
+                                .buttonStyle(BangButtonStyle(compact: true))
+                        }
+                    }
+                }
+                PopMenu(compact: true, entries: {
+                    PLockRow.commonCC.map { cc, name in
+                        .item("CC\(cc) \(name)") { model.session.addCCLane(index, cc: cc, name: name) }
+                    }
+                }) { Text("+ CC") }
+                .frame(width: 70 * z)
+                .help("Ajoute une piste CC à cette voix (gardée d'une génération à l'autre)")
+                Spacer()
+            }
+            if !lanes.isEmpty {
+                HStack(spacing: 14 * z) {
+                    ParamSlider(label: "DENSITÉ", value: $density.value)
+                    ParamSlider(label: "MIN", value: $lo.value, range: 0...127, format: "%.0f")
+                    ParamSlider(label: "MAX", value: $hi.value, range: 0...127, format: "%.0f")
+                    Button("TIRER") {
+                        model.session.randomizePlocks(index, density: density.value, lo: Int(lo.value), hi: Int(hi.value), rng: Dice())
+                    }
+                    .buttonStyle(BangButtonStyle(active: true, compact: true))
+                    .help("Tire de nouvelles valeurs entre MIN et MAX, sur une proportion DENSITÉ des steps")
+                    Button("EFFACER") { model.session.clearPlocks(index) }
+                        .buttonStyle(BangButtonStyle(compact: true))
+                }
+            }
         }
     }
 }

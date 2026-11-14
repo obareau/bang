@@ -35,6 +35,33 @@ public enum Presets {
     ]
 }
 
+/// Preset d'harmonie (KeyStep Pro) — même schéma que KSP_PRESETS_BUILTIN.
+public struct KSPPreset: Codable, Equatable, Sendable {
+    public var root: String
+    public var scale: String
+    public var gravity: Double
+    public var chords: [String: String]
+
+    public init(root: String, scale: String, gravity: Double, chords: [String: String]) {
+        self.root = root; self.scale = scale; self.gravity = gravity; self.chords = chords
+    }
+}
+
+extension Presets {
+    public static let ksp: [(name: String, preset: KSPPreset)] = [
+        ("Dark Penta", KSPPreset(root: "A", scale: "penta_min", gravity: 0.75,
+                                 chords: ["KSP Lead": "minor", "KSP Bass": "power", "KSP Chord": "m7", "KSP Arp": "mono"])),
+        ("Dorian Jazz", KSPPreset(root: "D", scale: "dorian", gravity: 0.60,
+                                  chords: ["KSP Lead": "m7", "KSP Bass": "power", "KSP Chord": "M7", "KSP Arp": "sus2"])),
+        ("Phrygian Noise", KSPPreset(root: "E", scale: "phrygian", gravity: 0.85,
+                                     chords: ["KSP Lead": "dim", "KSP Bass": "power", "KSP Chord": "minor", "KSP Arp": "mono"])),
+        ("Lydian Dream", KSPPreset(root: "C", scale: "lydian", gravity: 0.55,
+                                   chords: ["KSP Lead": "M7", "KSP Bass": "mono", "KSP Chord": "sus2", "KSP Arp": "aug"])),
+        ("Blues Minor", KSPPreset(root: "A", scale: "minor", gravity: 0.70,
+                                  chords: ["KSP Lead": "minor", "KSP Bass": "power", "KSP Chord": "dom7", "KSP Arp": "minor"])),
+    ]
+}
+
 /// Fichier de session JSON — même schéma que `session_to_dict` (presets_lib.py),
 /// donc échangeable avec le webapp et l'app Qt.
 public struct SessionFile: Codable {
@@ -54,6 +81,14 @@ public struct SessionFile: Codable {
     public var voiceOffset: [String: Int]?
     public var voiceThin: [String: Int]?
     public var voiceSteps: [String: Int]?
+    public var maxPoly: Int?
+    public var plockInterp: PLockInterpolation?
+    public var voiceRatchetLane: [String: [Int]]?
+    public var voiceRatchetDecay: [String: Double]?
+    public var voiceRatchetVar: [String: Double]?
+    public var voiceCondition: [String: String]?
+    public var voiceCCLanes: [String: [PLock]]?
+    public var voicePort: [String: Int32]?
     public var slots: [BangSession.Snapshot?]?
     public var slotWeights: [Int]?
     public var slotA: BangSession.Snapshot?
@@ -70,6 +105,10 @@ public struct SessionFile: Codable {
         case voiceLFO = "voice_lfo", voiceDrop = "voice_drop", voiceSwing = "voice_swing"
         case voiceVelLane = "voice_vel_lane", voiceProbLane = "voice_prob_lane"
         case voiceOffset = "voice_offset", voiceThin = "voice_thin", voiceSteps = "voice_steps"
+        case maxPoly = "max_poly", plockInterp = "plock_interpolation"
+        case voiceRatchetLane = "voice_ratchet_lane", voiceRatchetDecay = "voice_ratchet_decay"
+        case voiceRatchetVar = "voice_ratchet_variation", voiceCondition = "voice_condition"
+        case voiceCCLanes = "voice_cc_lanes", voicePort = "voice_port"
         case slots = "native_slots", slotWeights = "seq_weights", slotA = "native_slot_a", slotB = "native_slot_b"
     }
 
@@ -90,6 +129,14 @@ public struct SessionFile: Codable {
         voiceOffset = s.settings.compactMapValues { $0.offset != 0 ? $0.offset : nil }
         voiceThin = s.settings.compactMapValues { $0.thin > 1 ? $0.thin : nil }
         voiceSteps = s.settings.compactMapValues { $0.length }
+        maxPoly = s.maxPoly
+        plockInterp = s.plockInterp
+        voiceRatchetLane = s.settings.compactMapValues { $0.ratchetLane.contains { $0 > 0 } ? $0.ratchetLane : nil }
+        voiceRatchetDecay = s.settings.compactMapValues { $0.ratchetDecay > 0 ? $0.ratchetDecay : nil }
+        voiceRatchetVar = s.settings.compactMapValues { $0.ratchetVariation > 0 ? $0.ratchetVariation : nil }
+        voiceCondition = s.settings.compactMapValues { $0.condition.isEmpty ? nil : $0.condition }
+        voiceCCLanes = s.settings.compactMapValues { $0.ccLanes.isEmpty ? nil : $0.ccLanes }
+        voicePort = s.settings.compactMapValues { $0.port }
         slots = s.slots.contains { $0 != nil } ? s.slots : nil
         slotWeights = s.slotWeights
         slotA = s.slotA
@@ -117,6 +164,14 @@ public struct SessionFile: Codable {
         voiceOffset = try? c.decode([String: Int].self, forKey: .voiceOffset)
         voiceThin = try? c.decode([String: Int].self, forKey: .voiceThin)
         voiceSteps = try? c.decode([String: Int].self, forKey: .voiceSteps)
+        maxPoly = try? c.decode(Int.self, forKey: .maxPoly)
+        plockInterp = try? c.decode(PLockInterpolation.self, forKey: .plockInterp)
+        voiceRatchetLane = try? c.decode([String: [Int]].self, forKey: .voiceRatchetLane)
+        voiceRatchetDecay = try? c.decode([String: Double].self, forKey: .voiceRatchetDecay)
+        voiceRatchetVar = try? c.decode([String: Double].self, forKey: .voiceRatchetVar)
+        voiceCondition = try? c.decode([String: String].self, forKey: .voiceCondition)
+        voiceCCLanes = try? c.decode([String: [PLock]].self, forKey: .voiceCCLanes)
+        voicePort = try? c.decode([String: Int32].self, forKey: .voicePort)
         slots = try? c.decode([BangSession.Snapshot?].self, forKey: .slots)
         slotWeights = try? c.decode([Int].self, forKey: .slotWeights)
         slotA = try? c.decode(BangSession.Snapshot.self, forKey: .slotA)
@@ -148,7 +203,15 @@ public struct SessionFile: Codable {
         for (k, o) in voiceOffset ?? [:] { settings[k, default: VoiceSettings()].offset = o }
         for (k, t) in voiceThin ?? [:] { settings[k, default: VoiceSettings()].thin = max(1, t) }
         for (k, n) in voiceSteps ?? [:] where n > 0 { settings[k, default: VoiceSettings()].length = n }
+        for (k, l) in voiceRatchetLane ?? [:] { settings[k, default: VoiceSettings()].ratchetLane = l }
+        for (k, d) in voiceRatchetDecay ?? [:] { settings[k, default: VoiceSettings()].ratchetDecay = d.clamped(0, 1) }
+        for (k, v) in voiceRatchetVar ?? [:] { settings[k, default: VoiceSettings()].ratchetVariation = v.clamped(0, 1) }
+        for (k, c) in voiceCondition ?? [:] where TrigCondition.all.contains(c) { settings[k, default: VoiceSettings()].condition = c }
+        for (k, l) in voiceCCLanes ?? [:] { settings[k, default: VoiceSettings()].ccLanes = l }
+        for (k, p) in voicePort ?? [:] { settings[k, default: VoiceSettings()].port = p }
         s.settings = settings
+        s.maxPoly = max(0, maxPoly ?? 0)
+        s.plockInterp = plockInterp ?? .off
         if let sl = slots, sl.count == 8 { s.slots = sl }
         if let w = slotWeights, w.count == 8 { s.slotWeights = w.map { max(1, min(9, $0)) } }
         if slotA != nil { s.slotA = slotA }

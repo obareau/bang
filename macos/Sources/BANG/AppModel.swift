@@ -66,13 +66,31 @@ final class AppModel: ObservableObject {
     @Published private(set) var preview: [MIDIEvent] = []
 
     let play = PlayState()
+    let router = PortRouter()
+    /// Mode FILL (conditions « fill » / « !fill »).
+    @Published var fill = false {
+        didSet { if player.isRunning { player.update(liveInput()) } }
+    }
+    /// Type de fichier MIDI à l'export : 1 = une piste par voix, 0 = une seule piste.
+    @Published var midiType: Int = UserDefaults.standard.object(forKey: "midiType") as? Int ?? 1 {
+        didSet { UserDefaults.standard.set(midiType, forKey: "midiType") }
+    }
+    /// Presets personnels (mêmes schémas que bang_presets.json / bang_ksp_presets.json).
+    @Published var customDrumPresets: [String: [String: Int]] = [:]
+    @Published var customKSPPresets: [String: KSPPreset] = [:]
     let studio = Studio()
     let midi = MIDIOut()
     let synth = InternalSynth()
     private lazy var player: Player = {
         let midi = self.midi, synth = self.synth
-        return Player { s, d1, d2 in
-            midi.send(s, d1, d2)
+        let router = self.router
+        return Player { s, d1, d2, voice in
+            if voice == -2 {
+                midi.send(s, d1, d2)
+                for ep in router.all { midi.send(s, d1, d2, to: ep) }
+            } else {
+                midi.send(s, d1, d2, to: router.endpoint(for: voice))
+            }
             synth.send(s, d1, d2)
         }
     }()
@@ -120,6 +138,7 @@ final class AppModel: ObservableObject {
         setupClockIn()
         studio.model = self
         studio.start()
+        loadPresets()
     }
 
     func refreshDestinations() {
@@ -130,6 +149,7 @@ final class AppModel: ObservableObject {
     private func sessionChanged() {
         let input = liveInput()
         if player.isRunning && !deferPlayerUpdate { player.update(input) }
+        updatePortRouting()
         studio.sessionChanged()
         preview = Renderer.render(input, numSteps: session.params.steps,
                                   rng: Dice(seedString: session.lastSeed.isEmpty ? "0" : session.lastSeed))
@@ -245,6 +265,7 @@ final class AppModel: ObservableObject {
     /// Entrée de rendu pour le lecteur : la session + le morph en cours.
     func liveInput() -> RenderInput {
         var input = session.renderInput()
+        input.fill = fill
         if let m = morph, let target = session.slots[m.slot] {
             input.morph = MorphTarget(voices: target.voices, progress: m.progress)
         }
@@ -418,16 +439,20 @@ final class AppModel: ObservableObject {
     func midiData() -> Data {
         MIDIFileWriter.export(session.renderInput(), numSteps: session.params.steps,
                               seed: session.lastSeed.isEmpty ? Dice.generateSeed() : session.lastSeed,
-                              name: suggestedName)
+                              name: suggestedName, type: midiType)
     }
 
     func exportMIDI() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "mid") ?? .data]
         panel.nameFieldStringValue = suggestedName + ".mid"
+        let typePopup = midiTypePopup()
+        panel.accessoryView = accessoryRow([NSTextField(labelWithString: "Fichier MIDI :"), typePopup])
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        midiType = typePopup.indexOfSelectedItem == 1 ? 0 : 1
         do {
             try midiData().write(to: url)
+            logExport(kind: "midi", file: url, seed: session.lastSeed)
             status = "Exporté : \(url.lastPathComponent)"
         } catch {
             status = "Échec export : \(error.localizedDescription)"
@@ -527,6 +552,7 @@ final class AppModel: ObservableObject {
                 self.isRenderingWav = false
                 switch result {
                 case .success(let r):
+                    self.logExport(kind: "wav", file: url, seed: seed, extra: ["loops": loops, "kit": kit.short])
                     self.status = String(format: "WAV exporté : %@ (%.1f s)", url.lastPathComponent, r.seconds)
                 case .failure(let e):
                     self.status = "Échec WAV : \(e.localizedDescription)"
@@ -543,10 +569,13 @@ final class AppModel: ObservableObject {
         return NSItemProvider(contentsOf: url) ?? NSItemProvider()
     }
 
+    /// Projet complet (.bang = la session JSON : pattern, réglages, mémoires, A/B).
+    static var bangType: UTType { UTType(filenameExtension: "bang") ?? .json }
+
     func saveSession() {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = suggestedName + ".json"
+        panel.allowedContentTypes = [Self.bangType, .json]
+        panel.nameFieldStringValue = suggestedName + ".bang"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -560,7 +589,7 @@ final class AppModel: ObservableObject {
 
     func openSession() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
+        panel.allowedContentTypes = [Self.bangType, .json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let file = try JSONDecoder().decode(SessionFile.self, from: Data(contentsOf: url))

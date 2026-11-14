@@ -40,7 +40,9 @@ enum WavExport {
         let base = Dice.seedValue(seed)
         for l in 0..<max(1, loops) {
             let rng = l == 0 ? Dice(seedString: seed) : Dice(seed: base &+ UInt64(l) &* 0x9E37_79B9)
-            for var e in Renderer.render(input, numSteps: numSteps, rng: rng) {
+            var cycleInput = input
+            cycleInput.cycle = l   // conditions « 1:2 », « 1er cycle »… comme en lecture
+            for var e in Renderer.render(cycleInput, numSteps: numSteps, rng: rng) {
                 e.tick += l * cycleTicks
                 events.append(e)
             }
