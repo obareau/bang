@@ -24,7 +24,7 @@ BANG! génère des patterns MIDI algorithmiques et les envoie partout — export
 - Les **14 modes** de génération, la syntaxe **DNA** et **Babka**, Markov et gammes — moteur porté du Python
 - **Grille DNA** cliquable, piano-roll, lanes de vélocité / probabilité, longueur, décalage, Thin, LFO par voix
 - **Lecture** temps réel vers un **synthé intégré** (General MIDI + batteries **808 / 909** synthétisées), un **port MIDI virtuel « BANG! »** pour le DAW, ou n'importe quel appareil MIDI
-- **Jeu live** : synchro MIDI clock, tap tempo, évolution automatique, A/B, 8 mémoires, morph, mode Song
+- **Jeu live** : synchro MIDI clock, tap tempo, évolution automatique, 8 mémoires (bascule nette ou fondu, AUTO, Song), crossfader **A ↔ B**
 - **Export** `.mid`, **`.wav`** en boucle parfaite, un `.mid` par voix, Strudel
 - **Connexions** : OSC bidirectionnel, Ableton Live (AbletonOSC), MIDI Learn, panneaux NTS-1 / MicroFreak
 

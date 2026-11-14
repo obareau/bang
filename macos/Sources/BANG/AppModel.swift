@@ -183,6 +183,7 @@ final class AppModel: ObservableObject {
             return
         }
         session.generate()
+        memBase = nil
         status = "\(session.params.mode.label) · seed \(session.lastSeed.prefix(12))…"
     }
 
@@ -231,11 +232,13 @@ final class AppModel: ObservableObject {
         play.step = 0
         play.hits = [:]
         if morph != nil { morph = nil }
+        if abGlide != nil { abGlide = nil }
     }
 
     // MARK: - Jeu live
 
-    /// Morphing en cours : vers la mémoire `slot`, sur `cycles` cycles.
+    /// Fondu vers une mémoire (TRANSITION ≠ NET) : le pattern courant se mélange
+    /// à la mémoire `slot` pendant `cycles` cycles, puis la charge.
     struct MorphState: Equatable {
         var slot: Int
         var cycles: Int
@@ -249,31 +252,62 @@ final class AppModel: ObservableObject {
         var repeat_ = 0
     }
 
+    /// Glissé automatique du crossfader A ↔ B : vers `to` (0 = A, 1 = B), un cran par cycle.
+    struct ABGlide: Equatable {
+        var to: Double
+        var perCycle: Double
+    }
+
     /// Auto-évolution : une variation tous les N cycles (0 = off).
     @Published var evolveEvery: Int = 0
     @Published var autoAdvance = false
     @Published var advanceEvery: Int = 4
     @Published var morph: MorphState?
-    @Published var morphTargetSlot = 1
-    @Published var morphCycles = 8
+    /// Transition au clic sur une mémoire pendant la lecture : 0 = nette, sinon fondu sur N cycles.
+    @Published var transitionCycles = 0
     @Published var song = SongState()
     @Published private(set) var cycleCount = 0
-    @Published var activeAB: Character?
+    /// Bouton ENREGISTRER : le prochain clic sur une mémoire, A ou B y range le pattern courant.
+    @Published var storeArmed = false
+    /// Mémoire d'où vient le pattern courant (pour signaler qu'il a été modifié depuis).
+    @Published var memBase: Int?
+    /// Crossfader A ↔ B : 0 = A, 1 = B, entre les deux = mélange.
+    @Published private(set) var abMix: Double = 0
+    @Published var abGlide: ABGlide?
+    @Published var abGlideCycles = 8
 
     private var deferPlayerUpdate = false
 
-    /// Entrée de rendu pour le lecteur : la session + le morph en cours.
+    /// Entrée de rendu pour le lecteur : la session + le fondu en cours
+    /// (vers une mémoire, ou crossfader A ↔ B).
     func liveInput() -> RenderInput {
         var input = session.renderInput()
         input.fill = fill
-        if let m = morph, let target = session.slots[m.slot] {
-            input.morph = MorphTarget(voices: target.voices, progress: m.progress)
+        var target: (voices: [Voice], progress: Double)?
+        if let m = morph, let t = session.slots[m.slot] {
+            target = (t.voices, m.progress)
+        } else if let p = abFadePosition, let b = session.slotB {
+            target = (b.voices, p)
+        }
+        if let target {
+            let aligned = MorphTarget.align(source: input.voices, target: target.voices)
+            input.voices = aligned.voices
+            input.morph = MorphTarget(voices: aligned.targets, progress: target.progress)
         }
         return input
     }
 
+    /// Relance le rendu (lecteur + piano-roll) après un changement qui n'est pas
+    /// dans la session (fondu, crossfader).
+    private func liveChanged() {
+        let input = liveInput()
+        if player.isRunning && !deferPlayerUpdate { player.update(input) }
+        preview = Renderer.render(input, numSteps: session.params.steps,
+                                  rng: Dice(seedString: session.lastSeed.isEmpty ? "0" : session.lastSeed))
+    }
+
     /// Appelé un peu avant chaque fin de cycle : applique les automatismes
-    /// (Song, avance auto, morph, évolution) pour le cycle `next`.
+    /// (Song, avance auto, fondu, glissé A ↔ B, évolution) pour le cycle `next`.
     private func cycleWillEnd(next: Int) {
         guard isPlaying else { return }
         deferPlayerUpdate = true
@@ -287,25 +321,40 @@ final class AppModel: ObservableObject {
                 if song.repeat_ >= chain.parts[min(song.part, chain.parts.count - 1)].repeats {
                     song.part = (song.part + 1) % chain.parts.count
                     song.repeat_ = 0
-                    session.loadSlot(chain.parts[song.part].slot)
+                    let slot = chain.parts[song.part].slot
+                    if session.slots[slot] != nil { session.loadSlot(slot); memBase = slot }
                 }
             }
         } else if autoAdvance && advanceEvery > 0 && cycleCount % advanceEvery == 0 {
-            if let i = session.advanceSlot(rng: rng) { status = "Mémoire \(i + 1)" }
+            if let i = session.advanceSlot(rng: rng) { memBase = i; status = "AUTO : mémoire \(i + 1)" }
         }
 
         if var m = morph {
             m.progress = min(1, m.progress + 1 / Double(max(1, m.cycles)))
             if m.progress >= 1 {
-                session.loadSlot(m.slot)
                 morph = nil
-                status = "Morph terminé : mémoire \(m.slot + 1)"
+                session.loadSlot(m.slot)
+                memBase = m.slot
+                status = "Fondu terminé : mémoire \(m.slot + 1)"
             } else {
                 morph = m
             }
         }
 
-        if evolveEvery > 0 && cycleCount % evolveEvery == 0 && morph == nil {
+        if let g = abGlide {
+            if let p = abPosition {
+                let n = g.to > p ? min(g.to, p + g.perCycle) : max(g.to, p - g.perCycle)
+                setABMix(n, gliding: true)
+                if abs(n - g.to) < 0.001 {
+                    abGlide = nil
+                    status = "Glissé terminé : \(g.to == 1 ? "B" : "A")"
+                }
+            } else {
+                abGlide = nil   // le pattern n'est plus A / B : on arrête
+            }
+        }
+
+        if evolveEvery > 0 && cycleCount % evolveEvery == 0 && morph == nil && abFadePosition == nil {
             session.varyAll()
         }
 
@@ -313,16 +362,67 @@ final class AppModel: ObservableObject {
         player.queue(liveInput(), forCycle: next)
     }
 
-    func toggleMorph() {
-        if morph != nil { morph = nil; status = "Morph annulé."; return }
-        guard session.slots[morphTargetSlot] != nil else {
-            status = "Mémoire \(morphTargetSlot + 1) vide : rien vers quoi morpher."
+    // MARK: Mémoires 1…8
+
+    /// Clic sur une mémoire : l'enregistre (ENREGISTRER armé ou case vide), sinon la joue.
+    func memoryTapped(_ i: Int, store: Bool = false) {
+        if store || storeArmed || session.slots[i] == nil { storeMemory(i) } else { recallMemory(i) }
+    }
+
+    func storeMemory(_ i: Int) {
+        storeArmed = false
+        guard !session.voices.isEmpty else { return }
+        session.saveSlot(i)
+        memBase = i
+        status = "Pattern courant enregistré dans la mémoire \(i + 1)."
+    }
+
+    /// Joue une mémoire : bascule nette, ou fondu si TRANSITION > 0 et lecture en cours.
+    func recallMemory(_ i: Int, now: Bool = false) {
+        guard session.slots[i] != nil else {
+            status = "Mémoire \(i + 1) vide."
             return
         }
-        morph = MorphState(slot: morphTargetSlot, cycles: morphCycles, progress: 0)
-        status = "Morph vers la mémoire \(morphTargetSlot + 1) en \(morphCycles) cycles"
-        if player.isRunning { player.update(liveInput()) }
+        abGlide = nil
+        if !now && transitionCycles > 0 && isPlaying && !session.isSamePattern(session.slots[i]) {
+            abMix = 0
+            morph = MorphState(slot: i, cycles: transitionCycles, progress: 0)
+            status = "Fondu vers la mémoire \(i + 1) en \(transitionCycles) cycles"
+            liveChanged()
+        } else {
+            morph = nil
+            session.loadSlot(i)
+            memBase = i
+            status = "Mémoire \(i + 1)."
+            liveChanged()
+        }
     }
+
+    func cancelFade() {
+        guard morph != nil || abGlide != nil else { return }
+        morph = nil
+        abGlide = nil
+        status = "Fondu arrêté."
+        liveChanged()
+    }
+
+    func clearMemory(_ i: Int) {
+        if morph?.slot == i { morph = nil }
+        if memBase == i { memBase = nil }
+        session.clearSlot(i)
+        status = "Mémoire \(i + 1) vidée."
+    }
+
+    func setWeight(_ i: Int, _ w: Int) {
+        session.slotWeights[i] = max(1, min(9, w))
+    }
+
+    /// Mémoire dont le pattern courant est la copie exacte (la première).
+    var playingMemory: Int? {
+        session.slots.indices.first { session.isSamePattern(session.slots[$0]) }
+    }
+
+    // MARK: Song
 
     func beginSong() {
         let chain = SongChain.parse(song.text)
@@ -333,7 +433,7 @@ final class AppModel: ObservableObject {
         }
         song.part = 0
         song.repeat_ = 0
-        if session.slots[first.slot] != nil { session.loadSlot(first.slot) }
+        if session.slots[first.slot] != nil { session.loadSlot(first.slot); memBase = first.slot }
         status = "Song : \(chain.description)"
     }
 
@@ -342,15 +442,94 @@ final class AppModel: ObservableObject {
         if song.on { autoAdvance = false; beginSong() }
     }
 
+    // MARK: A ↔ B (crossfader)
+
+    /// Position du crossfader quand le pattern courant est A et qu'un mélange est en cours.
+    var abFadePosition: Double? {
+        guard abMix > 0, abMix < 1, session.slotB != nil, session.isSamePattern(session.slotA) else { return nil }
+        return abMix
+    }
+
+    /// Position affichée du crossfader ; nil = le pattern courant n'est ni A ni B.
+    var abPosition: Double? {
+        if let p = abFadePosition { return p }
+        if session.isSamePattern(session.slotB) { return 1 }
+        if session.isSamePattern(session.slotA) { return 0 }
+        return nil
+    }
+
+    var abReady: Bool { session.slotA != nil && session.slotB != nil }
+
+    /// Clic sur A ou B : l'enregistre (ENREGISTRER armé ou case vide), sinon y va.
+    func abTapped(_ b: Bool, store: Bool = false) {
+        let filled = (b ? session.slotB : session.slotA) != nil
+        if store || storeArmed || !filled { storeAB(b) } else if abReady { setABMix(b ? 1 : 0) } else { loadAB(b) }
+    }
+
     func storeAB(_ b: Bool) {
+        storeArmed = false
+        guard !session.voices.isEmpty else { return }
         session.storeAB(b)
-        activeAB = b ? "B" : "A"
-        status = "Pattern mémorisé en \(b ? "B" : "A")."
+        abGlide = nil
+        abMix = b ? 1 : 0
+        status = "Pattern courant enregistré en \(b ? "B" : "A")."
+        liveChanged()
     }
 
     func loadAB(_ b: Bool) {
-        if session.loadAB(b) { activeAB = b ? "B" : "A"; status = "Pattern \(b ? "B" : "A")." }
-        else { status = "\(b ? "B" : "A") est vide (⌥ clic pour mémoriser)." }
+        if session.loadAB(b) {
+            abMix = b ? 1 : 0
+            memBase = nil
+            status = "Pattern \(b ? "B" : "A")."
+        } else {
+            status = "\(b ? "B" : "A") est vide."
+        }
+    }
+
+    /// Place le crossfader : 0 = A, 1 = B. Entre les deux, on joue A mélangé à B.
+    func setABMix(_ v: Double, gliding: Bool = false) {
+        guard abReady else {
+            status = "Enregistre un pattern en A et un autre en B pour fondre de l'un à l'autre."
+            return
+        }
+        if !gliding { abGlide = nil }
+        morph = nil
+        let v = v < 0.02 ? 0 : (v > 0.98 ? 1 : v)
+        abMix = v
+        memBase = nil
+        if v == 1 {
+            if !session.isSamePattern(session.slotB) { session.loadAB(true) }
+        } else if !session.isSamePattern(session.slotA) {
+            session.loadAB(false)
+        }
+        liveChanged()
+    }
+
+    /// GLISSER : le crossfader part vers l'autre côté, un cran par cycle.
+    func toggleGlide() {
+        if abGlide != nil { abGlide = nil; status = "Glissé arrêté."; return }
+        guard abReady else { setABMix(0); return }
+        guard isPlaying else {
+            status = "Lance la lecture : le glissé avance à chaque cycle."
+            return
+        }
+        if abPosition == nil { setABMix(0) }
+        let to: Double = (abPosition ?? 0) >= 0.5 ? 0 : 1
+        abGlide = ABGlide(to: to, perCycle: 1 / Double(max(1, abGlideCycles)))
+        status = "Glissé vers \(to == 1 ? "B" : "A") en \(abGlideCycles) cycles"
+    }
+
+    func clearAB(_ b: Bool) {
+        abGlide = nil
+        session.clearAB(b)
+        status = "\(b ? "B" : "A") vidé."
+    }
+
+    func swapAB() {
+        abGlide = nil
+        session.swapAB()
+        abMix = abPosition ?? 0
+        status = "A et B échangés."
     }
 
     // MARK: Tap tempo
@@ -594,6 +773,8 @@ final class AppModel: ObservableObject {
         do {
             let file = try JSONDecoder().decode(SessionFile.self, from: Data(contentsOf: url))
             file.apply(to: &session)
+            memBase = nil
+            abMix = 0
             status = "Session ouverte : \(url.lastPathComponent) (\(file.bangVersion))"
         } catch {
             status = "Fichier illisible : \(error.localizedDescription)"

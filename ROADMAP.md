@@ -122,6 +122,7 @@ Releases `macos-v1.0.0` → `macos-v1.3.0` (la dernière est la « Latest » du 
 - [x] App SwiftUI : grille DNA, piano-roll, lecture temps réel (CoreMIDI + port virtuel « BANG! »), synthé GM intégré, interface qui suit la taille de la fenêtre
 - [x] Kits batterie **808 / 909** recréés par synthèse ; export **.wav** en boucle parfaite (nom `preset-variation-date`)
 - [x] Jeu live : synchro MIDI clock, tap, évolution auto, A/B, mémoires auto pondérées, morph, mode Song, LFO par voix
+- [x] Mémoires et A ↔ B lisibles : bouton ENREGISTRER, actions en clic droit (vider, copier, échanger), case modifiée signalée, fondu au clic sur une mémoire (TRANSITION), **crossfader A ↔ B** avec GLISSER ; fondus appariés par nom de voix
 - [x] Édition fine : lanes VÉL / PROB, longueur (polymétrie), décalage, Thin, note de sortie, p-locks visibles
 - [x] Connexions : OSC bidirectionnel, Ableton (AbletonOSC), Strudel, `.mid` par voix, gabarit TouchOSC, MIDI Learn, panneaux NTS-1 / MicroFreak
 - [x] CC NTS-1 / MicroFreak vérifiés sur les tableaux officiels — corrigés aussi côté Python

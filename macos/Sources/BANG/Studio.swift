@@ -179,7 +179,11 @@ final class Studio: ObservableObject {
                 if (n ?? 1) != 0 { model.session.muted.insert(i) } else { model.session.muted.remove(i) }
             }
         case "slot" where parts.count >= 3:
-            if let k = Int(parts[2]), (1...8).contains(k) { model.session.loadSlot(k - 1) }
+            if let k = Int(parts[2]), (1...8).contains(k) { model.recallMemory(k - 1) }
+        case "ab":
+            model.setABMix((n ?? 0).clamped(0, 1))
+        case "glide":
+            model.toggleGlide()
         case "evolve":
             model.evolveEvery = Int((n ?? 0).clamped(0, 64))
         case "fill":

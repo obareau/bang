@@ -306,5 +306,43 @@ for kit in [DrumKit.tr808, .tr909] {
     check(ok, "\(kit.short) : " + line.joined(separator: " · "))
 }
 
+print("Mémoires et A ↔ B")
+do {
+    // Fondu apparié par nom de voix : Kick ↔ Kick, la caisse s'éteint, le HiHat monte.
+    let src = [Voice(38, "x---", "drum"), Voice(36, "x---", "drum")]
+    let dst = [Voice(36, "--x-", "drum"), Voice(42, "xxxx", "drum")]
+    let al = MorphTarget.align(source: src, target: dst)
+    check(al.voices.map(\.note) == [38, 36, 42] && al.targets.map(\.note) == [38, 36, 42]
+          && al.targets[0].dna == "-" && al.voices[2].dna == "----",
+          "appariement par nom : Kick sur Kick, voix en trop éteinte, voix nouvelle ajoutée muette")
+    var p = GenParams(); p.steps = 4
+    func notes(_ prog: Double) -> [Int: [Int]] {
+        var inp = RenderInput(voices: al.voices, params: p)
+        inp.morph = MorphTarget(voices: al.targets, progress: prog)
+        let ev = Renderer.render(inp, numSteps: 4, rng: Dice(seed: 3)).filter { $0.kind == .noteOn }
+        return Dictionary(grouping: ev, by: \.data1).mapValues { $0.map { $0.tick / 120 }.sorted() }
+    }
+    let a = notes(0), b = notes(1)
+    check(a[36] == [0] && a[38] == [0] && a[42] == nil, "fondu à 0 % : le pattern de départ seul")
+    check(b[36] == [2] && b[38] == nil && b[42] == [0, 1, 2, 3], "fondu à 100 % : la cible seule (Kick déplacé, HiHat apparu)")
+
+    var s = BangSession()
+    s.voices = [Voice(36, "x---", "drum")]
+    s.saveSlot(0)
+    s.params.bpm += 7
+    check(s.isSamePattern(s.slots[0]), "changer le tempo ne fait pas quitter la mémoire")
+    s.voices[0].dna = "x-x-"
+    check(!s.isSamePattern(s.slots[0]), "modifier une cellule, si")
+    s.storeAB(false); s.voices[0].dna = "----"; s.storeAB(true)
+    s.swapAB()
+    check(s.slotA?.voices[0].dna == "----" && s.slotB?.voices[0].dna == "x-x-", "échanger A et B")
+    s.copySlot(0, toAB: true)
+    s.copyAB(false, toSlot: 5)
+    check(s.slotB?.voices[0].dna == "x---" && s.slots[5]?.voices[0].dna == "----", "copier mémoire → B et A → mémoire 6")
+    s.slotWeights[0] = 5
+    s.clearSlot(0); s.clearAB(true)
+    check(s.slots[0] == nil && s.slotWeights[0] == 1 && s.slotB == nil, "vider une mémoire (poids remis à 1) et B")
+}
+
 print(failures == 0 ? "\n✓ tout vert" : "\n✗ \(failures) échec(s)")
 exit(failures == 0 ? 0 : 1)
