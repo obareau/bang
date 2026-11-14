@@ -1,6 +1,6 @@
 # BANG! — Générateur MIDI algorithmique
 
-> **App macOS native v1.2.0** · webapp Python v0.9.5-alpha · Dark Umbrae / Robōtariis
+> **App macOS native v1.3.0** · webapp Python v0.9.5-alpha · Dark Umbrae / Robōtariis
 
 BANG! génère des patterns MIDI algorithmiques et les envoie partout — export `.mid` et `.wav`, glisser-déposer vers Ableton, MIDI vers le matériel, OSC vers SuperCollider/TouchOSC/Max. Le workflow est clair : **Générer → Écouter → Ajuster → Exporter / Jouer**.
 
