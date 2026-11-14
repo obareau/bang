@@ -135,10 +135,14 @@ def t_smoke():
     cat = "SMOKE"
     core_200 = ["/", "/live", "/params/live", "/pattern", "/archive", "/grooves",
                 "/presets", "/ksp/presets", "/midi/ports", "/files", "/doc",
-                "/setup", "/session/export", "/next-filename", "/pianoroll/live"]
+                "/setup", "/session/export", "/next-filename"]
     for p in core_200:
         st, _ = GET(p)
         ok(cat, f"GET {p}", st == 200, f"status={st}")
+    # /pianoroll/live répond 204 tant qu'aucun pattern n'est en mémoire (webapp neuf) :
+    # c'est voulu, pas une panne.
+    st, _ = GET("/pianoroll/live")
+    ok(cat, "GET /pianoroll/live", st in (200, 204), f"status={st}")
     # endpoints toleres < 500 (peuvent 404/400 selon etat)
     soft = ["/browse", "/osc/log", "/export/strudel", "/touchosc", "/touchosc/minimal",
             "/ableton/sync_bpm", "/morph/prepare"]

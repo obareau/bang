@@ -26,6 +26,12 @@ public struct MarkovChain: Sendable {
         return seq
     }
 
+    /// Note suivante tirée depuis `note` (inchangée si elle n'est pas dans la chaîne).
+    public func next(after note: Int, rng: Dice) -> Int {
+        guard let i = notes.firstIndex(of: note) else { return note }
+        return notes[rng.weighted(Array(notes.indices), weights[i])]
+    }
+
     /// Mélange avec une matrice uniforme selon la gravité (pattern_lib.markov_from_gravity).
     public func withGravity(_ gravity: Double) -> MarkovChain {
         if gravity >= 0.98 { return self }

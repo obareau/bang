@@ -20,6 +20,11 @@ public struct BangSession: Sendable {
     public var weather: Weather?
     public var lastSeed = ""
     public var currentPreset = ""
+    public var currentKSPPreset = ""
+    /// Polyphonie max (0 = illimitée), comme `max_poly` du webapp.
+    public var maxPoly = 0
+    /// Interpolation des p-locks entre deux valeurs définies.
+    public var plockInterp: PLockInterpolation = .off
     public var history: [Snapshot] = []
     public var slots: [Snapshot?] = Array(repeating: nil, count: 8)
     public var currentSlot = 0
@@ -146,7 +151,7 @@ public struct BangSession: Sendable {
     /// Change la longueur d'une voix (polymétrie) et la mémorise pour les
     /// prochaines générations. 0 = longueur naturelle du mode.
     public mutating func setLength(_ i: Int, _ n: Int) {
-        guard voices.indices.contains(i), !voices[i].isCC, !voices[i].isBabka else { return }
+        guard voices.indices.contains(i), !voices[i].isCC, !voices[i].isBabka, !locked.contains(i) else { return }
         updateSettings(i) { $0.length = n > 0 ? n : nil }
         if n > 0 && voices[i].dna.count != n {
             pushHistory()
@@ -176,6 +181,69 @@ public struct BangSession: Sendable {
 
     /// Mapping de notes d'une boîte à rythme : appliqué à la sortie (rendu),
     /// les voix gardent leur note GM d'origine donc leur nom.
+    /// Mapping de notes nommé (preset intégré ou personnel).
+    public mutating func applyDrumMap(_ name: String, _ map: [String: Int]) {
+        noteRemap = map
+        currentPreset = name
+    }
+
+    /// Preset d'harmonie (KSP) : tonique, gamme, gravité et accords des pistes KSP.
+    public mutating func applyKSP(_ name: String, _ preset: KSPPreset) {
+        params.root = preset.root
+        params.scale = preset.scale
+        params.gravity = preset.gravity.clamped(0, 1)
+        for (label, chord) in preset.chords where Chords.all.contains(where: { $0.id == chord }) {
+            settings[label, default: VoiceSettings()].chord = chord
+        }
+        currentKSPPreset = name
+    }
+
+    /// Harmonie courante, pour l'enregistrer comme preset KSP.
+    public var currentKSP: KSPPreset {
+        KSPPreset(root: params.root, scale: params.scale, gravity: params.gravity,
+                  chords: settings.filter { $0.key.hasPrefix("KSP") && $0.value.chord != "mono" }.mapValues(\.chord))
+    }
+
+    // MARK: - Pistes CC (p-locks)
+
+    /// Ajoute une piste CC vide à une voix (gardée d'une génération à l'autre).
+    public mutating func addCCLane(_ i: Int, cc: Int, name: String) {
+        guard voices.indices.contains(i), !voices[i].isCC else { return }
+        let n = max(1, voices[i].isBabka ? params.steps : max(voices[i].dna.count, params.steps))
+        updateSettings(i) { s in
+            if !s.ccLanes.contains(where: { $0.cc == cc }) {
+                s.ccLanes.append(PLock(cc: cc, name: name, style: "manuel", values: Array(repeating: nil, count: n)))
+            }
+        }
+    }
+
+    public mutating func removeCCLane(_ i: Int, cc: Int) {
+        updateSettings(i) { $0.ccLanes.removeAll { $0.cc == cc } }
+    }
+
+    /// Tirage aléatoire borné des p-locks d'une voix (pistes générées et
+    /// ajoutées) : chaque step reçoit une valeur dans [lo, hi] avec la probabilité `density`.
+    public mutating func randomizePlocks(_ i: Int, density: Double, lo: Int, hi: Int, rng: Dice) {
+        guard voices.indices.contains(i) else { return }
+        let a = min(lo, hi), b = max(lo, hi)
+        func roll(_ pl: PLock) -> PLock {
+            var out = pl
+            out.values = pl.values.indices.map { _ in rng.random() < density ? rng.int(a, b) : nil }
+            return out
+        }
+        pushHistory()
+        if i < plocks.count { plocks[i] = plocks[i].map(roll) }
+        updateSettings(i) { $0.ccLanes = $0.ccLanes.map(roll) }
+    }
+
+    public mutating func clearPlocks(_ i: Int) {
+        guard voices.indices.contains(i) else { return }
+        pushHistory()
+        func clear(_ pl: PLock) -> PLock { var o = pl; o.values = o.values.map { _ in nil }; return o }
+        if i < plocks.count { plocks[i] = plocks[i].map(clear) }
+        updateSettings(i) { $0.ccLanes = $0.ccLanes.map(clear) }
+    }
+
     public mutating func applyDrumPreset(_ name: String) {
         guard let map = Presets.drumMachines.first(where: { $0.name == name })?.map else { return }
         noteRemap = map
@@ -228,8 +296,11 @@ public struct BangSession: Sendable {
     // MARK: - Rendu
 
     public func renderInput(drumChannel: Int = 9, respectMute: Bool = true) -> RenderInput {
-        RenderInput(voices: voices, params: params, settings: settings, plocks: plocks, weather: weather,
-                    drumChannel: drumChannel, noteRemap: noteRemap,
-                    audible: respectMute ? voices.indices.map(isAudible) : [])
+        var input = RenderInput(voices: voices, params: params, settings: settings, plocks: plocks, weather: weather,
+                                drumChannel: drumChannel, noteRemap: noteRemap,
+                                audible: respectMute ? voices.indices.map(isAudible) : [])
+        input.maxPoly = maxPoly
+        input.plockInterp = plockInterp
+        return input
     }
 }

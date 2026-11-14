@@ -35,6 +35,15 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
   - **note** de sortie (noms de batterie General MIDI ou chromatique).
 
   Les p-locks des modes synthé s'affichent dans le **piano-roll** (bande du bas, en orange pour la voix sélectionnée).
+- **Ratchets, conditions, p-locks** (détail d'une voix) :
+  - lane **RATCH** (1 à 8 répétitions par step) avec **DECAY** (roulement qui s'éteint) et **VARIATION** (vélocité qui dérive, hauteur qui glisse sur la chaîne de Markov) ;
+  - **CONDITION** façon Elektron : `1:2`, `2:4`… (un cycle sur N), 1er cycle, sauf 1er, **FILL**, sauf FILL ;
+  - **P-LOCKS** : pistes CC générées (modes synthé) ou ajoutées à la main (**+ CC**, gardées d'une génération à l'autre), tirage aléatoire **borné** (densité, min, max), effacement ; interpolation **linéaire / cosinus** entre les valeurs (VÉLOCITÉ & TIMING → P-LOCKS) ;
+  - **SORTIE** : un appareil MIDI propre à la voix (multi-port) ; le port virtuel « BANG! » reçoit toujours tout.
+- **Groupes** : mute / solo collectif de la batterie, des voix mélodiques ou des voix synthés (barre GROUPES en tête de la liste)
+- **Transposition** globale des voix mélodiques (±24 demi-tons, ligne TRANSPO), en direct
+- **Réglages avancés** (VÉLOCITÉ & TIMING) : **polyphonie max** (N voix par step), **entropie temporelle** (jitter tiré de l'horloge système, comme le webapp), interpolation des p-locks
+- **Presets** : 10 machines intégrées + **mappings personnels** (enregistrer / supprimer) ; **Harmonie (KSP)** : 5 presets (Dark Penta, Dorian Jazz, Phrygian Noise, Lydian Dream, Blues Minor) + harmonies personnelles. Stockés dans `~/Library/Application Support/BANG/presets.json`
 - **Lecture** (Espace) : horloge sur un thread temps réel. Chaque cycle est re-tiré, donc les `?`, le Markov et les drops varient d'un tour à l'autre ; une édition s'entend tout de suite
 - **Batterie électro** : kits **808** et **909** recréés par synthèse analogique (oscillateurs, bruit, filtres, sans échantillons), ou le kit General MIDI. Choix dans KIT (section Presets) ou dans le menu des sorties ; ils jouent le canal 10
 - **Jeu live** (section LIVE) :
@@ -54,9 +63,11 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
   - **MIDI Learn** : décompte de 2 temps, puis le rythme joué sur des pads devient la DNA de la voix (aussi dans le menu ⋯ de chaque voix) ;
   - **Panneaux NTS-1 et MicroFreak** : potentiomètres CC en direct, avec les numéros officiels (tableau MIDI Korg, documentation Arturia).
 - **Sorties** : synthé GM interne, port virtuel **« BANG! »** (à choisir comme entrée dans Ableton, Logic ou SuperCollider) et n'importe quelle destination CoreMIDI
-- **Export .mid** (⌘E) type 1 : une piste par voix, des pistes CC drone, la seed en méta. On peut aussi **glisser** le .mid vers un DAW ou le Finder
+- **Export .mid** (⌘E) : type 1 (une piste par voix, pistes CC drone) ou type 0 (une seule piste), la seed en méta. On peut aussi **glisser** le .mid vers un DAW ou le Finder
+- **Export morceau** (⌥⌘E) : le macro-arrangement du webapp — intro ×4, transition, couplet ×8, break, couplet 2 ×4, climax ×4, break 2 ×2, outro ×2, fin ×4 (modes Ambient / Noise, rampes de chaos, morphs entre variations), soit 944 steps. Un `.mid` avec une piste par instrument et un **marqueur par section**, plus en option un `.mid` par section (comme le webapp) et le rendu `.wav`
+- **Journal des exports** (menu Fichier) : une ligne par export dans `bang_sessions.jsonl` (seed, mode, BPM, voix…), comme le webapp
 - **Export .wav** (⇧⌘E) : rendu audio du pattern avec le synthé interne (kit GM, 808 ou 909), 1 à 16 répétitions, WAV 24 bits / 48 kHz normalisé à −1 dBFS. En **boucle parfaite** (par défaut), le fichier dure exactement le pattern et la queue des sons est repliée au début : il boucle sans couture dans un DAW ou un sampler. Sinon, rendu « one-shot » avec la queue à la fin. Nom proposé `preset-variation-date`, ex. `bassline-808-v003-2026-11-13_2150.wav` (la variation augmente à chaque nouveau pattern exporté pour ce preset)
-- **Sessions** (⌘S / ⌘O) au format JSON de `session_to_dict` : un fichier issu du webapp s'ouvre ici, et l'inverse aussi. L'état est sauvegardé automatiquement dans `~/Library/Application Support/BANG/state.json`
+- **Sessions / projets** (⌘S / ⌘O) : fichier `.bang` (ou `.json`) au format de `session_to_dict` — pattern, réglages par voix, mémoires, A/B, presets appliqués. Un fichier issu du webapp s'ouvre ici, et l'inverse aussi. L'état est sauvegardé automatiquement dans `~/Library/Application Support/BANG/state.json`
 - **Zoom** : l'interface suit la taille de la fenêtre (1360×820 = 100 %) ; ⌘+ / ⌘− / ⌘0 ajustent en plus
 - 16 grooves, 10 mappings de boîtes à rythme, 8 mémoires, météo de Scaër (Open-Meteo)
 
@@ -72,4 +83,4 @@ Il suffit des Command Line Tools (Swift 6), Xcode n'est pas nécessaire.
 cd macos && swift run bang-check /tmp/bang-mid   # auto-test du moteur + un .mid par mode
 ```
 
-Diagnostic : `BANG_SELFTEST_STUDIO=osc|ableton|learn:<source>|cc` (avec `BANG_OSC_TX=hôte:port`, `BANG_OSC_RX=port`, `BANG_ABLETON=hôte:port`) teste les connexions ; `BANG_SELFTEST_LIVE=song|morph|sync:<source>` teste le jeu live (avec `BANG_DEBUG_CLOCK=1` pour tracer impulsions et notes) ; `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.
+Diagnostic : `BANG_SELFTEST_EXTRAS=song:<dossier>|presets|cond|fill|ports:<A>,<B>` teste le morceau, les presets, les conditions, le FILL et le multi-port ; `BANG_SELFTEST_STUDIO=osc|ableton|learn:<source>|cc` (avec `BANG_OSC_TX=hôte:port`, `BANG_OSC_RX=port`, `BANG_ABLETON=hôte:port`) teste les connexions ; `BANG_SELFTEST_LIVE=song|morph|sync:<source>` teste le jeu live (avec `BANG_DEBUG_CLOCK=1` pour tracer impulsions et notes) ; `BANG_SELFTEST_WAV_LOOP=/dossier` compare une boucle parfaite au rendu continu ; `BANG_SELFTEST_WAV=/dossier` exporte le pattern en WAV avec chaque kit (`BANG_SELFTEST_WAV_GRID=1` : pattern de contrôle pour vérifier le calage) ; `BANG_SELFTEST_AUDIO=1` mesure le niveau de sortie avec chaque kit ; `BANG_SELFTEST_MODES=1` enchaîne les 14 modes en lecture ; `BANG_SNAPSHOT=/tmp/shot.png BANG_SNAPSHOT_PLAY=1 BANG_SNAPSHOT_QUIT=1 macos/build/BANG.app/Contents/MacOS/BANG` lance la lecture puis enregistre une capture de la fenêtre, sans permission d'enregistrement d'écran.

@@ -69,11 +69,16 @@ public struct GenParams: Codable, Equatable, Sendable {
     public var velCurve: Double = 1.0
     public var velHumanize: Int = 0
     public var microtiming: Double = 1.0
+    /// Entropie temporelle : décalage supplémentaire tiré de l'horloge système
+    /// sur les notes à jitter (comme `temporal` du webapp) — chaque rendu diffère.
+    public var temporal: Bool = false
+    /// Transposition globale des voix mélodiques, en demi-tons (−24…+24).
+    public var transpose: Int = 0
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
-        case mode, chaos, bpm, steps, gravity, root, scale, seed, swing, microtiming
+        case mode, chaos, bpm, steps, gravity, root, scale, seed, swing, microtiming, temporal, transpose
         case ccDepth = "cc_depth", velFloor = "vel_floor", velCeiling = "vel_ceiling"
         case velCurve = "vel_curve", velHumanize = "vel_humanize"
     }
@@ -96,6 +101,8 @@ public struct GenParams: Codable, Equatable, Sendable {
         velCurve = (try? c.decode(Double.self, forKey: .velCurve)) ?? d.velCurve
         velHumanize = (try? c.decode(Int.self, forKey: .velHumanize)) ?? d.velHumanize
         microtiming = (try? c.decode(Double.self, forKey: .microtiming)) ?? d.microtiming
+        temporal = (try? c.decode(Bool.self, forKey: .temporal)) ?? d.temporal
+        transpose = (try? c.decode(Int.self, forKey: .transpose)) ?? d.transpose
     }
 
     /// Bornes de `read_form`.
@@ -116,6 +123,7 @@ public struct GenParams: Codable, Equatable, Sendable {
         p.velCurve = velCurve.clamped(0.1, 4)
         p.velHumanize = min(max(velHumanize, 0), 40)
         p.microtiming = microtiming.clamped(0, 1)
+        p.transpose = min(24, max(-24, transpose))
         p.seed = seed.trimmingCharacters(in: .whitespaces)
         return p
     }
@@ -235,6 +243,18 @@ public struct VoiceSettings: Codable, Equatable, Sendable {
     public var thin: Int = 1
     /// Longueur imposée (polymétrie), réappliquée à chaque génération. nil = naturelle.
     public var length: Int? = nil
+    /// Nombre de répétitions imposé par position DNA (1…8, 0 = celui du symbole).
+    public var ratchetLane: [Int] = []
+    /// Decay des ratchets : chaque répétition est moins forte (0 = aucun).
+    public var ratchetDecay: Double = 0
+    /// Variation des ratchets : vélocité (et hauteur, voix mélodiques) qui dérivent.
+    public var ratchetVariation: Double = 0
+    /// Condition de déclenchement façon Elektron (voir `TrigCondition`), "" = toujours.
+    public var condition: String = ""
+    /// Pistes CC ajoutées à la main (p-locks), gardées d'une génération à l'autre.
+    public var ccLanes: [PLock] = []
+    /// Destination MIDI propre à la voix (identifiant CoreMIDI), nil = sortie générale.
+    public var port: Int32? = nil
 
     public init() {}
 
@@ -247,8 +267,55 @@ public struct PLock: Codable, Equatable, Sendable {
     public var name: String
     public var style: String
     public var values: [Int?]
+
+    public init(cc: Int, name: String, style: String, values: [Int?]) {
+        self.cc = cc; self.name = name; self.style = style; self.values = values
+    }
 }
 
 extension Double {
     public func clamped(_ lo: Double, _ hi: Double) -> Double { Swift.min(Swift.max(self, lo), hi) }
+}
+
+/// Conditions de déclenchement par voix, façon Elektron :
+/// « 1:2 » = joue au 1er cycle sur 2, « first » = seulement au 1er cycle,
+/// « !first » = jamais au 1er, « fill » = seulement en mode FILL, « !fill » = jamais en FILL.
+public enum TrigCondition {
+    public static let all: [String] = ["", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4",
+                                       "first", "!first", "fill", "!fill"]
+
+    public static func label(_ c: String) -> String {
+        switch c {
+        case "": return "toujours"
+        case "first": return "1er cycle"
+        case "!first": return "sauf 1er"
+        case "fill": return "FILL"
+        case "!fill": return "sauf FILL"
+        default: return c
+        }
+    }
+
+    /// `cycle` compte à partir de 0 depuis le lancement de la lecture.
+    public static func passes(_ c: String, cycle: Int, fill: Bool) -> Bool {
+        switch c {
+        case "": return true
+        case "first": return cycle == 0
+        case "!first": return cycle != 0
+        case "fill": return fill
+        case "!fill": return !fill
+        default:
+            let parts = c.split(separator: ":").compactMap { Int($0) }
+            guard parts.count == 2, parts[1] > 0, parts[0] >= 1 else { return true }
+            return cycle % parts[1] == parts[0] - 1
+        }
+    }
+}
+
+/// Interpolation des p-locks entre deux valeurs définies (comme p_locks.py).
+public enum PLockInterpolation: String, Codable, CaseIterable, Sendable {
+    case off, linear, cosine
+
+    public var label: String {
+        switch self { case .off: return "off"; case .linear: return "linéaire"; case .cosine: return "cosinus" }
+    }
 }

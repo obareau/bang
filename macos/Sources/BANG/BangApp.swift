@@ -226,6 +226,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     print("STUDIO REC")
                     while st.learning { try? await Task.sleep(nanoseconds: 20_000_000) }
                     print("STUDIO dna : \(m.session.voices[0].dna)")
+                } else if what == "oscretry" {
+                    // Le port est occupé au lancement : l'erreur doit s'afficher,
+                    // puis une réactivation (port libéré entre-temps) doit réussir.
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    print("STUDIO erreur au lancement : \(st.oscError ?? "aucune")")
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)   // le script libère le port
+                    st.oscRxOn = false
+                    st.oscRxOn = true
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    print("STUDIO erreur après réactivation : \(st.oscError ?? "aucune")")
+                    print("STUDIO PRET")
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    print("STUDIO messages reçus : \(st.osc.log.filter(\.incoming).map(\.text))")
                 } else if what == "cc" {
                     st.sendCC(43, 100, channel: st.nts1Channel, key: "t1")
                     st.sendCC(23, 90, channel: st.mfChannel, key: "t2")
@@ -236,6 +249,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 m.stop()
                 try? await Task.sleep(nanoseconds: 300_000_000)
+                NSApp.terminate(nil)
+            }
+        }
+        // Diagnostics des fonctions ajoutées (session sauvegardée puis restaurée) :
+        //  song:<dossier>   → morceau complet (.mid + sections + .wav) dans <dossier>
+        //  presets          → enregistrer / relire / appliquer / supprimer un preset machine et KSP
+        //  cond | fill      → lecture : condition 1:2 sur le kick / FILL activé à mi-parcours
+        //  ports:<A>,<B>    → sortie générale A, voix 1 routée vers B
+        if let what = env["BANG_SELFTEST_EXTRAS"] {
+            setvbuf(stdout, nil, _IOLBF, 0)
+            Task { @MainActor in
+                guard let m = self.model else { return }
+                let saved = m.session
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                if what.hasPrefix("song:") {
+                    let dir = URL(fileURLWithPath: String(what.dropFirst(5)))
+                    m.session.params.chaos = 0.6; m.session.params.bpm = 120
+                    let msg = await withCheckedContinuation { c in
+                        m.writeSong(to: dir.appendingPathComponent("song.mid"), tag: "test", sections: true, wav: true) { c.resume(returning: $0) }
+                    }
+                    print("EXTRAS \(msg)")
+                } else if what == "presets" {
+                    m.session.applyDrumPreset("TR-909")
+                    m.session.noteRemap["Kick"] = 35
+                    let ok1 = m.storeDrumPreset("Test BANG")
+                    m.session.params.root = "F#"; m.session.params.scale = "lydian"; m.session.params.gravity = 0.42
+                    let ok2 = m.storeKSPPreset("Test Harmonie")
+                    let refused = !m.storeDrumPreset("TR-808")
+                    m.customDrumPresets = [:]; m.customKSPPresets = [:]
+                    m.loadPresets()   // relu depuis presets.json
+                    let relu = m.customDrumPresets["Test BANG"]?["Kick"] == 35 && m.customKSPPresets["Test Harmonie"]?.root == "F#"
+                    m.session.applyDrumPreset("GM"); m.session.params.root = "A"
+                    m.session.applyDrumMap("Test BANG", m.customDrumPresets["Test BANG"] ?? [:])
+                    m.applyKSP("Test Harmonie")
+                    let applied = m.session.noteRemap["Kick"] == 35 && m.session.params.root == "F#" && m.session.params.scale == "lydian"
+                    m.deleteDrumPreset("Test BANG"); m.deleteKSPPreset("Test Harmonie")
+                    m.customDrumPresets = [:]; m.customKSPPresets = [:]; m.loadPresets()
+                    let gone = m.customDrumPresets["Test BANG"] == nil && m.customKSPPresets["Test Harmonie"] == nil
+                    print("EXTRAS presets : enregistrés \(ok1 && ok2), nom intégré refusé \(refused), relus \(relu), appliqués \(applied), supprimés \(gone)")
+                } else if what == "cond" || what == "fill" {
+                    var s = BangSession()
+                    s.params.bpm = 240; s.params.steps = 8
+                    s.voices = [Voice(36, "x-------", "drum"), Voice(42, "x-------", "drum")]
+                    s.updateSettings(0) { $0.condition = what == "cond" ? "1:2" : "fill" }
+                    m.internalSynthOn = false
+                    m.session = s
+                    m.fill = false
+                    m.start()
+                    if what == "fill" {
+                        try? await Task.sleep(nanoseconds: 2_100_000_000)
+                        m.fill = true
+                        print("EXTRAS FILL ON")
+                        try? await Task.sleep(nanoseconds: 1_900_000_000)
+                    } else {
+                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                    }
+                    m.stop()
+                    m.fill = false
+                } else if what.hasPrefix("ports:") {
+                    let names = what.dropFirst(6).split(separator: ",").map(String.init)
+                    m.refreshDestinations()
+                    let a = m.destinations.first { $0.name == names[0] }?.id
+                    let b = m.destinations.first { $0.name == names[1] }?.id
+                    print("EXTRAS ports trouvés : \(a != nil) \(b != nil)")
+                    var s = BangSession()
+                    s.params.bpm = 240; s.params.steps = 8
+                    s.voices = [Voice(36, "x-------", "drum"), Voice(42, "x-------", "drum")]
+                    s.updateSettings(0) { $0.port = b }
+                    m.internalSynthOn = false
+                    m.destinationID = a
+                    m.session = s
+                    m.start()
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    m.stop()
+                    try? await Task.sleep(nanoseconds: 300_000_000)   // l'horloge envoie ses relâchements
+                    m.destinationID = nil
+                }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                m.session = saved
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
                 NSApp.terminate(nil)
             }
         }
@@ -312,6 +405,8 @@ struct BangApp: App {
                 Button("Enregistrer la session…") { model.saveSession() }.keyboardShortcut("s")
                 Button("Exporter en MIDI…") { model.exportMIDI() }.keyboardShortcut("e")
                 Button("Exporter en WAV…") { model.exportWAV() }.keyboardShortcut("e", modifiers: [.command, .shift])
+                Button("Exporter un morceau…") { model.exportSong() }.keyboardShortcut("e", modifiers: [.command, .option])
+                Button("Journal des exports") { model.showExportLog() }
             }
             CommandGroup(replacing: .undoRedo) {
                 Button("Annuler") { model.undo() }.keyboardShortcut("z")

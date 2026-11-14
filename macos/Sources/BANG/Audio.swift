@@ -56,9 +56,19 @@ final class MIDIOut: @unchecked Sendable {
         lock.lock(); virtualEnabled = on; lock.unlock()
     }
 
-    func send(_ status: UInt8, _ d1: UInt8, _ d2: UInt8) {
+    /// Destination CoreMIDI correspondant à un identifiant unique (port par voix).
+    static func endpoint(_ uid: MIDIUniqueID) -> MIDIEndpointRef? {
+        var obj: MIDIObjectRef = 0
+        var type: MIDIObjectType = .other
+        guard MIDIObjectFindByUniqueID(uid, &obj, &type) == noErr, type == .destination else { return nil }
+        return obj
+    }
+
+    /// `to` : destination propre à une voix (remplace la destination générale ;
+    /// le port virtuel reçoit toujours tout).
+    func send(_ status: UInt8, _ d1: UInt8, _ d2: UInt8, to specific: MIDIEndpointRef? = nil) {
         lock.lock()
-        let dest = destination, virt = virtualEnabled
+        let dest = specific ?? destination, virt = virtualEnabled
         lock.unlock()
         guard dest != 0 || virt else { return }
         // UMP MIDI 1.0 channel voice (message type 0x2, groupe 0)
@@ -282,4 +292,20 @@ final class InternalSynth: @unchecked Sendable {
         start()
         send(0x90 | Self.drumChannel, note, 110)
     }
+}
+
+/// Aiguillage des voix vers leur port MIDI dédié (multi-port). Mis à jour à
+/// chaque changement de session, lu depuis le thread de l'horloge.
+final class PortRouter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var byVoice: [Int: MIDIEndpointRef] = [:]
+
+    func update(_ map: [Int: MIDIEndpointRef]) { lock.lock(); byVoice = map; lock.unlock() }
+
+    func endpoint(for voice: Int) -> MIDIEndpointRef? {
+        lock.lock(); defer { lock.unlock() }; return byVoice[voice]
+    }
+
+    /// Toutes les destinations dédiées (pour diffuser les relâchements à l'arrêt).
+    var all: [MIDIEndpointRef] { lock.lock(); defer { lock.unlock() }; return Array(Set(byVoice.values)) }
 }

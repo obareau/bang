@@ -74,6 +74,9 @@ final class Studio: ObservableObject {
     }
 
     func start() {
+        ableton.onFailure = { [weak self] msg in
+            DispatchQueue.main.async { self?.abletonStatus = "⚠ " + msg }
+        }
         osc.onReceive = { [weak self] m in
             DispatchQueue.main.async { self?.handle(m) }
         }
@@ -162,6 +165,7 @@ final class Studio: ObservableObject {
             case "microtiming": model.session.params.microtiming = v.clamped(0, 1)
             case "cc_depth": model.session.params.ccDepth = v.clamped(0, 1)
             case "steps": model.session.params.steps = Int(v.clamped(1, 256))
+            case "transpose": model.session.params.transpose = Int(v.clamped(-24, 24))
             default: break
             }
         case "density" where parts.count >= 3 && n != nil:
@@ -178,6 +182,10 @@ final class Studio: ObservableObject {
             if let k = Int(parts[2]), (1...8).contains(k) { model.session.loadSlot(k - 1) }
         case "evolve":
             model.evolveEvery = Int((n ?? 0).clamped(0, 64))
+        case "fill":
+            model.fill = (n ?? 1) != 0
+        case "poly":
+            model.session.maxPoly = Int((n ?? 0).clamped(0, 16))
         default:
             break
         }

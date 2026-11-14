@@ -70,8 +70,14 @@ final class OSCLink: @unchecked Sendable {
                     conn.start(queue: self?.queue ?? .main)
                     self?.receive(on: conn)
                 }
-                l.stateUpdateHandler = { state in
-                    if case .failed(let e) = state { done?("port \(port) : \(e.localizedDescription)") }
+                l.stateUpdateHandler = { [weak self, weak l] state in
+                    if case .failed(let e) = state {
+                        // Port occupé, etc. : on oublie cet écouteur pour qu'une
+                        // nouvelle activation retente au lieu de rester bloquée.
+                        if let self, self.listener === l { self.listener = nil; self.rxPort = 0 }
+                        l?.cancel()
+                        done?("port \(port) : \(e.localizedDescription)")
+                    }
                     if case .ready = state { done?(nil) }
                 }
                 l.start(queue: queue)
@@ -112,6 +118,8 @@ final class AbletonLink: @unchecked Sendable {
     private var conn: NWConnection?
     private var key = ""
     private var waiting: [String: (OSCMessage) -> Void] = [:]
+    /// Échec de la liaison (ex. port local 11001 déjà pris) — appelé sur la file Ableton.
+    var onFailure: (@Sendable (String) -> Void)?
 
     private func connection(host: String, port: UInt16) -> NWConnection? {
         let k = "\(host):\(port)"
@@ -122,6 +130,13 @@ final class AbletonLink: @unchecked Sendable {
         params.allowLocalEndpointReuse = true
         params.requiredLocalEndpoint = NWEndpoint.hostPort(host: "0.0.0.0", port: 11001)
         let c = NWConnection(host: NWEndpoint.Host(host), port: p, using: params)
+        c.stateUpdateHandler = { [weak self, weak c] state in
+            guard let self, case .failed(let e) = state else { return }
+            // On oublie la liaison morte : le prochain envoi en recrée une.
+            if self.conn === c { self.conn = nil; self.key = "" }
+            c?.cancel()
+            self.onFailure?("liaison impossible (port local 11001 déjà utilisé ?) : \(e.localizedDescription)")
+        }
         c.start(queue: queue)
         conn = c
         key = k

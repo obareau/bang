@@ -40,6 +40,15 @@ struct LivePanel: View {
                 .help("Suivre l'horloge MIDI (24 ppq, Start/Stop) d'un DAW ou d'une machine")
             }
 
+            // FILL (conditions « fill » / « !fill » des voix)
+            HStack(spacing: 6 * z) {
+                label("FILL")
+                Button { model.fill.toggle() } label: { Text(model.fill ? "FILL ON" : "FILL").frame(maxWidth: .infinity) }
+                    .buttonStyle(BangButtonStyle(active: model.fill, prominent: model.fill, compact: true))
+                    .keyboardShortcut("f", modifiers: [.command, .option])
+            }
+            .help("Mode FILL : les voix réglées sur « FILL » ne jouent que pendant ce mode, « sauf FILL » se taisent (⌥⌘F)")
+
             // Auto-évolution
             HStack(spacing: 6 * z) {
                 label("ÉVOLUTION")

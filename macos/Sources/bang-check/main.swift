@@ -176,6 +176,94 @@ do {
     check(one.count < all.count && one.starts(with: Array("MThd".utf8)), "export d'une seule voix (\(one.count) octets)")
 }
 
+print("Fonctions ajoutées (parité Python + roadmap)")
+do {
+    var p = GenParams(); p.steps = 4
+    func ons(_ inp: RenderInput, _ n: Int = 4, seed: UInt64 = 1) -> [MIDIEvent] {
+        Renderer.render(inp, numSteps: n, rng: Dice(seed: seed)).filter { $0.kind == .noteOn }
+    }
+    // Polyphonie max
+    var poly = RenderInput(voices: [36, 38, 42, 48].map { Voice($0, "xxxx", "drum") }, params: p)
+    poly.maxPoly = 2
+    let perStep = Dictionary(grouping: ons(poly), by: { $0.tick / 120 }).mapValues(\.count)
+    check(perStep.values.allSatisfy { $0 == 2 } && Set(ons(poly).map(\.data1)) == [36, 38],
+          "polyphonie 2 : 2 voix par step, les premières de la liste")
+
+    // Conditions façon Elektron
+    var cs = VoiceSettings(); cs.condition = "1:2"
+    var cin = RenderInput(voices: [Voice(36, "x---", "drum")], params: p, settings: ["Kick": cs])
+    let c0 = ons(cin).count; cin.cycle = 1; let c1 = ons(cin).count; cin.cycle = 2; let c2 = ons(cin).count
+    var fs = VoiceSettings(); fs.condition = "fill"
+    var fin = RenderInput(voices: [Voice(36, "x---", "drum")], params: p, settings: ["Kick": fs])
+    let f0 = ons(fin).count; fin.fill = true; let f1 = ons(fin).count
+    check([c0, c1, c2] == [1, 0, 1] && [f0, f1] == [0, 1], "conditions : 1:2 joue 1 cycle sur 2, « fill » seulement en FILL")
+
+    // Transposition (voix mélodiques seulement)
+    var tp = p; tp.transpose = 12
+    let base = ons(RenderInput(voices: [Voice(24, "xxxx", "markov"), Voice(36, "x---", "drum")], params: p), seed: 9)
+    let up = ons(RenderInput(voices: [Voice(24, "xxxx", "markov"), Voice(36, "x---", "drum")], params: tp), seed: 9)
+    check(zip(base, up).allSatisfy { $0.voice == 0 ? $1.data1 == $0.data1 + 12 : $1.data1 == $0.data1 },
+          "transposition +12 : mélodie +12, batterie inchangée")
+
+    // Ratchet par step + decay
+    var rs = VoiceSettings(); rs.ratchetLane = [4]; rs.ratchetDecay = 0.5
+    let rat = ons(RenderInput(voices: [Voice(36, "x---", "drum")], params: p, settings: ["Kick": rs]))
+    check(rat.count == 4 && rat.map(\.tick) == [0, 30, 60, 90] && zip(rat, rat.dropFirst()).allSatisfy { $0.data2 > $1.data2 },
+          "ratchet ×4 au step 1, vélocités décroissantes (\(rat.map(\.data2)))")
+
+    // Interpolation des p-locks
+    let pl = PLock(cc: 74, name: "Cutoff", style: "manuel", values: [0, nil, nil, nil, 100, nil, nil, nil])
+    let off = Renderer.plockEvents(pl, numSteps: 8, interp: .off, channel: 0, voice: 0)
+    let lin = Renderer.plockEvents(pl, numSteps: 8, interp: .linear, channel: 0, voice: 0)
+    let cosv = Renderer.plockEvents(pl, numSteps: 8, interp: .cosine, channel: 0, voice: 0)
+    let mid = lin.first { $0.tick == 240 }?.data2, cmid = cosv.first { $0.tick == 120 }?.data2
+    check(off.count == 2 && mid == 50 && zip(lin, lin.dropFirst()).allSatisfy { $0.data2 < $1.data2 } && (cmid ?? 99) < 25 && lin.last?.data2 == 100,
+          "p-locks interpolés : linéaire 50 à mi-chemin, cosinus plus lent au départ, tenue après la fin")
+
+    // Presets KSP
+    var ks = BangSession(); ks.params.mode = .keystepPro; ks.generate()
+    ks.applyKSP("Dorian Jazz", Presets.ksp[1].preset)
+    check(ks.params.root == "D" && ks.params.scale == "dorian" && ks.settings["KSP Chord"]?.chord == "M7",
+          "preset KSP « Dorian Jazz » : D dorien, accords des pistes KSP")
+    check(ks.currentKSP.chords["KSP Lead"] == "m7", "harmonie courante relue pour l'enregistrer")
+
+    // Morceau
+    let song = SongBuilder.build(chaos: 0.6, bpm: 110, gravity: 0.7, ccDepth: 0.5, weather: nil, seed: "abc123")
+    let song2 = SongBuilder.build(chaos: 0.6, bpm: 110, gravity: 0.7, ccDepth: 0.5, weather: nil, seed: "abc123")
+    let names = song.sections.map(\.name)
+    check(song.sections.count == 30 && song.totalSteps == 944 && names.first == "01a-intro1" && names.last == "09d-fin4"
+          && song.voices.count <= 8 && song.voices.allSatisfy { $0.dna.count == 944 } && song.voices == song2.voices,
+          "morceau : 30 sections (01a-intro1 → 09d-fin4), 944 steps, \(song.voices.count) pistes, reproductible par seed")
+    let songMid = MIDIFileWriter.export(song.renderInput(), numSteps: song.totalSteps, seed: song.seed,
+                                        name: "song", markers: song.markers)
+    try? songMid.write(to: outDir.appendingPathComponent("song.mid"))
+    check(songMid.count > 2000, "morceau exporté en .mid avec marqueurs (\(songMid.count) octets)")
+
+    // Entropie temporelle : hors seed
+    var tpp = p; tpp.temporal = true
+    let tin = RenderInput(voices: [Voice(36, "░░░░", "drum")], params: tpp)
+    let runs = (0..<20).map { _ in ons(tin, seed: 5).map(\.tick) }
+    check(Set(runs.map { "\($0)" }).count > 1, "entropie temporelle : même seed, timings différents")
+
+    // P-locks aléatoires bornés + pistes CC ajoutées
+    var rp = BangSession(); rp.params.mode = .morph; rp.generate()
+    rp.addCCLane(0, cc: 74, name: "Cutoff")
+    rp.randomizePlocks(0, density: 1, lo: 40, hi: 60, rng: Dice(seed: 2))
+    let lane = rp.settings(for: 0).ccLanes.first
+    check(lane?.values.allSatisfy { ($0 ?? -1) >= 40 && ($0 ?? 999) <= 60 } == true,
+          "p-locks aléatoires bornés 40–60 sur une piste CC ajoutée")
+    rp.generate()
+    check(rp.settings(for: 0).ccLanes.first?.cc == 74, "piste CC ajoutée gardée après une nouvelle génération")
+
+    // Relecture de session
+    rp.maxPoly = 3; rp.plockInterp = .cosine
+    rp.updateSettings(0) { $0.ratchetLane = [2, 0, 3]; $0.condition = "1:4"; $0.ratchetDecay = 0.4; $0.port = 123 }
+    var back = BangSession()
+    try! JSONDecoder().decode(SessionFile.self, from: JSONEncoder().encode(SessionFile(rp))).apply(to: &back)
+    check(back.maxPoly == 3 && back.plockInterp == .cosine && back.settings(for: 0) == rp.settings(for: 0),
+          "session : polyphonie, interpolation, ratchets, condition, pistes CC et port relus")
+}
+
 print("Batterie 808 / 909 (synthèse)")
 func analyse(_ b: [Float]) -> (peak: Float, dur: Double, hz: Double, nan: Bool) {
     let peak = b.map { abs($0) }.max() ?? 0

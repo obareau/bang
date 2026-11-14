@@ -65,12 +65,18 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
       _fait — bang_session.set_voice_swing + voice_swing appliqué dans live_clock_
 - [x] **#6 Song mode** — séquencer les 8 slots SEQ dans un ordre défini (A×4 → B×2 → C×1)
       _fait — song_panel.py + SongPanel câblé dans qt_app_
-- [ ] **#7 MIDI Clock IN externe par port** — sync BPM à hardware (Zoom R8, boîte à rythme, DAW master)
-- [ ] **#8 Conditional triggers** — conditions type Elektron : every N bars / first only / fill
-- [ ] **#9 Transposition globale** — ±24 demi-tons appliqués à toutes les voix mélodiques en live
-- [ ] **#10 Multi-port MIDI** — plusieurs ports rtmidi.MidiOut en parallèle, routage port par voix
-- [ ] **#11 Voice groups** — grouper des voix (ex : "drums", "mélo") pour mute / solo collectif
-- [ ] **#12 Export projet complet** — save / restore état complet comme fichier `.bang` nommé
+- [x] **#7 MIDI Clock IN externe par port** — sync BPM à hardware (Zoom R8, boîte à rythme, DAW master)
+      _fait dans l'app macOS (`Player` + `MIDIClockIn`) : source au choix, Start / Continue / Stop, notes calées sur les impulsions_
+- [x] **#8 Conditional triggers** — conditions type Elektron : every N bars / first only / fill
+      _fait dans l'app macOS, par voix : 1:2…4:4, 1er cycle, sauf 1er, FILL, sauf FILL (bouton FILL, OSC `/bang/fill`)_
+- [x] **#9 Transposition globale** — ±24 demi-tons appliqués à toutes les voix mélodiques en live
+      _fait dans l'app macOS (ligne TRANSPO, OSC `/bang/param/transpose`)_
+- [x] **#10 Multi-port MIDI** — plusieurs ports rtmidi.MidiOut en parallèle, routage port par voix
+      _fait dans l'app macOS : SORTIE par voix (CoreMIDI), relâchements diffusés sur tous les ports à l'arrêt_
+- [x] **#11 Voice groups** — grouper des voix (ex : "drums", "mélo") pour mute / solo collectif
+      _fait dans l'app macOS : groupes automatiques Batterie / Mélodie / Synthés_
+- [x] **#12 Export projet complet** — save / restore état complet comme fichier `.bang` nommé
+      _fait dans l'app macOS : ⌘S / ⌘O en `.bang` (session JSON complète : pattern, réglages, mémoires, A/B)_
 
 
 ## Phase 7 : Hardware Synth Control
@@ -93,16 +99,19 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 
 ### Ratchet / Step repeat
 
-- [ ] **Ratchet par step** : champ "repeat count" (1-8) par step, subdivise la duree du step en N hits egaux
+- [x] **Ratchet par step** : champ "repeat count" (1-8) par step, subdivise la duree du step en N hits egaux
+      _fait dans l'app macOS : lane RATCH par voix_
   - Repeat 1 = normal, 2 = double, 4 = quad (tremolo), 8 = buzz/roll
   - Affiche dans le pianoroll comme mini-barres verticales a l'interieur du step
   - Application cle : p-locks phoneme Speak + ratchet -> stutter speech "a a a | bb | cccc | dd | eeeee"
-- [ ] Ratchet avec decay : amplitude decroit sur les hits successifs (roll naturel)
-- [ ] Ratchet avec variation Markov : pitch/velocity derivent legerement sur les repetitions internes
+- [x] Ratchet avec decay : amplitude decroit sur les hits successifs (roll naturel)
+- [x] Ratchet avec variation Markov : pitch/velocity derivent legerement sur les repetitions internes
+      _faits dans l'app macOS (DECAY / VARIATION par voix)_
 
 ### P-lock randomizer borne
 
-- [ ] Bouton par piste CC dans le pianoroll : genere des p-locks aleatoires bornes (min/max) avec density (0-100%)
+- [x] Bouton par piste CC dans le pianoroll : genere des p-locks aleatoires bornes (min/max) avec density (0-100%)
+      _fait dans l'app macOS : ligne P-LOCKS de chaque voix (TIRER / EFFACER, + pistes CC ajoutées à la main)_
 
 ## Phase 8 — App macOS native (`macos/`) ✅
 
@@ -116,6 +125,7 @@ Releases `macos-v1.0.0` → `macos-v1.2.0` (la dernière est la « Latest » du 
 - [x] Édition fine : lanes VÉL / PROB, longueur (polymétrie), décalage, Thin, note de sortie, p-locks visibles
 - [x] Connexions : OSC bidirectionnel, Ableton (AbletonOSC), Strudel, `.mid` par voix, gabarit TouchOSC, MIDI Learn, panneaux NTS-1 / MicroFreak
 - [x] CC NTS-1 / MicroFreak vérifiés sur les tableaux officiels — corrigés aussi côté Python
+- [x] Parité avec le webapp : presets machines personnels, presets KSP (+ personnels), export morceau (macro-arrangement, sections, WAV), polyphonie max, entropie temporelle, MIDI type 0/1, journal des exports, interpolation des p-locks
 - [ ] Vérifier l'export Strudel sur strudel.cc (l'app Qt l'avait abandonné : patterns qui ne jouaient pas)
 - [ ] Tester avec un vrai Ableton + AbletonOSC, un vrai maître MIDI clock et de vrais NTS-1 / MicroFreak
 - [ ] Notarisation Apple (supprimer le « clic droit → Ouvrir ») — nécessite un compte développeur
@@ -123,7 +133,7 @@ Releases `macos-v1.0.0` → `macos-v1.2.0` (la dernière est la « Latest » du 
 
 ---
 
-*Dernière mise à jour : 2026-11-13 · app macOS 1.2.0 — serveur supprimé, passage au natif*
+*Dernière mise à jour : 2026-11-14 · app macOS — parité webapp + phase 6 terminée, ratchets et p-locks bornés*
 
 ## Demandes externes (Argus)
 
