@@ -116,7 +116,7 @@ Séquenceur MIDI algorithmique pour la **Dark Umbrae** / Robōtariis.
 ## Phase 8 — App macOS native (`macos/`) ✅
 
 Le serveur (`bang.service`, `bang.lan`) n'existe plus : BANG! passe en apps natives.
-Releases `macos-v1.0.0` → `macos-v1.2.0` (la dernière est la « Latest » du dépôt).
+Releases `macos-v1.0.0` → `macos-v1.3.0` (la dernière est la « Latest » du dépôt).
 
 - [x] Moteur porté en Swift (`BangCore`) : DNA, Babka, Markov / gammes, les 14 modes, p-locks, export `.mid`, session JSON compatible webapp
 - [x] App SwiftUI : grille DNA, piano-roll, lecture temps réel (CoreMIDI + port virtuel « BANG! »), synthé GM intégré, interface qui suit la taille de la fenêtre
